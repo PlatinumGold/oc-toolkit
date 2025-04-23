@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>OC Crime Calculator</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f4f4f4; }
+    button { padding: 8px 12px; margin: 5px; cursor: pointer; }
+    .result { margin-top: 20px; font-weight: bold; white-space: pre-wrap; }
+    select, input[type="number"] { width: 100%; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1>OC Crime Sentence Calculator</h1>
+  <table id="crimeTable">
+    <thead>
+      <tr>
+        <th>Crime</th>
+        <th>Min Years</th>
+        <th>Max Years</th>
+        <th>Capital Eligible</th>
+        <th>Remove</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <button onclick="addRow()">Add Crime</button>
+  <div>
+    <label><input type="radio" name="running" value="concurrent" checked> Concurrent</label>
+    <label><input type="radio" name="running" value="consecutive"> Consecutive</label>
+  </div>
+  <button onclick="calculate()">Calculate Sentence</button>
+  <div class="result" id="result"></div>
+
+  <script>
+    const crimePresets = {
+      "First-Degree Murder": { min: 20, max: 40, capital: true },
+      "Second-Degree Murder": { min: 15, max: 30, capital: false },
+      "Manslaughter": { min: 5, max: 15, capital: false },
+      "Rape": { min: 10, max: 30, capital: false },
+      "Armed Robbery": { min: 7, max: 20, capital: false },
+      "Burglary": { min: 5, max: 20, capital: false },
+      "Kidnapping": { min: 10, max: 25, capital: false },
+      "Arson": { min: 5, max: 20, capital: false },
+      "Drug Trafficking": { min: 5, max: 40, capital: false },
+      "Aggravated Assault": { min: 3, max: 15, capital: false },
+      "Human Trafficking": { min: 10, max: 30, capital: false },
+      "Cannibalism": { min: 15, max: 30, capital: false },
+      "Genocide": { min: 25, max: 50, capital: false },
+      "Torture": { min: 5, max: 25, capital: false },
+      "Other": { min: 0, max: 0, capital: false }
+    };
+
+    function addRow() {
+      const tbody = document.querySelector('#crimeTable tbody');
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>
+          <select onchange="populate(this)">
+            ${Object.keys(crimePresets).map(c => `<option>${c}</option>`).join('')}
+          </select>
+        </td>
+        <td><input type="number" min="0" value="0"></td>
+        <td><input type="number" min="0" value="0"></td>
+        <td><input type="checkbox"></td>
+        <td><button onclick="this.closest('tr').remove()">✕</button></td>
+      `;
+      tbody.appendChild(row);
+      populate(row.querySelector('select'));
+    }
+
+    function populate(selectEl) {
+      const preset = crimePresets[selectEl.value];
+      const inputs = selectEl.closest('tr').querySelectorAll('input');
+      inputs[0].value = preset.min;
+      inputs[1].value = preset.max;
+      inputs[2].checked = preset.capital;
+      if (selectEl.value === "Other") {
+        inputs[0].value = '';
+        inputs[1].value = '';
+        inputs[2].checked = false;
+      }
+    }
+
+    function calculate() {
+      const rows = document.querySelectorAll('#crimeTable tbody tr');
+      if (!rows.length) { alert('Add at least one crime'); return; }
+      const mins = [], maxs = [];
+      let death = false, breakdown = [];
+      rows.forEach(r => {
+        const crime = r.querySelector('select').value;
+        const minY = parseFloat(r.cells[1].querySelector('input').value) || 0;
+        const maxY = parseFloat(r.cells[2].querySelector('input').value) || 0;
+        const isCap = r.cells[3].querySelector('input').checked;
+        mins.push(minY); maxs.push(maxY);
+        if (isCap) death = true;
+        breakdown.push(`${crime}: ${minY}–${maxY} years${isCap ? ' (capital eligible)' : ''}`);
+      });
+      const mode = document.querySelector('input[name="running"]:checked').value;
+      const totalMin = mode === 'concurrent' ? Math.max(...mins) : mins.reduce((a,b)=>a+b,0);
+      const totalMax = mode === 'concurrent' ? Math.max(...maxs) : maxs.reduce((a,b)=>a+b,0);
+
+      let out = `Breakdown:\n${breakdown.join('\n')}\n\nRunning: ${mode}\n`;
+      out += `Total Sentence: ${totalMin} to ${totalMax} years.`;
+      if (death) out += '\nCapital punishment may be applied.';
+      document.getElementById('result').innerText = out;
+    }
+
+    // init
+    addRow();
+  </script>
+</body>
+</html>

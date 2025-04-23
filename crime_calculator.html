@@ -104,9 +104,15 @@
       const totalMin = mode === 'concurrent' ? Math.max(...mins) : mins.reduce((a,b)=>a+b,0);
       const totalMax = mode === 'concurrent' ? Math.max(...maxs) : maxs.reduce((a,b)=>a+b,0);
 
-      let out = `Breakdown:\n${breakdown.join('\n')}\n\nRunning: ${mode}\n`;
+      let out = `Breakdown:
+${breakdown.join('
+')}
+
+Running: ${mode}
+`;
       out += `Total Sentence: ${totalMin} to ${totalMax} years.`;
-      if (death) out += '\nCapital punishment may be applied.';
+      if (death) out += '
+Capital punishment may be applied.';
       document.getElementById('result').innerText = out;
     }
 

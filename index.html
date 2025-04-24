@@ -1,33 +1,28 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OC Toolkit Mock Site</title>
+  <meta charset="UTF-8">
+  <title>Crime Calculator</title>
   <style>
-    body { font-family: sans-serif; margin: 20px; background: #f9f9f9; }
-    h1, h2 { color: #333; }
-    .tool-section { background: #fff; padding: 15px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    ul { margin: 0; padding-left: 20px; }
-    button { margin-top: 10px; padding: 8px 12px; border: none; background: #444; color: #fff; border-radius: 4px; cursor: pointer; }
-    button:hover { background: #222; }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+    h1 { color: #333; }
+    select, input, button { margin: 5px; padding: 5px; }
+    #results { margin-top: 20px; background: #fff; padding: 10px; border: 1px solid #ccc; }
+    .crime-item { margin-bottom: 10px; }
+    small { display: block; color: #555; }
   </style>
 </head>
 <body>
-  <h1>OC Creator Toolkit (Mockup)</h1>
+  <h1>Crime Calculator</h1>
+  <select id="crimeSelect">
+    <option value="">-- Select a Crime --</option>
+  </select>
+  <button onclick="addCrime()">Add Crime</button>
+  <div id="crimeList"></div>
+  <button onclick="calculateTime()">Calculate Sentence</button>
+  <div id="results"></div>
 
-  <!-- Other sections -->
-
-  <div class="tool-section">
-    <h2>⚖️ Crime Calculator</h2>
-    <ul>
-      <li>Input OC's crimes</li>
-      <li>See estimated prison sentence and capital eligibility</li>
-    </ul>
-    <a href="/crime_calculator.html" target="_blank"><button>Launch Crime Calculator</button></a>
-  </div>
-
-  <!-- Remaining sections -->
-
+  <script src="crime_calculator.js"></script>
 </body>
 </html>

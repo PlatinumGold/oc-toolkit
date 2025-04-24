@@ -2,90 +2,166 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Family Tree Builder (Interactive)</title>
+  <title>Interactive Family Tree Builder</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <!-- vis.js CSS -->
   <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" />
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    #topbar { padding: 10px; background: #444; color: #fff; display: flex; align-items: center; }
-    #topbar input, #topbar button { margin-left: 10px; padding: 6px; }
-    #mynetwork { width: 100%; height: calc(100vh - 48px); background: #f9f9f9; }
+    body { margin:0; font-family: Arial, sans-serif; display: flex; height:100vh; }
+    #mynetwork { flex:1; background:#f0f0f0; }
+    #sidebar { width: 280px; background:#fff; border-left:1px solid #ccc; padding:15px; box-sizing:border-box; display: flex; flex-direction: column; }
+    #sidebar.hidden { display: none; }
+    #sidebar h2 { margin-top:0; }
+    #sidebar label { margin: 8px 0 4px; display:block; font-size:0.9em; }
+    #sidebar input, #sidebar select, #sidebar button {
+      width:100%; padding:6px; margin-bottom:8px; box-sizing:border-box;
+    }
+    #sidebar button { cursor:pointer; }
+    .rel-btns button { width: 32%; margin-right:2%; }
+    .rel-btns button:last-child { margin-right:0; }
   </style>
 </head>
 <body>
-  <div id="topbar">
-    <strong>OC Family Tree Builder</strong>
-    <input type="text" id="newName" placeholder="Character Name" />
-    <button id="addNode">Add Character</button>
-    <span style="margin-left:auto;font-size:0.9em;">Drag nodes; connect by dragging arrow from one node to another.</span>
-  </div>
   <div id="mynetwork"></div>
+  <div id="sidebar" class="hidden">
+    <h2>Edit Character</h2>
+    <label>Name</label>
+    <input id="charName" type="text" />
+    <label>Gender</label>
+    <select id="charGender">
+      <option value="">Unknown</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+    <label>Date of Birth</label>
+    <input id="charDOB" type="date" />
+    <label>Date of Death</label>
+    <input id="charDOD" type="date" />
+    <div class="rel-btns">
+      <button id="addParent">+ Parent</button>
+      <button id="addSibling">+ Sibling</button>
+      <button id="addPartner">+ Partner</button>
+    </div>
+    <button id="saveDetails">Save Details</button>
+    <button id="deleteNode" style="background:#e33;color:#fff;">Delete</button>
+  </div>
 
-  <!-- vis.js library -->
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <script>
-    // Data sets
+    // === DataSets ===
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
 
-    // Network options
+    // === Create network ===
     const container = document.getElementById('mynetwork');
-    const data = { nodes, edges };
-    const options = {
-      nodes: {
-        shape: 'box',
-        margin: 10,
-        color: { background: '#fff', border: '#444' },
-      },
-      edges: {
-        arrows: { to: { enabled: true, type: 'arrow' } },
-        smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 },
-      },
-      interaction: {
-        dragNodes: true,
-        dragView: true,
-        multiselect: true,
-        navigationButtons: true
-      },
-      layout: { hierarchical: false }
-    };
-    const network = new vis.Network(container, data, options);
-
-    // Add new character as a node
-    document.getElementById('addNode').onclick = () => {
-      const name = document.getElementById('newName').value.trim();
-      if (!name) return alert('Enter a name!');
-      const id = nodes.length + 1;
-      nodes.add({ id, label: name });
-      document.getElementById('newName').value = '';
-    };
-
-    // On dragging from one node to another, create an edge
-    network.on('dragEnd', params => {
-      // no-op
+    const network = new vis.Network(container, { nodes, edges }, {
+      interaction:{ dragNodes:true, dragView:true, multiselect:false },
+      manipulation: { enabled: false },
+      edges:{ smooth:false, arrows:{ to:true } },
+      layout:{ hierarchical:false }
     });
 
-    // Enable edge creation by dragging: use built-in heldDownForDrag
-    network.on('startStabilizing', () => {}); // needed to initialize
+    // === Sidebar elements ===
+    const sidebar = document.getElementById('sidebar');
+    const inpName   = document.getElementById('charName');
+    const inpGender = document.getElementById('charGender');
+    const inpDOB    = document.getElementById('charDOB');
+    const inpDOD    = document.getElementById('charDOD');
+    const btnParent  = document.getElementById('addParent');
+    const btnSibling = document.getElementById('addSibling');
+    const btnPartner = document.getElementById('addPartner');
+    const btnSave    = document.getElementById('saveDetails');
+    const btnDelete  = document.getElementById('deleteNode');
+
+    let selectedNodeId = null;
+
+    // === Helper: get new ID ===
+    function nextId() {
+      return nodes.length + 1;
+    }
+
+    // === Add main character on load ===
+    window.addEventListener('load', () => {
+      nodes.add({ id: 1, label:'Main Character', color:'#ccc' });
+    });
+
+    // === Show sidebar when node selected ===
     network.on('selectNode', params => {
-      // Prepare for edge creation: when the user ctrl+drags from a node
-      // vis.js 9.x+ supports 'manipulation' but for simplicity, we allow
-      // right-click-drag or ctrl+drag during edge edit mode:
+      selectedNodeId = params.nodes[0];
+      const data = nodes.get(selectedNodeId);
+      // populate
+      inpName.value   = data.label.replace(/\n.*/,'');
+      inpGender.value = data.gender||'';
+      inpDOB.value    = data.dob||'';
+      inpDOD.value    = data.dod||'';
+      sidebar.classList.remove('hidden');
+    });
+    network.on('deselectNode', ()=> {
+      selectedNodeId = null;
+      sidebar.classList.add('hidden');
     });
 
-    // Turn on built-in edge creation UI
-    network.setOptions({
-      manipulation: {
-        enabled: true,
-        addEdge: (edgeData, callback) => {
-          // Allow loops and multiple edges
-          callback(edgeData);
-        },
-        deleteNode: true,
-        deleteEdge: true
+    // === Save details ===
+    btnSave.onclick = () => {
+      if (!selectedNodeId) return;
+      const update = { id:selectedNodeId };
+      update.label = inpName.value;
+      update.gender = inpGender.value;
+      update.dob    = inpDOB.value;
+      update.dod    = inpDOD.value;
+      // color by gender
+      if (inpGender.value==='male')   update.color = '#8fbfe0';
+      if (inpGender.value==='female') update.color = '#e08fbf';
+      if (!inpGender.value)           update.color = '#ccc';
+      // add small linebreak for dates
+      const dates = [];
+      if (inpDOB.value) dates.push('b. '+inpDOB.value);
+      if (inpDOD.value) dates.push('d. '+inpDOD.value);
+      if (dates.length) update.label += '\\n' + dates.join(', ');
+      nodes.update(update);
+    };
+
+    // === Delete node & its edges ===
+    btnDelete.onclick = () => {
+      if (selectedNodeId) {
+        nodes.remove(selectedNodeId);
+        selectedNodeId = null;
+        sidebar.classList.add('hidden');
       }
-    });
+    };
+
+    // === Add Parent ===
+    btnParent.onclick = () => {
+      if (!selectedNodeId) return alert('Select a character first');
+      const pid = nextId();
+      nodes.add({ id:pid, label:'New Parent', color:'#ccc' });
+      // create edge: parent -> child
+      edges.add({ from: pid, to: selectedNodeId, color:{ color:'#555' }, label:'parent' });
+      network.selectNodes([pid]);
+    };
+
+    // === Add Sibling (same parents) ===
+    btnSibling.onclick = () => {
+      if (!selectedNodeId) return alert('Select a character first');
+      // find parents of selected
+      const incoming = edges.get({ filter: e=> e.to===selectedNodeId && e.label==='parent' });
+      const sid = nextId();
+      nodes.add({ id:sid, label:'New Sibling', color:'#ccc' });
+      // for each parent, create edge parent -> sibling
+      incoming.forEach(e=> edges.add({ from:e.from, to:sid, color:{ color:'#555' }, label:'parent' }));
+      network.selectNodes([sid]);
+    };
+
+    // === Add Partner ===
+    btnPartner.onclick = () => {
+      if (!selectedNodeId) return alert('Select a character first');
+      const pid = nextId();
+      nodes.add({ id:pid, label:'New Partner', color:'#ccc' });
+      // create bidirectional edge labeled partner
+      edges.add({ from: selectedNodeId, to: pid, color:{ color:'#c53' }, dashes:true, label:'partner' });
+      edges.add({ from: pid, to: selectedNodeId, color:{ color:'#c53' }, dashes:true, label:'partner' });
+      network.selectNodes([pid]);
+    };
+
   </script>
 </body>
 </html>

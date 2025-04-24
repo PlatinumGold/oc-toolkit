@@ -102,44 +102,6 @@ const definitions = {
   "Other": "Custom offense not listed."
 };
 
-const addedCrimes = [];
-
-window.onload = () => {
-  const crimeSelect = document.getElementById("crimeSelect");
-  for (let crime in crimePresets) {
-    const option = document.createElement("option");
-    option.value = crime;
-    option.text = crime;
-    crimeSelect.appendChild(option);
-  }
-};
-
-function addCrime() {
-  const crime = document.getElementById("crimeSelect").value;
-  if (crime && !addedCrimes.includes(crime)) {
-    addedCrimes.push(crime);
-    const div = document.createElement("div");
-    div.className = "crime-item";
-    div.innerHTML = `<strong>${crime}</strong><br><small>${definitions[crime]}</small>`;
-    document.getElementById("crimeList").appendChild(div);
-  }
-}
-
-function calculateTime() {
-  let minYears = 0, maxYears = 0, capitalOffense = false;
-  addedCrimes.forEach(crime => {
-    const { min, max, capital } = crimePresets[crime];
-    minYears += min;
-    maxYears += max;
-    if (capital) capitalOffense = true;
-  });
-
-  let result = `<strong>Minimum Sentence:</strong> ${minYears} years<br>`;
-  result += `<strong>Maximum Sentence:</strong> ${maxYears} years<br>`;
-  if (capitalOffense) result += `<strong>Note:</strong> Includes capital offense(s).`;
-  document.getElementById("results").innerHTML = result;
-}
-
     function addRow() {
       const tbody = document.querySelector('#crimeTable tbody');
       const tr = document.createElement('tr');

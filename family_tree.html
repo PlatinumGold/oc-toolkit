@@ -4,173 +4,167 @@
   <meta charset="UTF-8">
   <title>OC Family Tree</title>
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    #sidebar {
-      width: 220px;
-      background: #222;
-      color: white;
-      padding: 20px;
-      box-shadow: 2px 0 5px rgba(0,0,0,0.3);
-    }
-
-    #sidebar h2 {
-      margin-top: 0;
-    }
-
-    #sidebar button {
-      display: block;
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 10px;
-      border: none;
-      background: #444;
-      color: white;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-
-    #sidebar button:hover {
-      background: #666;
-    }
-
-    #treeArea {
-      flex: 1;
-      position: relative;
-      background: #f0f0f0;
-    }
-
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+    .tree { display: flex; flex-direction: column; align-items: center; }
+    .row { display: flex; justify-content: center; margin: 20px 0; }
     .node {
-      position: absolute;
-      width: 120px;
-      height: 60px;
-      background: white;
-      border: 2px solid #444;
+      background: #fff;
+      border: 2px solid #333;
+      padding: 10px;
+      margin: 10px;
+      min-width: 100px;
       text-align: center;
-      padding-top: 20px;
-      border-radius: 8px;
       cursor: pointer;
-      box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+      border-radius: 8px;
+      position: relative;
     }
-
-    svg {
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 0;
-      pointer-events: none;
+    .node input {
+      border: none;
+      text-align: center;
+      width: 90%;
     }
-
-    .partner-line {
-      stroke-dasharray: 5;
+    .buttons { margin-top: 10px; }
+    button { margin: 2px; }
+    .line {
+      height: 20px;
+      width: 2px;
+      background: #000;
+      margin: auto;
+    }
+    .line-horizontal {
+      height: 2px;
+      background: #000;
+      flex: 1;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <div id="sidebar">
-    <h2>Family Tools</h2>
-    <button onclick="addParent()">Add Parent</button>
-    <button onclick="addSibling()">Add Sibling</button>
-    <button onclick="addPartner()">Add Partner</button>
-    <button onclick="addChild()">Add Child</button>
-  </div>
-
-  <div id="treeArea">
-    <svg id="svgLines" width="100%" height="100%"></svg>
-  </div>
+  <h1>OC Family Tree</h1>
+  <p>Click any person to add a parent, partner, sibling, or child. Double-click their name to edit it.</p>
+  <div id="treeContainer" class="tree"></div>
 
   <script>
-    const treeArea = document.getElementById('treeArea');
-    const svg = document.getElementById('svgLines');
-    let nodes = [];
     let selectedNode = null;
+    let idCounter = 0;
 
-    function createNode(name, x, y) {
-      const node = document.createElement('div');
-      node.className = 'node';
-      node.style.left = `${x}px`;
-      node.style.top = `${y}px`;
-      node.textContent = name;
-      node.dataset.name = name;
-      node.onclick = () => {
-        selectedNode = node;
-        nodes.forEach(n => n.classList.remove('selected'));
-        node.classList.add('selected');
+    const treeData = {
+      id: generateId(),
+      name: 'Main OC',
+      parents: [],
+      siblings: [],
+      partners: [],
+      children: []
+    };
+
+    function generateId() {
+      return 'node_' + idCounter++;
+    }
+
+    function renderTree(container, data) {
+      container.innerHTML = '';
+
+      const mainNode = createNode(data);
+      container.appendChild(mainNode);
+    }
+
+    function createNode(data) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'tree';
+
+      // Parents
+      if (data.parents.length) {
+        const parentRow = document.createElement('div');
+        parentRow.className = 'row';
+        data.parents.forEach(p => parentRow.appendChild(createNode(p)));
+        wrapper.appendChild(parentRow);
+        wrapper.appendChild(document.createElement('div')).className = 'line';
+      }
+
+      // Siblings and Main OC and Partners
+      const centerRow = document.createElement('div');
+      centerRow.className = 'row';
+
+      data.siblings.forEach(s => centerRow.appendChild(createNode(s)));
+
+      const personNode = document.createElement('div');
+      personNode.className = 'node';
+      personNode.dataset.id = data.id;
+
+      const input = document.createElement('input');
+      input.value = data.name;
+      input.disabled = true;
+      input.ondblclick = () => input.disabled = false;
+      input.onblur = () => {
+        input.disabled = true;
+        data.name = input.value;
       };
-      treeArea.appendChild(node);
-      nodes.push(node);
-      return node;
+      personNode.appendChild(input);
+
+      const btns = document.createElement('div');
+      btns.className = 'buttons';
+
+      ['Parent', 'Sibling', 'Partner', 'Child'].forEach(type => {
+        const btn = document.createElement('button');
+        btn.textContent = type;
+        btn.onclick = e => {
+          e.stopPropagation();
+          addRelative(data, type.toLowerCase());
+        };
+        btns.appendChild(btn);
+      });
+
+      personNode.appendChild(btns);
+      centerRow.appendChild(personNode);
+
+      data.partners.forEach(p => centerRow.appendChild(createNode(p)));
+
+      wrapper.appendChild(centerRow);
+
+      // Children
+      if (data.children.length) {
+        const childLine = document.createElement('div');
+        childLine.className = 'line';
+        wrapper.appendChild(childLine);
+
+        const childRow = document.createElement('div');
+        childRow.className = 'row';
+        data.children.forEach(c => childRow.appendChild(createNode(c)));
+        wrapper.appendChild(childRow);
+      }
+
+      return wrapper;
     }
 
-    function drawLine(from, to, dashed = false) {
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      const fx = from.offsetLeft + from.offsetWidth / 2;
-      const fy = from.offsetTop + from.offsetHeight / 2;
-      const tx = to.offsetLeft + to.offsetWidth / 2;
-      const ty = to.offsetTop + to.offsetHeight / 2;
-      line.setAttribute("x1", fx);
-      line.setAttribute("y1", fy);
-      line.setAttribute("x2", tx);
-      line.setAttribute("y2", ty);
-      line.setAttribute("stroke", "black");
-      line.setAttribute("stroke-width", "2");
-      if (dashed) line.setAttribute("class", "partner-line");
-      svg.appendChild(line);
+    function addRelative(node, type) {
+      const newPerson = {
+        id: generateId(),
+        name: type[0].toUpperCase() + type.slice(1),
+        parents: [],
+        siblings: [],
+        partners: [],
+        children: []
+      };
+
+      switch (type) {
+        case 'parent':
+          node.parents.push(newPerson);
+          break;
+        case 'sibling':
+          node.siblings.push(newPerson);
+          break;
+        case 'partner':
+          node.partners.push(newPerson);
+          break;
+        case 'child':
+          node.children.push(newPerson);
+          break;
+      }
+
+      renderTree(document.getElementById('treeContainer'), treeData);
     }
 
-    // Main OC in center
-    const mainOC = createNode("Main OC", window.innerWidth / 2 - 60, window.innerHeight / 2 - 30);
-    selectedNode = mainOC;
-
-    function addParent() {
-      if (!selectedNode) return;
-
-      const x = selectedNode.offsetLeft;
-      const y = selectedNode.offsetTop;
-
-      // Check if already has two parents
-      const currentParents = nodes.filter(n => n.dataset.role === 'parent' && n.dataset.child === selectedNode.dataset.name);
-      if (currentParents.length >= 2) return;
-
-      const offset = currentParents.length === 0 ? -100 : 100;
-      const parent = createNode(`Parent ${currentParents.length + 1}`, x + offset, y - 200);
-      parent.dataset.role = 'parent';
-      parent.dataset.child = selectedNode.dataset.name;
-      drawLine(parent, selectedNode);
-    }
-
-    function addSibling() {
-      if (!selectedNode) return;
-      const x = selectedNode.offsetLeft;
-      const y = selectedNode.offsetTop;
-
-      const sibling = createNode("Sibling", x - 200, y);
-      drawLine(sibling, selectedNode);
-    }
-
-    function addPartner() {
-      if (!selectedNode) return;
-      const x = selectedNode.offsetLeft;
-      const y = selectedNode.offsetTop;
-
-      const partner = createNode("Partner", x + 200, y);
-      drawLine(selectedNode, partner, true);
-    }
-
-    function addChild() {
-      if (!selectedNode) return;
-      const x = selectedNode.offsetLeft;
-      const y = selectedNode.offsetTop;
-
-      const child = createNode("Child", x, y + 200);
-      drawLine(selectedNode, child);
-    }
+    renderTree(document.getElementById('treeContainer'), treeData);
   </script>
 </body>
 </html>

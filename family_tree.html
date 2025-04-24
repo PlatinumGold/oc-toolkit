@@ -2,247 +2,175 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Family Tree Builder</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
+  <title>OC Family Tree</title>
   <style>
     body {
       margin: 0;
+      font-family: Arial, sans-serif;
       display: flex;
       height: 100vh;
-      font-family: Arial, sans-serif;
+      overflow: hidden;
     }
-    #mynetwork {
-      flex: 1;
-      background: #eef2f5;
-      position: relative;
-    }
+
     #sidebar {
-      width: 300px;
-      background: #fff;
-      border-left: 1px solid #ccc;
-      padding: 15px;
-      box-sizing: border-box;
-      overflow: auto;
+      width: 220px;
+      background: #222;
+      color: white;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.3);
     }
-    #sidebar.hidden { display: none; }
-    #sidebar h2 { margin-top: 0; }
-    #sidebar label { margin: 8px 0 4px; display: block; font-size: .9em; }
-    #sidebar input,
-    #sidebar select,
+
+    #sidebar h2 {
+      margin-top: 0;
+    }
+
     #sidebar button {
+      display: block;
       width: 100%;
-      padding: 6px;
-      margin-bottom: 8px;
-      box-sizing: border-box;
-    }
-    #sidebar .rel-btns {
-      display: flex;
-      justify-content: space-between;
-    }
-    #sidebar .rel-btns button {
-      width: 32%;
-    }
-    #sidebar button.delete {
-      background: #e33;
-      color: #fff;
-    }
-    /* Header bar */
-    #header {
-      position: absolute;
-      top: 10px;
-      left: 10px;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: none;
       background: #444;
-      color: #fff;
-      padding: 6px 12px;
+      color: white;
+      cursor: pointer;
       border-radius: 4px;
-      font-weight: bold;
-      z-index: 1;
+    }
+
+    #sidebar button:hover {
+      background: #666;
+    }
+
+    #treeArea {
+      flex: 1;
+      position: relative;
+      background: #f0f0f0;
+    }
+
+    .node {
+      position: absolute;
+      width: 120px;
+      height: 60px;
+      background: white;
+      border: 2px solid #444;
+      text-align: center;
+      padding-top: 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+    }
+
+    svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .partner-line {
+      stroke-dasharray: 5;
     }
   </style>
 </head>
 <body>
-
-  <div id="mynetwork">
-    <div id="header">Family Tree Builder</div>
+  <div id="sidebar">
+    <h2>Family Tools</h2>
+    <button onclick="addParent()">Add Parent</button>
+    <button onclick="addSibling()">Add Sibling</button>
+    <button onclick="addPartner()">Add Partner</button>
+    <button onclick="addChild()">Add Child</button>
   </div>
 
-  <div id="sidebar" class="hidden">
-    <h2>Edit Character</h2>
-    <label>Name</label><input id="charName" type="text"/>
-    <label>Gender</label>
-    <select id="charGender">
-      <option value="">Unknown</option>
-      <option value="male">Male</option>
-      <option value="female">Female</option>
-    </select>
-    <label>DOB</label><input id="charDOB" type="date"/>
-    <label>DOD</label><input id="charDOD" type="date"/>
-    <div class="rel-btns">
-      <button id="addParent">+ Parent</button>
-      <button id="addChild">+ Child</button>
-      <button id="addSibling">+ Sibling</button>
-      <button id="addPartner">+ Partner</button>
-    </div>
-    <button id="saveDetails">Save Details</button>
-    <button id="deleteNode" class="delete">Delete</button>
+  <div id="treeArea">
+    <svg id="svgLines" width="100%" height="100%"></svg>
   </div>
 
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <script>
-    const nodes = new vis.DataSet();
-    const edges = new vis.DataSet();
+    const treeArea = document.getElementById('treeArea');
+    const svg = document.getElementById('svgLines');
+    let nodes = [];
+    let selectedNode = null;
 
-    // Initialize network with hierarchical layout (parents above children)
-    const network = new vis.Network(
-      document.getElementById('mynetwork'),
-      { nodes, edges },
-      {
-        layout: {
-          hierarchical: {
-            enabled: true,
-            direction: 'UD',
-            levelSeparation: 150,
-            nodeSpacing: 200,
-            treeSpacing: 200
-          }
-        },
-        physics: { enabled: false },
-        interaction: { dragNodes: true, dragView: true, zoomView: true },
-        nodes: { shape: 'box', margin: 10 },
-        edges: {
-          arrows: { to: { enabled: true, type: 'arrow' } },
-          smooth: { enabled: true, type: 'straightVertical' }
-        }
-      }
-    );
+    function createNode(name, x, y) {
+      const node = document.createElement('div');
+      node.className = 'node';
+      node.style.left = `${x}px`;
+      node.style.top = `${y}px`;
+      node.textContent = name;
+      node.dataset.name = name;
+      node.onclick = () => {
+        selectedNode = node;
+        nodes.forEach(n => n.classList.remove('selected'));
+        node.classList.add('selected');
+      };
+      treeArea.appendChild(node);
+      nodes.push(node);
+      return node;
+    }
 
-    // Sidebar elements
-    const sidebar    = document.getElementById('sidebar');
-    const inpName    = document.getElementById('charName');
-    const inpGender  = document.getElementById('charGender');
-    const inpDOB     = document.getElementById('charDOB');
-    const inpDOD     = document.getElementById('charDOD');
-    const btnParent  = document.getElementById('addParent');
-    const btnChild   = document.getElementById('addChild');
-    const btnSibling = document.getElementById('addSibling');
-    const btnPartner = document.getElementById('addPartner');
-    const btnSave    = document.getElementById('saveDetails');
-    const btnDelete  = document.getElementById('deleteNode');
+    function drawLine(from, to, dashed = false) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const fx = from.offsetLeft + from.offsetWidth / 2;
+      const fy = from.offsetTop + from.offsetHeight / 2;
+      const tx = to.offsetLeft + to.offsetWidth / 2;
+      const ty = to.offsetTop + to.offsetHeight / 2;
+      line.setAttribute("x1", fx);
+      line.setAttribute("y1", fy);
+      line.setAttribute("x2", tx);
+      line.setAttribute("y2", ty);
+      line.setAttribute("stroke", "black");
+      line.setAttribute("stroke-width", "2");
+      if (dashed) line.setAttribute("class", "partner-line");
+      svg.appendChild(line);
+    }
 
-    let selectedNodeId = null;
-    const nextId = () => nodes.length + 1;
+    // Main OC in center
+    const mainOC = createNode("Main OC", window.innerWidth / 2 - 60, window.innerHeight / 2 - 30);
+    selectedNode = mainOC;
 
-    // Create main node on load
-    window.addEventListener('load', () => {
-      nodes.add({
-        id: 1,
-        label: 'Main OC',
-        gender: '',
-        dob: '',
-        dod: '',
-        color: '#ccc'
-      });
-    });
+    function addParent() {
+      if (!selectedNode) return;
 
-    // Show sidebar when a node is selected
-    network.on('selectNode', ({ nodes: [id] }) => {
-      selectedNodeId = id;
-      const data = nodes.get(id);
-      inpName.value   = data.label.split('\n')[0];
-      inpGender.value = data.gender;
-      inpDOB.value    = data.dob;
-      inpDOD.value    = data.dod;
-      sidebar.classList.remove('hidden');
-    });
-    network.on('deselectNode', () => {
-      selectedNodeId = null;
-      sidebar.classList.add('hidden');
-    });
+      const x = selectedNode.offsetLeft;
+      const y = selectedNode.offsetTop;
 
-    // Save edits
-    btnSave.onclick = () => {
-      if (!selectedNodeId) return;
-      const upd = { id: selectedNodeId };
-      upd.label  = inpName.value;
-      upd.gender = inpGender.value;
-      upd.dob    = inpDOB.value;
-      upd.dod    = inpDOD.value;
-      // color by gender
-      if      (inpGender.value === 'male')   upd.color = '#8fbfe0';
-      else if (inpGender.value === 'female') upd.color = '#e08fbf';
-      else upd.color = '#ccc';
-      // append dates
-      let extras = [];
-      if (inpDOB.value) extras.push('b. ' + inpDOB.value);
-      if (inpDOD.value) extras.push('d. ' + inpDOD.value);
-      if (extras.length) upd.label += '\n' + extras.join(', ');
-      nodes.update(upd);
-    };
+      // Check if already has two parents
+      const currentParents = nodes.filter(n => n.dataset.role === 'parent' && n.dataset.child === selectedNode.dataset.name);
+      if (currentParents.length >= 2) return;
 
-    // Delete node and its edges
-    btnDelete.onclick = () => {
-      if (selectedNodeId) {
-        nodes.remove(selectedNodeId);
-        selectedNodeId = null;
-        sidebar.classList.add('hidden');
-      }
-    };
+      const offset = currentParents.length === 0 ? -100 : 100;
+      const parent = createNode(`Parent ${currentParents.length + 1}`, x + offset, y - 200);
+      parent.dataset.role = 'parent';
+      parent.dataset.child = selectedNode.dataset.name;
+      drawLine(parent, selectedNode);
+    }
 
-    // Add Parent
-    btnParent.onclick = () => {
-      if (!selectedNodeId) return alert('Select a character first');
-      const pid = nextId();
-      nodes.add({ id: pid, label: 'New Parent', color: '#ccc', gender: '', dob: '', dod: '' });
-      edges.add({ from: pid, to: selectedNodeId });
-      network.selectNodes([pid]);
-    };
+    function addSibling() {
+      if (!selectedNode) return;
+      const x = selectedNode.offsetLeft;
+      const y = selectedNode.offsetTop;
 
-    // Add Child
-    btnChild.onclick = () => {
-      if (!selectedNodeId) return alert('Select a character first');
-      const cid = nextId();
-      nodes.add({ id: cid, label: 'New Child', color: '#ccc', gender: '', dob: '', dod: '' });
-      edges.add({ from: selectedNodeId, to: cid });
-      network.selectNodes([cid]);
-    };
+      const sibling = createNode("Sibling", x - 200, y);
+      drawLine(sibling, selectedNode);
+    }
 
-    // Add Sibling
-    btnSibling.onclick = () => {
-      if (!selectedNodeId) return alert('Select a character first');
-      // need at least one parent to create siblings
-      const parentEdges = edges.get({ filter: e => e.to === selectedNodeId });
-      if (parentEdges.length === 0) {
-        return alert('Add a parent first—siblings are other children of the same parent.');
-      }
-      const sid = nextId();
-      nodes.add({ id: sid, label: 'New Sibling', color: '#ccc', gender: '', dob: '', dod: '' });
-      // attach to same parents
-      parentEdges.forEach(e => {
-        edges.add({ from: e.from, to: sid });
-      });
-      network.selectNodes([sid]);
-    };
+    function addPartner() {
+      if (!selectedNode) return;
+      const x = selectedNode.offsetLeft;
+      const y = selectedNode.offsetTop;
 
-    // Add Partner (dashed curve)
-    btnPartner.onclick = () => {
-      if (!selectedNodeId) return alert('Select a character first');
-      const qid = nextId();
-      nodes.add({ id: qid, label: 'New Partner', color: '#ccc', gender: '', dob: '', dod: '' });
-      edges.add({ 
-        from: selectedNodeId, to: qid,
-        dashes: true,
-        color: { color: '#c53' },
-        smooth: { enabled: true, type: 'curvedCW', roundness: 0.2 }
-      });
-      edges.add({ 
-        from: qid, to: selectedNodeId,
-        dashes: true,
-        color: { color: '#c53' },
-        smooth: { enabled: true, type: 'curvedCW', roundness: 0.2 }
-      });
-      network.selectNodes([qid]);
-    };
+      const partner = createNode("Partner", x + 200, y);
+      drawLine(selectedNode, partner, true);
+    }
+
+    function addChild() {
+      if (!selectedNode) return;
+      const x = selectedNode.offsetLeft;
+      const y = selectedNode.offsetTop;
+
+      const child = createNode("Child", x, y + 200);
+      drawLine(selectedNode, child);
+    }
   </script>
 </body>
 </html>

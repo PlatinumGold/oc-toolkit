@@ -2,169 +2,114 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>OC Family Tree</title>
+  <title>Family Tree Builder</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
-    .tree { display: flex; flex-direction: column; align-items: center; }
-    .row { display: flex; justify-content: center; margin: 20px 0; }
-    .node {
-      background: #fff;
-      border: 2px solid #333;
-      padding: 10px;
-      margin: 10px;
-      min-width: 100px;
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f5;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
       text-align: center;
+      color: #444;
+    }
+    #tree {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .person {
+      border: 1px solid #999;
+      padding: 10px;
+      background: white;
+      margin: 10px;
+      text-align: center;
+      width: 100px;
       cursor: pointer;
-      border-radius: 8px;
+      border-radius: 4px;
       position: relative;
     }
-    .node input {
-      border: none;
-      text-align: center;
-      width: 90%;
-    }
-    .buttons { margin-top: 10px; }
-    button { margin: 2px; }
     .line {
       height: 20px;
       width: 2px;
-      background: #000;
+      background: black;
       margin: auto;
     }
-    .line-horizontal {
-      height: 2px;
-      background: #000;
-      flex: 1;
-      margin-top: 10px;
+    .controls {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    button {
+      margin: 2px;
     }
   </style>
 </head>
 <body>
-  <h1>OC Family Tree</h1>
-  <p>Click any person to add a parent, partner, sibling, or child. Double-click their name to edit it.</p>
-  <div id="treeContainer" class="tree"></div>
+  <h1>OC Family Tree Builder</h1>
+  <div class="controls">
+    <button onclick="addPerson('parent')">Add Parent</button>
+    <button onclick="addPerson('sibling')">Add Sibling</button>
+    <button onclick="addPerson('partner')">Add Partner</button>
+    <button onclick="addPerson('child')">Add Child</button>
+  </div>
+  <div id="tree"></div>
 
   <script>
-    let selectedNode = null;
-    let idCounter = 0;
+    const tree = document.getElementById('tree');
+    let selected = null;
 
-    const treeData = {
-      id: generateId(),
-      name: 'Main OC',
-      parents: [],
-      siblings: [],
-      partners: [],
-      children: []
-    };
-
-    function generateId() {
-      return 'node_' + idCounter++;
-    }
-
-    function renderTree(container, data) {
-      container.innerHTML = '';
-
-      const mainNode = createNode(data);
-      container.appendChild(mainNode);
-    }
-
-    function createNode(data) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'tree';
-
-      // Parents
-      if (data.parents.length) {
-        const parentRow = document.createElement('div');
-        parentRow.className = 'row';
-        data.parents.forEach(p => parentRow.appendChild(createNode(p)));
-        wrapper.appendChild(parentRow);
-        wrapper.appendChild(document.createElement('div')).className = 'line';
-      }
-
-      // Siblings and Main OC and Partners
-      const centerRow = document.createElement('div');
-      centerRow.className = 'row';
-
-      data.siblings.forEach(s => centerRow.appendChild(createNode(s)));
-
-      const personNode = document.createElement('div');
-      personNode.className = 'node';
-      personNode.dataset.id = data.id;
-
-      const input = document.createElement('input');
-      input.value = data.name;
-      input.disabled = true;
-      input.ondblclick = () => input.disabled = false;
-      input.onblur = () => {
-        input.disabled = true;
-        data.name = input.value;
+    function createPerson(name = 'New Person') {
+      const div = document.createElement('div');
+      div.className = 'person';
+      div.contentEditable = true;
+      div.textContent = name;
+      div.onclick = (e) => {
+        e.stopPropagation();
+        selectPerson(div);
       };
-      personNode.appendChild(input);
-
-      const btns = document.createElement('div');
-      btns.className = 'buttons';
-
-      ['Parent', 'Sibling', 'Partner', 'Child'].forEach(type => {
-        const btn = document.createElement('button');
-        btn.textContent = type;
-        btn.onclick = e => {
-          e.stopPropagation();
-          addRelative(data, type.toLowerCase());
-        };
-        btns.appendChild(btn);
-      });
-
-      personNode.appendChild(btns);
-      centerRow.appendChild(personNode);
-
-      data.partners.forEach(p => centerRow.appendChild(createNode(p)));
-
-      wrapper.appendChild(centerRow);
-
-      // Children
-      if (data.children.length) {
-        const childLine = document.createElement('div');
-        childLine.className = 'line';
-        wrapper.appendChild(childLine);
-
-        const childRow = document.createElement('div');
-        childRow.className = 'row';
-        data.children.forEach(c => childRow.appendChild(createNode(c)));
-        wrapper.appendChild(childRow);
-      }
-
-      return wrapper;
+      return div;
     }
 
-    function addRelative(node, type) {
-      const newPerson = {
-        id: generateId(),
-        name: type[0].toUpperCase() + type.slice(1),
-        parents: [],
-        siblings: [],
-        partners: [],
-        children: []
-      };
+    function selectPerson(person) {
+      if (selected) selected.style.backgroundColor = 'white';
+      selected = person;
+      person.style.backgroundColor = '#cce';
+    }
 
+    function addPerson(type) {
+      if (!selected && type !== 'main') return alert('Select a person first.');
+
+      const newPerson = createPerson();
       switch (type) {
+        case 'main':
+          tree.innerHTML = '';
+          tree.appendChild(newPerson);
+          selectPerson(newPerson);
+          break;
         case 'parent':
-          node.parents.push(newPerson);
+          tree.insertBefore(newPerson, selected);
           break;
         case 'sibling':
-          node.siblings.push(newPerson);
+          tree.insertBefore(newPerson, selected.nextSibling);
           break;
         case 'partner':
-          node.partners.push(newPerson);
+          tree.insertBefore(newPerson, selected.nextSibling);
           break;
         case 'child':
-          node.children.push(newPerson);
+          tree.appendChild(newPerson);
           break;
       }
-
-      renderTree(document.getElementById('treeContainer'), treeData);
     }
 
-    renderTree(document.getElementById('treeContainer'), treeData);
+    // Start with one main OC
+    addPerson('main');
+
+    // Click outside to deselect
+    document.body.addEventListener('click', () => {
+      if (selected) selected.style.backgroundColor = 'white';
+      selected = null;
+    });
   </script>
 </body>
 </html>

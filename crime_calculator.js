@@ -1,5 +1,45 @@
 
-const crimePresets = {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OC Crime Sentence Calculator</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background: #f4f4f4; }
+    button { padding: 8px 12px; margin: 5px; cursor: pointer; }
+    .result { margin-top: 20px; font-weight: bold; white-space: pre-wrap; }
+    select, input[type="number"] { width: 100%; box-sizing: border-box; }
+    .def { font-size: 0.85em; color: #555; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>OC Crime Sentence Calculator</h1>
+  <table id="crimeTable">
+    <thead>
+      <tr>
+        <th>Crime</th>
+        <th>Min Years</th>
+        <th>Max Years</th>
+        <th>Capital Eligible</th>
+        <th>Remove</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <button onclick="addRow()">Add Crime</button>
+  <div>
+    <label><input type="radio" name="running" value="concurrent" checked> Concurrent</label>
+    <label><input type="radio" name="running" value="consecutive"> Consecutive</label>
+  </div>
+  <button onclick="calculate()">Calculate Sentence</button>
+  <div class="result" id="result"></div>
+
+  <script>
+    const crimePresets = {
   "First-Degree Murder":       { min: 20, max: 40, capital: true },
   "Second-Degree Murder":      { min: 15, max: 30, capital: false },
   "Voluntary Manslaughter":    { min: 3,  max: 10, capital: false },
@@ -100,3 +140,64 @@ function calculateTime() {
   if (capitalOffense) result += `<strong>Note:</strong> Includes capital offense(s).`;
   document.getElementById("results").innerHTML = result;
 }
+
+    function addRow() {
+      const tbody = document.querySelector('#crimeTable tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <select onchange="populate(this)">
+            ${Object.keys(crimePresets).map(c => `<option>${c}</option>`).join('')}
+          </select>
+          <div class="def"></div>
+        </td>
+        <td><input type="number" min="0" value="0"></td>
+        <td><input type="number" min="0" value="0"></td>
+        <td><input type="checkbox"></td>
+        <td><button onclick="this.closest('tr').remove()">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+      populate(tr.querySelector('select'));
+    }
+
+    function populate(sel) {
+      const row = sel.closest('tr');
+      const pre = crimePresets[sel.value];
+      const inputs = row.querySelectorAll('input');
+      inputs[0].value   = pre.min;
+      inputs[1].value   = pre.max;
+      inputs[2].checked = pre.cap;
+      row.querySelector('.def').innerText = definitions[sel.value] || "";
+    }
+
+    function calculate() {
+      const rows = document.querySelectorAll('#crimeTable tbody tr');
+      if (!rows.length) return alert('Add at least one crime.');
+      let mins = [], maxs = [], death = false, br = [];
+      rows.forEach(r => {
+        const crime = r.querySelector('select').value;
+        const minY  = +r.cells[1].querySelector('input').value || 0;
+        const maxY  = +r.cells[2].querySelector('input').value || 0;
+        const cap   = r.cells[3].querySelector('input').checked;
+        mins.push(minY); maxs.push(maxY);
+        if (cap) death = true;
+        br.push(`${crime}: ${minY}–${maxY} years${cap? ' (capital)' : ''}`);
+      });
+      const mode = document.querySelector('input[name="running"]:checked').value;
+      const totalMin = mode==='concurrent'
+        ? Math.max(...mins)
+        : mins.reduce((a,b)=>a+b,0);
+      const totalMax = mode==='concurrent'
+        ? Math.max(...maxs)
+        : maxs.reduce((a,b)=>a+b,0);
+      let out = `Breakdown:\n${br.join('\n')}\n\nRunning: ${mode}\n`;
+      out += `Total: ${totalMin} to ${totalMax} years.`;
+      if (death) out += '\nCapital punishment may apply.';
+      document.getElementById('result').innerText = out;
+    }
+
+    // start with 1 row
+    addRow();
+  </script>
+</body>
+</html>

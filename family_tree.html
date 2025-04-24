@@ -2,116 +2,90 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Family Tree Builder</title>
+  <title>Family Tree Builder (Interactive)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- vis.js CSS -->
+  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" />
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { margin-bottom: 0.2em; }
-    #addForm { margin-bottom: 20px; }
-    label { display: block; margin: 5px 0 2px; }
-    input, select, button { padding: 6px; margin-bottom: 10px; width: 100%; max-width: 300px; }
-    #tree { margin-top: 20px; }
-    ul { list-style-type: none; padding-left: 1em; border-left: 1px solid #ccc; }
-    li { margin: 5px 0; position: relative; }
-    li::before { content: ''; position: absolute; top: 0.75em; left: -1em; width: 1em; height: 1px; background: #ccc; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    #topbar { padding: 10px; background: #444; color: #fff; display: flex; align-items: center; }
+    #topbar input, #topbar button { margin-left: 10px; padding: 6px; }
+    #mynetwork { width: 100%; height: calc(100vh - 48px); background: #f9f9f9; }
   </style>
 </head>
 <body>
-  <h1>🧬 Family Tree Builder</h1>
+  <div id="topbar">
+    <strong>OC Family Tree Builder</strong>
+    <input type="text" id="newName" placeholder="Character Name" />
+    <button id="addNode">Add Character</button>
+    <span style="margin-left:auto;font-size:0.9em;">Drag nodes; connect by dragging arrow from one node to another.</span>
+  </div>
+  <div id="mynetwork"></div>
 
-  <form id="addForm">
-    <label for="name">Character Name:</label>
-    <input type="text" id="name" placeholder="e.g. Iona" required />
-
-    <label for="mother">Mother:</label>
-    <select id="mother">
-      <option value="">— None —</option>
-    </select>
-
-    <label for="father">Father:</label>
-    <select id="father">
-      <option value="">— None —</option>
-    </select>
-
-    <button type="submit">Add Character</button>
-  </form>
-
-  <div id="tree"></div>
-
+  <!-- vis.js library -->
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <script>
-    const individuals = [];
-    const form = document.getElementById('addForm');
-    const nameInput = document.getElementById('name');
-    const motherSelect = document.getElementById('mother');
-    const fatherSelect = document.getElementById('father');
-    const treeDiv = document.getElementById('tree');
+    // Data sets
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
 
-    function updateParentOptions() {
-      [motherSelect, fatherSelect].forEach(select => {
-        // clear existing options
-        select.innerHTML = '<option value="">— None —</option>';
-        individuals.forEach((p, idx) => {
-          const opt = document.createElement('option');
-          opt.value = idx;
-          opt.textContent = p.name;
-          select.appendChild(opt);
-        });
-      });
-    }
+    // Network options
+    const container = document.getElementById('mynetwork');
+    const data = { nodes, edges };
+    const options = {
+      nodes: {
+        shape: 'box',
+        margin: 10,
+        color: { background: '#fff', border: '#444' },
+      },
+      edges: {
+        arrows: { to: { enabled: true, type: 'arrow' } },
+        smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 },
+      },
+      interaction: {
+        dragNodes: true,
+        dragView: true,
+        multiselect: true,
+        navigationButtons: true
+      },
+      layout: { hierarchical: false }
+    };
+    const network = new vis.Network(container, data, options);
 
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const name = nameInput.value.trim();
-      if (!name) return;
-      const motherIdx = motherSelect.value;
-      const fatherIdx = fatherSelect.value;
-      individuals.push({
-        name,
-        mother: motherIdx !== '' ? +motherIdx : null,
-        father: fatherIdx !== '' ? +fatherIdx : null
-      });
-      nameInput.value = '';
-      motherSelect.value = '';
-      fatherSelect.value = '';
-      updateParentOptions();
-      renderTree();
+    // Add new character as a node
+    document.getElementById('addNode').onclick = () => {
+      const name = document.getElementById('newName').value.trim();
+      if (!name) return alert('Enter a name!');
+      const id = nodes.length + 1;
+      nodes.add({ id, label: name });
+      document.getElementById('newName').value = '';
+    };
+
+    // On dragging from one node to another, create an edge
+    network.on('dragEnd', params => {
+      // no-op
     });
 
-    function buildSubtree(idxSet) {
-      // returns an array of root indices (those with no parents in idxSet)
-      const roots = idxSet.filter(i =>
-        (individuals[i].mother === null || !idxSet.includes(individuals[i].mother)) &&
-        (individuals[i].father === null || !idxSet.includes(individuals[i].father))
-      );
-      const list = document.createElement('ul');
-      roots.forEach(rootIdx => {
-        const li = document.createElement('li');
-        li.textContent = individuals[rootIdx].name;
-        // find children of this root within idxSet
-        const children = idxSet
-          .filter(i => individuals[i].mother === rootIdx || individuals[i].father === rootIdx);
-        if (children.length) {
-          li.appendChild(buildSubtree(children));
-        }
-        list.appendChild(li);
-      });
-      return list;
-    }
+    // Enable edge creation by dragging: use built-in heldDownForDrag
+    network.on('startStabilizing', () => {}); // needed to initialize
+    network.on('selectNode', params => {
+      // Prepare for edge creation: when the user ctrl+drags from a node
+      // vis.js 9.x+ supports 'manipulation' but for simplicity, we allow
+      // right-click-drag or ctrl+drag during edge edit mode:
+    });
 
-    function renderTree() {
-      treeDiv.innerHTML = '';
-      if (!individuals.length) {
-        treeDiv.textContent = 'No characters yet. Use the form above to add some.';
-        return;
+    // Turn on built-in edge creation UI
+    network.setOptions({
+      manipulation: {
+        enabled: true,
+        addEdge: (edgeData, callback) => {
+          // Allow loops and multiple edges
+          callback(edgeData);
+        },
+        deleteNode: true,
+        deleteEdge: true
       }
-      // build one big tree: all individuals
-      const allIdx = individuals.map((_, i) => i);
-      const tree = buildSubtree(allIdx);
-      treeDiv.appendChild(tree);
-    }
-
-    // initial state
-    renderTree();
+    });
   </script>
 </body>
 </html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Family Tree Builder</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { margin-bottom: 0.2em; }
+    #addForm { margin-bottom: 20px; }
+    label { display: block; margin: 5px 0 2px; }
+    input, select, button { padding: 6px; margin-bottom: 10px; width: 100%; max-width: 300px; }
+    #tree { margin-top: 20px; }
+    ul { list-style-type: none; padding-left: 1em; border-left: 1px solid #ccc; }
+    li { margin: 5px 0; position: relative; }
+    li::before { content: ''; position: absolute; top: 0.75em; left: -1em; width: 1em; height: 1px; background: #ccc; }
+  </style>
+</head>
+<body>
+  <h1>🧬 Family Tree Builder</h1>
+
+  <form id="addForm">
+    <label for="name">Character Name:</label>
+    <input type="text" id="name" placeholder="e.g. Iona" required />
+
+    <label for="mother">Mother:</label>
+    <select id="mother">
+      <option value="">— None —</option>
+    </select>
+
+    <label for="father">Father:</label>
+    <select id="father">
+      <option value="">— None —</option>
+    </select>
+
+    <button type="submit">Add Character</button>
+  </form>
+
+  <div id="tree"></div>
+
+  <script>
+    const individuals = [];
+    const form = document.getElementById('addForm');
+    const nameInput = document.getElementById('name');
+    const motherSelect = document.getElementById('mother');
+    const fatherSelect = document.getElementById('father');
+    const treeDiv = document.getElementById('tree');
+
+    function updateParentOptions() {
+      [motherSelect, fatherSelect].forEach(select => {
+        // clear existing options
+        select.innerHTML = '<option value="">— None —</option>';
+        individuals.forEach((p, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = p.name;
+          select.appendChild(opt);
+        });
+      });
+    }
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      if (!name) return;
+      const motherIdx = motherSelect.value;
+      const fatherIdx = fatherSelect.value;
+      individuals.push({
+        name,
+        mother: motherIdx !== '' ? +motherIdx : null,
+        father: fatherIdx !== '' ? +fatherIdx : null
+      });
+      nameInput.value = '';
+      motherSelect.value = '';
+      fatherSelect.value = '';
+      updateParentOptions();
+      renderTree();
+    });
+
+    function buildSubtree(idxSet) {
+      // returns an array of root indices (those with no parents in idxSet)
+      const roots = idxSet.filter(i =>
+        (individuals[i].mother === null || !idxSet.includes(individuals[i].mother)) &&
+        (individuals[i].father === null || !idxSet.includes(individuals[i].father))
+      );
+      const list = document.createElement('ul');
+      roots.forEach(rootIdx => {
+        const li = document.createElement('li');
+        li.textContent = individuals[rootIdx].name;
+        // find children of this root within idxSet
+        const children = idxSet
+          .filter(i => individuals[i].mother === rootIdx || individuals[i].father === rootIdx);
+        if (children.length) {
+          li.appendChild(buildSubtree(children));
+        }
+        list.appendChild(li);
+      });
+      return list;
+    }
+
+    function renderTree() {
+      treeDiv.innerHTML = '';
+      if (!individuals.length) {
+        treeDiv.textContent = 'No characters yet. Use the form above to add some.';
+        return;
+      }
+      // build one big tree: all individuals
+      const allIdx = individuals.map((_, i) => i);
+      const tree = buildSubtree(allIdx);
+      treeDiv.appendChild(tree);
+    }
+
+    // initial state
+    renderTree();
+  </script>
+</body>
+</html>

@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Family Tree Builder (Hierarchical)</title>
+  <title>Family Tree Builder</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" />
   <style>
     body { margin:0; font-family: Arial, sans-serif; display: flex; height:100vh; }
-    #mynetwork { flex:1; }
+    #mynetwork { flex:1; background:#f0f0f0; }
     #sidebar { width:300px; background:#fff; border-left:1px solid #ccc; padding:15px; box-sizing:border-box; overflow:auto; }
     #sidebar.hidden { display:none; }
     #sidebar label { margin:8px 0 4px; display:block; font-size:.9em; }
@@ -32,7 +32,7 @@
     <label>DOD</label><input id="charDOD" type="date" />
     <div class="rel-btns">
       <button id="addParent">+ Parent</button>
-      <button id="addSibling">+ Sibling</button>
+      <button id="addChild">+ Child</button>
       <button id="addPartner">+ Partner</button>
     </div>
     <button id="saveDetails">Save Details</button>
@@ -45,26 +45,25 @@
     const nodes = new vis.DataSet();
     const edges = new vis.DataSet();
 
-    // --- Network init with hierarchical layout ---
+    // --- Network with hierarchical layout ---
     const container = document.getElementById('mynetwork');
     const data = { nodes, edges };
     const options = {
       nodes: { shape: 'box', margin:10 },
       edges: {
-        arrows: { to: { enabled:true, type:'arrow' } },
-        smooth: { enabled:true, type:'curvedCW', roundness:0.2 }
+        arrows: { to:{ enabled:true, type:'arrow' } },
+        smooth: { enabled:true, type:'vertical' }
       },
       layout: {
         hierarchical: {
           enabled: true,
-          direction: 'UD',
-          levelSeparation: 150,
+          direction: 'UD',           // Up → Down
           nodeSpacing: 200,
-          treeSpacing: 200,
-          sortMethod: 'directed'
+          levelSeparation: 150,
+          treeSpacing: 200
         }
       },
-      physics: { enabled: false },
+      physics: { enabled:false },
       interaction: { dragNodes:true, dragView:true, zoomView:true }
     };
     const network = new vis.Network(container, data, options);
@@ -76,35 +75,35 @@
     const inpDOB     = document.getElementById('charDOB');
     const inpDOD     = document.getElementById('charDOD');
     const btnParent  = document.getElementById('addParent');
-    const btnSibling = document.getElementById('addSibling');
+    const btnChild   = document.getElementById('addChild');
     const btnPartner = document.getElementById('addPartner');
     const btnSave    = document.getElementById('saveDetails');
     const btnDelete  = document.getElementById('deleteNode');
 
     let selectedNodeId = null;
-    function nextId() { return nodes.length + 1; }
+    const nextId = ()=> nodes.length + 1;
 
-    // --- Add main character on load ---
+    // --- Create main character on load ---
     window.addEventListener('load', () => {
-      nodes.add({ id:1, label:'Main Character', color:'#ccc', gender:'', dob:'', dod:'' });
+      nodes.add({ id:1, label:'Main Character', gender:'', dob:'', dod:'', color:'#ccc' });
     });
 
-    // --- Show/Hide sidebar ---
-    network.on('selectNode', ({ nodes:[id] }) => {
+    // --- Toggle sidebar on select/deselect ---
+    network.on('selectNode', ({ nodes:[id] })=> {
       selectedNodeId = id;
       const d = nodes.get(id);
-      inpName.value   = d.label.split('\\n')[0];
+      inpName.value   = d.label.split('\n')[0];
       inpGender.value = d.gender;
       inpDOB.value    = d.dob;
       inpDOD.value    = d.dod;
       sidebar.classList.remove('hidden');
     });
-    network.on('deselectNode', () => {
+    network.on('deselectNode', ()=>{
       selectedNodeId = null;
       sidebar.classList.add('hidden');
     });
 
-    // --- Save edits ---
+    // --- Save edits back to node ---
     btnSave.onclick = () => {
       if (!selectedNodeId) return;
       const upd = { id:selectedNodeId };
@@ -112,19 +111,19 @@
       upd.gender = inpGender.value;
       upd.dob    = inpDOB.value;
       upd.dod    = inpDOD.value;
-      // color-coding
-      if (upd.gender==='male')    upd.color = '#8fbfe0';
-      else if (upd.gender==='female') upd.color = '#e08fbf';
-      else upd.color = '#ccc';
-      // append dates
-      let suffix = '';
-      if (upd.dob) suffix += '\\nb. '+upd.dob;
-      if (upd.dod) suffix += (suffix? ', ' : '\\n') + 'd. '+upd.dod;
-      upd.label += suffix;
+      // color-code by gender
+      if (upd.gender==='male')    upd.color='#8fbfe0';
+      else if (upd.gender==='female') upd.color='#e08fbf';
+      else upd.color='#ccc';
+      // append dates on new line
+      let extra = [];
+      if (upd.dob) extra.push('b. '+upd.dob);
+      if (upd.dod) extra.push('d. '+upd.dod);
+      if (extra.length) upd.label += '\n'+extra.join(', ');
       nodes.update(upd);
     };
 
-    // --- Delete node ---
+    // --- Delete node & its edges ---
     btnDelete.onclick = () => {
       if (selectedNodeId) {
         nodes.remove(selectedNodeId);
@@ -133,31 +132,29 @@
       }
     };
 
-    // --- Add Parent ---
+    // --- Add Parent (one per invocation) ---
     btnParent.onclick = () => {
-      if (!selectedNodeId) return alert('Select someone first');
+      if (!selectedNodeId) return alert('Select a character first');
       const pid = nextId();
-      nodes.add({ id:pid, label:'New Parent', color:'#ccc', gender:'', dob:'', dod:'' });
-      edges.add({ from: pid, to: selectedNodeId, label:'parent', color:{ color:'#555' } });
+      nodes.add({ id:pid, label:'New Parent', gender:'', dob:'', dod:'', color:'#ccc' });
+      edges.add({ from:pid, to:selectedNodeId, label:'parent', color:{color:'#555'} });
       network.selectNodes([pid]);
     };
 
-    // --- Add Sibling ---
-    btnSibling.onclick = () => {
-      if (!selectedNodeId) return alert('Select someone first');
-      const sid = nextId();
-      nodes.add({ id:sid, label:'New Sibling', color:'#ccc', gender:'', dob:'', dod:'' });
-      // copy parent edges
-      edges.get({ filter: e => e.to===selectedNodeId && e.label==='parent' })
-           .forEach(e => edges.add({ from:e.from, to:sid, label:'parent', color:{ color:'#555' } }));
-      network.selectNodes([sid]);
+    // --- Add Child ---
+    btnChild.onclick = () => {
+      if (!selectedNodeId) return alert('Select a character first');
+      const cid = nextId();
+      nodes.add({ id:cid, label:'New Child', gender:'', dob:'', dod:'', color:'#ccc' });
+      edges.add({ from:selectedNodeId, to:cid, label:'parent', color:{color:'#555'} });
+      network.selectNodes([cid]);
     };
 
-    // --- Add Partner ---
+    // --- Add Partner (dashed curve) ---
     btnPartner.onclick = () => {
-      if (!selectedNodeId) return alert('Select someone first');
+      if (!selectedNodeId) return alert('Select a character first');
       const qid = nextId();
-      nodes.add({ id:qid, label:'New Partner', color:'#ccc', gender:'', dob:'', dod:'' });
+      nodes.add({ id:qid, label:'New Partner', gender:'', dob:'', dod:'', color:'#ccc' });
       edges.add({ from:selectedNodeId, to:qid,   label:'partner', dashes:true, color:{color:'#c53'} });
       edges.add({ from:qid,             to:selectedNodeId, label:'partner', dashes:true, color:{color:'#c53'} });
       network.selectNodes([qid]);

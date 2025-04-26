@@ -3,118 +3,220 @@
 <head>
   <meta charset="UTF-8">
   <title>OC Family Tree</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
   <style>
-    body { margin:0; height:100vh; display:flex; flex-direction:column; font-family:Arial,sans-serif; }
+    body { margin:0; font-family:Arial,sans-serif; }
     header {
       background:#4a90e2; color:#fff;
-      padding:12px; text-align:center; font-size:1.3em;
+      padding:12px; text-align:center; font-size:1.2em;
     }
-    #network {
-      flex:1;
-      background:#eef2f5;
+    #treeContainer {
+      height: calc(100vh - 48px);
+      overflow: auto;
+      padding: 20px;
+      background: #eef2f5;
+      box-sizing: border-box;
     }
-    /* Style the vis.js toolbar */
-    .vis-manipulation .vis-button {
-      background:#4a90e2 !important;
-      color:#fff !important;
+    .tree { display:flex; flex-direction:column; align-items:center; }
+    .row  { display:flex; justify-content:center; align-items:center; }
+    .line { width:2px; height:20px; background:#000; margin:0 auto; }
+    .node {
+      background:#fff; border:2px solid #4a90e2;
+      border-radius:6px; padding:12px; margin:10px;
+      min-width:140px; text-align:center; position:relative;
     }
+    .node .fields { margin-bottom:8px; }
+    .node .fields > * {
+      display:block; width:100%; margin:4px 0; padding:4px;
+      box-sizing:border-box; font-size:0.9em;
+    }
+    .buttons, .link-controls { margin-top:8px; }
+    .buttons button, .link-controls button {
+      margin:2px; padding:4px 6px; font-size:0.85em; cursor:pointer;
+    }
+    .link-controls select { margin:4px 2px; padding:4px; font-size:0.85em; }
   </style>
 </head>
 <body>
-
   <header>🧬 OC Family Tree</header>
-  <div id="network"></div>
+  <div id="treeContainer"></div>
 
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <script>
-    // — DataSets —
-    const nodes = new vis.DataSet();
-    const edges = new vis.DataSet();
+    // --- ID generator & rel types ---
+    let idCounter=0;
+    function genId(){ return 'n'+(++idCounter); }
 
-    // Start with one node
-    let nextId = 1;
-    nodes.add({ id: nextId, label: 'Main OC' });
+    const relTypes = [
+      { key:'parent',  label:'Parent'  },
+      { key:'child',   label:'Child'   },
+      { key:'sibling', label:'Sibling' },
+      { key:'partner', label:'Partner' },
+      { key:'affair',  label:'Affair'  }
+    ];
 
-    // — Relationship styles —
-    const relStyles = {
-      parent:  { dashes:false, color:'#000'      },
-      child:   { dashes:false, color:'#000'      },
-      sibling: { dashes:false, color:'#0066cc'   },
-      partner: { dashes:true,  color:'#666'      },
-      affair:  { dashes:true,  color:'#c00'      }
+    // Flat list of all nodes
+    const allNodes = [];
+
+    // --- Tree data model ---
+    const treeData = {
+      id: genId(),
+      name:'Main OC', age:'', gender:'', dob:'', dod:'', notes:'',
+      parents:[], siblings:[], partners:[], affairs:[], children:[]
     };
+    allNodes.push(treeData);
 
-    // — Network options —
-    const options = {
-      interaction: {
-        dragNodes: true,
-        dragView:  true,
-        zoomView:  true
-      },
-      physics: false,
-      manipulation: {
-        enabled: true,
-        // ADD NODE
-        addNode: (nodeData, callback) => {
-          const name = prompt('Character name:', '');
-          if (name === null) return;
-          nodeData.label = name;
-          callback(nodeData);
-        },
-        // EDIT NODE
-        editNode: (nodeData, callback) => {
-          const lines = nodeData.label.split('\n');
-          const name = prompt('Name:', lines[0]);
-          if (name === null) return;
-          const age  = prompt('Age (leave blank):',       (lines.find(l=>l.startsWith('Age: '))||'').slice(5));
-          const dob  = prompt('DOB (YYYY-MM-DD):',         (lines.find(l=>l.startsWith('b. '))||'').slice(3));
-          const dod  = prompt('DOD (YYYY-MM-DD):',         (lines.find(l=>l.startsWith('d. '))||'').slice(3));
-          const notes= prompt('Notes (optional):',         (lines.slice(4)||[]).join(' '));
-          let label = name;
-          if (age)   label += '\nAge: ' + age;
-          if (dob)   label += '\nb. ' + dob;
-          if (dod)   label += '\nd. ' + dod;
-          if (notes) label += '\n'  + notes;
-          nodeData.label = label;
-          callback(nodeData);
-        },
-        // ADD EDGE
-        addEdge: (edgeData, callback) => {
-          const type = prompt(
-            'Relationship type? Enter exactly:\nparent, child, sibling, partner, or affair',
-            'child'
-          );
-          if (!type || !relStyles[type]) return;
-          Object.assign(edgeData, {
-            dashes: relStyles[type].dashes,
-            color:  { color: relStyles[type].color },
-            label:  type
-          });
-          callback(edgeData);
-        },
-        deleteNode: true,
-        deleteEdge: true
-      },
-      nodes: {
-        shape: 'box',
-        margin: 10,
-        color: { border: '#4a90e2', background: '#fff' },
-        font: { align: 'left' }
-      },
-      edges: {
-        arrows: { to: { enabled:true, type:'arrow' } },
-        smooth: false
+    // --- Rendering ---
+    function render() {
+      const container = document.getElementById('treeContainer');
+      container.innerHTML = '';
+      container.appendChild(makeNode(treeData));
+    }
+
+    function makeNode(d) {
+      const wrap = document.createElement('div');
+      wrap.className = 'tree';
+
+      // Parents
+      if (d.parents.length) {
+        const pr = document.createElement('div'); pr.className='row';
+        d.parents.forEach(p=>pr.appendChild(makeNode(p)));
+        wrap.appendChild(pr);
+        wrap.appendChild(createLine());
       }
-    };
 
-    // — Initialize Network —
-    const network = new vis.Network(
-      document.getElementById('network'),
-      { nodes, edges },
-      options
-    );
+      // Center row
+      const cr = document.createElement('div'); cr.className='row';
+      d.siblings.forEach(s=>cr.appendChild(makeNode(s)));
+
+      // This node
+      const nd = document.createElement('div'); nd.className='node';
+
+      // Editable fields
+      const f = document.createElement('div'); f.className='fields';
+      const inName = createField('input','Name', d.name, val=>d.name=val);
+      const inAge  = createField('input','Age', d.age,   val=>d.age=val);
+      const selGen = createField('select','Gender', d.gender, val=>d.gender=val, ['','male','female']);
+      const inDOB  = createField('input','DOB', d.dob,    val=>d.dob=val, null, 'date');
+      const inDOD  = createField('input','DOD', d.dod,    val=>d.dod=val, null, 'date');
+      const ta     = createField('textarea','Notes', d.notes, val=>d.notes=val);
+      [inName,inAge,selGen,inDOB,inDOD,ta].forEach(el=>f.appendChild(el));
+      nd.appendChild(f);
+
+      // Quick-rel buttons
+      const btns = document.createElement('div'); btns.className='buttons';
+      relTypes.forEach(rt=>{
+        const b = document.createElement('button');
+        b.textContent = rt.label;
+        b.onclick = e=>{
+          e.stopPropagation();
+          const np = newNode(rt.label);
+          switch(rt.key){
+            case 'parent':   d.parents.push(np); break;
+            case 'child':    d.children.push(np); np.parents.push(d); break;
+            case 'sibling':  d.siblings.push(np); break;
+            case 'partner':  d.partners.push(np); break;
+            case 'affair':   d.affairs.push(np);  break;
+          }
+          render();
+        };
+        btns.appendChild(b);
+      });
+      nd.appendChild(btns);
+
+      cr.appendChild(nd);
+
+      // Partners & affairs
+      d.partners.forEach(p=>cr.appendChild(makeNode(p)));
+      d.affairs.forEach(a=>cr.appendChild(makeNode(a)));
+
+      wrap.appendChild(cr);
+
+      // Children
+      if (d.children.length) {
+        wrap.appendChild(createLine());
+        const ch = document.createElement('div'); ch.className='row';
+        d.children.forEach(c2=>ch.appendChild(makeNode(c2)));
+        wrap.appendChild(ch);
+      }
+
+      // Link existing controls
+      const lc = document.createElement('div'); lc.className='link-controls';
+      const selType = document.createElement('select');
+      relTypes.forEach(rt=>{
+        const o=document.createElement('option');
+        o.value=rt.key; o.textContent='Link as '+rt.label;
+        selType.appendChild(o);
+      });
+      const selTarget = document.createElement('select');
+      const blankOpt = document.createElement('option');
+      blankOpt.value=''; blankOpt.textContent='Select target…';
+      selTarget.appendChild(blankOpt);
+      allNodes.forEach(n=>{
+        if(n.id!==d.id){
+          const o=document.createElement('option');
+          o.value=n.id; o.textContent=n.name;
+          selTarget.appendChild(o);
+        }
+      });
+      const linkBtn = document.createElement('button');
+      linkBtn.textContent = 'Link';
+      linkBtn.onclick = e=>{
+        e.stopPropagation();
+        const type = selType.value, tgtId = selTarget.value;
+        if(!type||!tgtId) return;
+        const tgt = allNodes.find(n=>n.id===tgtId);
+        // perform link
+        if(type==='parent')    { tgt.parents.push(d); }
+        else if(type==='child'){ d.children.push(tgt); tgt.parents.push(d); }
+        else if(type==='sibling'){ d.siblings.push(tgt); }
+        else if(type==='partner'){ d.partners.push(tgt); }
+        else if(type==='affair') { d.affairs.push(tgt); }
+        render();
+      };
+      lc.appendChild(selType);
+      lc.appendChild(selTarget);
+      lc.appendChild(linkBtn);
+      nd.appendChild(lc);
+
+      return wrap;
+    }
+
+    function createField(tag, placeholder, value, onChange, options, type) {
+      const el = document.createElement(tag);
+      if(tag==='select'){
+        options.forEach(v=>{
+          const o = document.createElement('option');
+          o.value=v; o.textContent=v||placeholder;
+          if(v===value) o.selected=true;
+          el.appendChild(o);
+        });
+      } else if(tag==='textarea'){
+        el.rows=2; el.placeholder=placeholder; el.value=value||'';
+      } else {
+        el.placeholder=placeholder;
+        if(type) el.type=type;
+        else el.type='text';
+        el.value=value||'';
+      }
+      el.onblur = ()=> onChange(el.value);
+      return el;
+    }
+
+    function newNode(name) {
+      const np = {
+        id: genId(),
+        name, age:'', gender:'', dob:'', dod:'', notes:'',
+        parents:[], siblings:[], partners:[], affairs:[], children:[]
+      };
+      allNodes.push(np);
+      return np;
+    }
+
+    function createLine() {
+      return Object.assign(document.createElement('div'),{className:'line'});
+    }
+
+    // Kick off
+    render();
   </script>
 </body>
 </html>

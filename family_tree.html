@@ -3,235 +3,106 @@
 <head>
   <meta charset="UTF-8">
   <title>OC Family Tree</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
   <style>
-    body { margin:0; font-family:Arial,sans-serif; }
-    header {
-      background:#4a90e2; color:#fff;
-      padding:12px; text-align:center; font-size:1.2em;
-    }
-    #toolbar {
-      background:#fff; border-bottom:1px solid #ccc;
-      padding:8px; text-align:center;
-    }
-    #toolbar button {
-      margin-right:8px; padding:6px 10px; cursor:pointer;
-    }
-    #treeContainer {
-      position:relative;
-      height: calc(100vh - 84px);
-      background:#eef2f5;
-      overflow:hidden; /* hide native scrollbars */
-      cursor: grab;
-    }
-    #viewport {
-      transform-origin: 0 0;
-    }
-    .tree { display:flex; flex-direction:column; align-items:center; }
-    .row  { display:flex; justify-content:center; align-items:center; }
-    .line { width:2px; height:20px; background:#000; margin:0 auto; }
-    .node {
-      background:#fff; border:2px solid #4a90e2;
-      border-radius:6px; padding:12px; margin:10px;
-      min-width:140px; text-align:center; position:relative;
-    }
-    .node .fields { margin-bottom:8px; }
-    .node .fields > * {
-      display:block; width:100%; margin:4px 0; padding:4px;
-      box-sizing:border-box; font-size:0.9em;
-    }
-    .node .buttons, .node .link-controls { margin-top:8px; }
-    .node .buttons button,
-    .node .link-controls button,
-    .node .link-controls select {
-      margin:2px; padding:4px 6px; font-size:0.85em; cursor:pointer;
+    body { margin:0; height:100vh; display:flex; font-family:Arial,sans-serif; }
+    #network { flex:1; background:#eef2f5; }
+    /* Optional: style the toolbar icons */
+    .vis-manipulation .vis-button {
+      background: #4a90e2;
+      color: white;
+      border-radius: 4px;
     }
   </style>
 </head>
 <body>
-  <header>🧬 OC Family Tree</header>
-  <div id="toolbar">
-    <button id="addRelTypeBtn">+ Add Rel Type</button>
-  </div>
-  <div id="treeContainer">
-    <div id="viewport"></div>
-  </div>
 
-  <script>
-    // --- Setup ---
-    let idCounter=0;
-    const genId = ()=> 'n'+(++idCounter);
+<div id="network"></div>
 
-    const relTypes = [
-      {key:'parent',label:'Parent'},
-      {key:'child', label:'Child'},
-      {key:'sibling',label:'Sibling'},
-      {key:'partner',label:'Partner'},
-      {key:'affair', label:'Affair'}
-    ];
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+  // --- Data sets ---
+  const nodes = new vis.DataSet();
+  const edges = new vis.DataSet();
 
-    // toolbar: add rel type
-    document.getElementById('addRelTypeBtn').onclick = ()=>{
-      const lbl = prompt('New relationship label?');
-      if(!lbl) return;
-      const key = lbl.toLowerCase().replace(/\s+/g,'');
-      relTypes.splice(relTypes.length-1, 0, {key,label:lbl});
-      render();
-    };
+  // start with one OC
+  nodes.add({ id: 1, label: 'Main OC' });
 
-    // --- Model ---
-    const allNodes = [];
-    const treeData = {
-      id:genId(), name:'Main OC', age:'', gender:'', dob:'', dod:'', notes:'',
-      parents:[], siblings:[], partners:[], affairs:[], children:[]
-    };
-    allNodes.push(treeData);
+  // --- Relationship styling rules ---
+  const relStyles = {
+    parent:  { dashes: false, color: '#000' },
+    child:   { dashes: false, color: '#000' },
+    sibling: { dashes: false, color: '#0066cc' },
+    partner: { dashes: true,  color: '#666' },
+    affair:  { dashes: true,  color: '#c00' }
+  };
 
-    // --- Pan & Zoom ---
-    const treeC = document.getElementById('treeContainer');
-    const vp    = document.getElementById('viewport');
-    let scale=1, originX=0, originY=0, panning=false, startX, startY;
-    function updateView() {
-      vp.style.transform = `translate(${originX}px,${originY}px) scale(${scale})`;
+  // --- Network options ---
+  const options = {
+    interaction: {
+      dragNodes: true,    // drag nodes
+      dragView:  true,    // pan
+      zoomView:  true     // zoom
+    },
+    physics: false,
+    manipulation: {
+      enabled: true,
+      // add node
+      addNode: function (nodeData, callback) {
+        const name = prompt('Name your character:', '');
+        if (name === null) return;
+        // Optionally ask more fields here (age, gender, etc.)
+        nodeData.label = name;
+        callback(nodeData);
+      },
+      // edit node
+      editNode: function (nodeData, callback) {
+        const lines = nodeData.label.split('\n');
+        const name = prompt('Edit name:', lines[0]);
+        if (name === null) return;
+        const age  = prompt('Age (blank to skip):',   lines.find(l=>l.startsWith('Age: '))?.slice(5)   || '');
+        const dob  = prompt('DOB (YYYY-MM-DD):',       lines.find(l=>l.startsWith('b. '))?.slice(3)     || '');
+        const dod  = prompt('DOD (YYYY-MM-DD):',       lines.find(l=>l.startsWith('d. '))?.slice(3)     || '');
+        let newLabel = name;
+        if (age) newLabel += '\nAge: ' + age;
+        if (dob) newLabel += '\nb. ' + dob;
+        if (dod) newLabel += '\nd. ' + dod;
+        nodeData.label = newLabel;
+        callback(nodeData);
+      },
+      // add edge
+      addEdge: function (edgeData, callback) {
+        const type = prompt(
+          'Relationship type? (parent, child, sibling, partner, affair)',
+          'child'
+        );
+        if (!type || !relStyles[type]) return;
+        // style it
+        edgeData.dashes = relStyles[type].dashes;
+        edgeData.color  = { color: relStyles[type].color };
+        edgeData.label  = type;
+        callback(edgeData);
+      },
+      deleteNode: true,
+      deleteEdge: true
+    },
+    nodes: {
+      shape: 'box',
+      margin: 10,
+      color: { border: '#4a90e2', background: '#fff' }
+    },
+    edges: {
+      arrows: { to: { enabled: true, type: 'arrow' } },
+      smooth: false
     }
-    treeC.addEventListener('wheel', e=>{
-      e.preventDefault();
-      const delta = -e.deltaY/500;
-      scale = Math.min(Math.max(0.2, scale+delta), 4);
-      updateView();
-    });
-    treeC.addEventListener('mousedown', e=>{
-      panning=true;
-      startX = e.clientX - originX;
-      startY = e.clientY - originY;
-      treeC.style.cursor='grabbing';
-    });
-    window.addEventListener('mousemove', e=>{
-      if(panning){
-        originX = e.clientX - startX;
-        originY = e.clientY - startY;
-        updateView();
-      }
-    });
-    window.addEventListener('mouseup', ()=>{
-      panning=false;
-      treeC.style.cursor='grab';
-    });
+  };
 
-    // --- Render ---
-    function render() {
-      vp.innerHTML = '';
-      vp.appendChild(makeNode(treeData));
-      updateView();
-    }
+  // --- Initialize ---
+  const container = document.getElementById('network');
+  new vis.Network(container, { nodes, edges }, options);
+</script>
 
-    function makeNode(d) {
-      const wrap = document.createElement('div');
-      wrap.className = 'tree';
-
-      // Parents
-      if(d.parents.length){
-        const pr = document.createElement('div'); pr.className='row';
-        d.parents.forEach(p=>pr.appendChild(makeNode(p)));
-        wrap.appendChild(pr);
-        wrap.appendChild(createLine());
-      }
-
-      // Center row
-      const cr = document.createElement('div'); cr.className='row';
-      d.siblings.forEach(s=>cr.appendChild(makeNode(s)));
-
-      // Node box
-      const nd = document.createElement('div'); nd.className='node';
-
-      // Fields under name
-      const f = document.createElement('div'); f.className='fields';
-      const inName = field('input','Name',d.name,v=>d.name=v);
-      const inAge  = field('input','Age',d.age,v=>d.age=v);
-      const selG   = field('select','Gender',d.gender,v=>d.gender=v,['','male','female']);
-      const inDOB  = field('input','DOB',d.dob,v=>d.dob=v,'date');
-      const inDOD  = field('input','DOD',d.dod,v=>d.dod=v,'date');
-      const ta     = field('textarea','Notes',d.notes,v=>d.notes=v);
-      [inName,inAge,selG,inDOB,inDOD,ta].forEach(el=>f.appendChild(el));
-      nd.appendChild(f);
-
-      // Quick-rel buttons
-      const btns = document.createElement('div'); btns.className='buttons';
-      relTypes.forEach(rt=>{
-        const b = document.createElement('button');
-        b.textContent=rt.label;
-        b.onclick= e=>{ e.stopPropagation(); addRel(d,rt.key); render(); };
-        btns.appendChild(b);
-      });
-      // delete button
-      const bd = document.createElement('button');
-      bd.textContent='Delete';
-      bd.onclick=e=>{ e.stopPropagation(); deleteNode(treeData,d.id); render(); };
-      btns.appendChild(bd);
-
-      nd.appendChild(btns);
-      cr.appendChild(nd);
-
-      // Partners & affairs
-      d.partners.forEach(p=>cr.appendChild(makeNode(p)));
-      d.affairs.forEach(a=>cr.appendChild(makeNode(a)));
-
-      wrap.appendChild(cr);
-
-      // Children
-      if(d.children.length){
-        wrap.appendChild(createLine());
-        const ch = document.createElement('div'); ch.className='row';
-        d.children.forEach(c2=>ch.appendChild(makeNode(c2)));
-        wrap.appendChild(ch);
-      }
-
-      return wrap;
-    }
-
-    function field(tag, placeholder, val, onChange, options, type){
-      const el = document.createElement(tag);
-      if(tag==='select'){
-        options.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v||placeholder; if(v===val) o.selected=true; el.appendChild(o); });
-      } else if(tag==='textarea'){
-        el.rows=2; el.placeholder=placeholder; el.value=val||'';
-      } else {
-        el.placeholder=placeholder;
-        el.type=type||'text';
-        el.value=val||'';
-      }
-      el.onblur=()=>onChange(el.value);
-      return el;
-    }
-
-    function createLine(){
-      return Object.assign(document.createElement('div'),{className:'line'});
-    }
-
-    function addRel(node,type){
-      const np = { id:genId(), name:type, age:'', gender:'', dob:'', dod:'', notes:'',
-                   parents:[], siblings:[], partners:[], affairs:[], children:[] };
-      allNodes.push(np);
-      switch(type){
-        case 'parent':   node.parents.push(np); break;
-        case 'child':    node.children.push(np); np.parents.push(node); break;
-        case 'sibling':  node.siblings.push(np); break;
-        case 'partner':  node.partners.push(np); break;
-        case 'affair':   node.affairs.push(np);  break;
-      }
-    }
-
-    function deleteNode(parent,id){
-      ['parents','siblings','partners','affairs','children'].forEach(rel=>{
-        parent[rel] = parent[rel].filter(c=>{
-          if(c.id===id) return false;
-          deleteNode(c,id);
-          return true;
-        });
-      });
-    }
-
-    // start
-    render();
-  </script>
 </body>
 </html>
+

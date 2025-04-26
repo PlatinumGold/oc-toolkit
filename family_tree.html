@@ -6,103 +6,115 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
   <style>
-    body { margin:0; height:100vh; display:flex; font-family:Arial,sans-serif; }
-    #network { flex:1; background:#eef2f5; }
-    /* Optional: style the toolbar icons */
+    body { margin:0; height:100vh; display:flex; flex-direction:column; font-family:Arial,sans-serif; }
+    header {
+      background:#4a90e2; color:#fff;
+      padding:12px; text-align:center; font-size:1.3em;
+    }
+    #network {
+      flex:1;
+      background:#eef2f5;
+    }
+    /* Style the vis.js toolbar */
     .vis-manipulation .vis-button {
-      background: #4a90e2;
-      color: white;
-      border-radius: 4px;
+      background:#4a90e2 !important;
+      color:#fff !important;
     }
   </style>
 </head>
 <body>
 
-<div id="network"></div>
+  <header>🧬 OC Family Tree</header>
+  <div id="network"></div>
 
-<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-<script>
-  // --- Data sets ---
-  const nodes = new vis.DataSet();
-  const edges = new vis.DataSet();
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script>
+    // — DataSets —
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
 
-  // start with one OC
-  nodes.add({ id: 1, label: 'Main OC' });
+    // Start with one node
+    let nextId = 1;
+    nodes.add({ id: nextId, label: 'Main OC' });
 
-  // --- Relationship styling rules ---
-  const relStyles = {
-    parent:  { dashes: false, color: '#000' },
-    child:   { dashes: false, color: '#000' },
-    sibling: { dashes: false, color: '#0066cc' },
-    partner: { dashes: true,  color: '#666' },
-    affair:  { dashes: true,  color: '#c00' }
-  };
+    // — Relationship styles —
+    const relStyles = {
+      parent:  { dashes:false, color:'#000'      },
+      child:   { dashes:false, color:'#000'      },
+      sibling: { dashes:false, color:'#0066cc'   },
+      partner: { dashes:true,  color:'#666'      },
+      affair:  { dashes:true,  color:'#c00'      }
+    };
 
-  // --- Network options ---
-  const options = {
-    interaction: {
-      dragNodes: true,    // drag nodes
-      dragView:  true,    // pan
-      zoomView:  true     // zoom
-    },
-    physics: false,
-    manipulation: {
-      enabled: true,
-      // add node
-      addNode: function (nodeData, callback) {
-        const name = prompt('Name your character:', '');
-        if (name === null) return;
-        // Optionally ask more fields here (age, gender, etc.)
-        nodeData.label = name;
-        callback(nodeData);
+    // — Network options —
+    const options = {
+      interaction: {
+        dragNodes: true,
+        dragView:  true,
+        zoomView:  true
       },
-      // edit node
-      editNode: function (nodeData, callback) {
-        const lines = nodeData.label.split('\n');
-        const name = prompt('Edit name:', lines[0]);
-        if (name === null) return;
-        const age  = prompt('Age (blank to skip):',   lines.find(l=>l.startsWith('Age: '))?.slice(5)   || '');
-        const dob  = prompt('DOB (YYYY-MM-DD):',       lines.find(l=>l.startsWith('b. '))?.slice(3)     || '');
-        const dod  = prompt('DOD (YYYY-MM-DD):',       lines.find(l=>l.startsWith('d. '))?.slice(3)     || '');
-        let newLabel = name;
-        if (age) newLabel += '\nAge: ' + age;
-        if (dob) newLabel += '\nb. ' + dob;
-        if (dod) newLabel += '\nd. ' + dod;
-        nodeData.label = newLabel;
-        callback(nodeData);
+      physics: false,
+      manipulation: {
+        enabled: true,
+        // ADD NODE
+        addNode: (nodeData, callback) => {
+          const name = prompt('Character name:', '');
+          if (name === null) return;
+          nodeData.label = name;
+          callback(nodeData);
+        },
+        // EDIT NODE
+        editNode: (nodeData, callback) => {
+          const lines = nodeData.label.split('\n');
+          const name = prompt('Name:', lines[0]);
+          if (name === null) return;
+          const age  = prompt('Age (leave blank):',       (lines.find(l=>l.startsWith('Age: '))||'').slice(5));
+          const dob  = prompt('DOB (YYYY-MM-DD):',         (lines.find(l=>l.startsWith('b. '))||'').slice(3));
+          const dod  = prompt('DOD (YYYY-MM-DD):',         (lines.find(l=>l.startsWith('d. '))||'').slice(3));
+          const notes= prompt('Notes (optional):',         (lines.slice(4)||[]).join(' '));
+          let label = name;
+          if (age)   label += '\nAge: ' + age;
+          if (dob)   label += '\nb. ' + dob;
+          if (dod)   label += '\nd. ' + dod;
+          if (notes) label += '\n'  + notes;
+          nodeData.label = label;
+          callback(nodeData);
+        },
+        // ADD EDGE
+        addEdge: (edgeData, callback) => {
+          const type = prompt(
+            'Relationship type? Enter exactly:\nparent, child, sibling, partner, or affair',
+            'child'
+          );
+          if (!type || !relStyles[type]) return;
+          Object.assign(edgeData, {
+            dashes: relStyles[type].dashes,
+            color:  { color: relStyles[type].color },
+            label:  type
+          });
+          callback(edgeData);
+        },
+        deleteNode: true,
+        deleteEdge: true
       },
-      // add edge
-      addEdge: function (edgeData, callback) {
-        const type = prompt(
-          'Relationship type? (parent, child, sibling, partner, affair)',
-          'child'
-        );
-        if (!type || !relStyles[type]) return;
-        // style it
-        edgeData.dashes = relStyles[type].dashes;
-        edgeData.color  = { color: relStyles[type].color };
-        edgeData.label  = type;
-        callback(edgeData);
+      nodes: {
+        shape: 'box',
+        margin: 10,
+        color: { border: '#4a90e2', background: '#fff' },
+        font: { align: 'left' }
       },
-      deleteNode: true,
-      deleteEdge: true
-    },
-    nodes: {
-      shape: 'box',
-      margin: 10,
-      color: { border: '#4a90e2', background: '#fff' }
-    },
-    edges: {
-      arrows: { to: { enabled: true, type: 'arrow' } },
-      smooth: false
-    }
-  };
+      edges: {
+        arrows: { to: { enabled:true, type:'arrow' } },
+        smooth: false
+      }
+    };
 
-  // --- Initialize ---
-  const container = document.getElementById('network');
-  new vis.Network(container, { nodes, edges }, options);
-</script>
-
+    // — Initialize Network —
+    const network = new vis.Network(
+      document.getElementById('network'),
+      { nodes, edges },
+      options
+    );
+  </script>
 </body>
 </html>
-

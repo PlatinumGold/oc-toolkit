@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OC Height Comparison</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
+    header {
+      background:#4a90e2; color:#fff;
+      padding:12px; text-align:center; font-size:1.3em;
+    }
+    #toolbar {
+      background:#fff; border-bottom:1px solid #ccc;
+      padding:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+    }
+    #toolbar input, #toolbar select, #toolbar button {
+      padding:6px; font-size:0.9em;
+    }
+    #display {
+      display:flex; align-items:flex-end;
+      justify-content:center; height: calc(100vh - 120px);
+      overflow-x:auto; padding:20px;
+    }
+    .char {
+      margin:0 12px; text-align:center;
+      border:3px solid #4a90e2; border-radius:6px;
+      padding:6px; background:#fff;
+    }
+    .char img {
+      display:block; max-width:80px;
+    }
+    .label {
+      margin-bottom:8px;
+      font-size:0.9em;
+      line-height:1.2;
+    }
+  </style>
+</head>
+<body>
+  <header>📏 OC Height Comparison</header>
+
+  <div id="toolbar">
+    <input id="nameInput"    type="text"    placeholder="Name…" />
+    <select id="unitSelect">
+      <option value="cm">cm</option>
+      <option value="ft">ft/in</option>
+    </select>
+
+    <div id="cmGroup">
+      <input id="heightCm" type="number" placeholder="Height (cm)"/>
+    </div>
+    <div id="ftGroup" style="display:none;">
+      <input id="heightFt"     type="number" placeholder="Feet" style="width:60px;"/> 
+      <input id="heightIn"     type="number" placeholder="Inches" style="width:60px;"/>
+    </div>
+
+    <input id="colorInput" type="color" value="#4a90e2" title="Border color" />
+
+    <input id="fileInput"  type="file"    accept="image/*" />
+    <button id="addBtn">Add Character</button>
+  </div>
+
+  <div id="display"></div>
+
+  <script>
+    const characters = [];
+    const nameEl   = document.getElementById('nameInput');
+    const unitEl   = document.getElementById('unitSelect');
+    const cmGroup  = document.getElementById('cmGroup');
+    const ftGroup  = document.getElementById('ftGroup');
+    const cmEl     = document.getElementById('heightCm');
+    const ftEl     = document.getElementById('heightFt');
+    const inEl     = document.getElementById('heightIn');
+    const colorEl  = document.getElementById('colorInput');
+    const fileEl   = document.getElementById('fileInput');
+    const addBtn   = document.getElementById('addBtn');
+    const display  = document.getElementById('display');
+
+    // toggle inputs by unit
+    unitEl.onchange = () => {
+      if (unitEl.value === 'cm') {
+        cmGroup.style.display = ''; ftGroup.style.display = 'none';
+      } else {
+        cmGroup.style.display = 'none'; ftGroup.style.display = '';
+      }
+    };
+
+    addBtn.onclick = () => {
+      const name = nameEl.value.trim();
+      const color = colorEl.value;
+      const file  = fileEl.files[0];
+      let cm, totalInches;
+
+      if (!name || !file) return alert('Name + image are required.');
+
+      if (unitEl.value === 'cm') {
+        cm = parseFloat(cmEl.value);
+        if (isNaN(cm)) return alert('Enter height in cm.');
+        totalInches = cm * 0.3937008;
+      } else {
+        const ft = parseFloat(ftEl.value);
+        const inch = parseFloat(inEl.value);
+        if (isNaN(ft) || isNaN(inch)) return alert('Enter feet & inches.');
+        totalInches = ft * 12 + inch;
+        cm = totalInches * 2.54;
+      }
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        characters.push({ name, cm, inches: totalInches, img: e.target.result, color });
+        render();
+      };
+      reader.readAsDataURL(file);
+
+      // reset
+      nameEl.value = '';
+      cmEl.value = ''; ftEl.value = ''; inEl.value = '';
+      fileEl.value = '';
+    };
+
+    function render() {
+      display.innerHTML = '';
+      if (!characters.length) return;
+      const maxCm = Math.max(...characters.map(c=>c.cm));
+      characters.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'char';
+        div.style.borderColor = c.color;
+
+        const ft = Math.floor(c.inches/12);
+        const inch = Math.round(c.inches % 12);
+        const lbl = document.createElement('div');
+        lbl.className = 'label';
+        lbl.innerHTML = 
+          `${c.name}<br>`+
+          `${Math.round(c.cm)} cm<br>`+
+          `${ft}′ ${inch}″`;
+        div.appendChild(lbl);
+
+        const hPx = (c.cm / maxCm) * 300;
+        const img = document.createElement('img');
+        img.src = c.img;
+        img.style.height = hPx + 'px';
+
+        div.appendChild(img);
+        display.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

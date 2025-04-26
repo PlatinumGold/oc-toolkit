@@ -1,323 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>OC Family Tree (vis.js Hybrid)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
-  <style>
-    body { margin:0; display:flex; height:100vh; font-family:Arial,sans-serif; }
-    #leftPane { flex:1; position:relative; }
-    #network { width:100%; height:100%; background:#eef2f5; }
-    header {
-      background:#4a90e2; color:#fff;
-      padding:12px; text-align:center; font-size:1.3em;
-    }
-    #controls {
-      background:#fff; border-bottom:1px solid #ccc;
-      padding:6px; text-align:center;
-    }
-    #controls button {
-      margin:0 4px; padding:6px 10px; cursor:pointer;
-    }
-    #sidebar {
-      width:300px; background:#fff; border-left:1px solid #ccc;
-      display:flex; flex-direction:column; overflow-y:auto;
-    }
-    #sidebar.hidden { display:none; }
-    #sidebar h2 { margin:12px 0 6px 0; color:#4a90e2; text-align:center; }
-    #sidebar label { margin:8px 0 4px 0; font-weight:bold; }
-    #sidebar input, #sidebar select, #sidebar textarea, #sidebar button {
-      width:100%; margin-bottom:8px; padding:6px; box-sizing:border-box;
-    }
-    #sidebar textarea { resize: vertical; }
-    #sidebar .rel-buttons button, #sidebar .link-controls button {
-      margin:4px 2px; padding:6px; cursor:pointer;
-    }
-    #sidebar .link-controls select { margin:4px 2px; padding:6px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Family Tree</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+        #tree {
+            width: 100vw;
+            height: 100vh;
+        }
+        .node rect {
+            stroke: #999;
+            stroke-width: 2px;
+        }
+        .node text {
+            font: 14px sans-serif;
+            pointer-events: none;
+        }
+        .link {
+            fill: none;
+            stroke: #555;
+            stroke-width: 2px;
+        }
+        .partner-link {
+            stroke-dasharray: 5,5;
+            stroke: #00bcd4;
+        }
+        .affair-link {
+            stroke-dasharray: 5,5;
+            stroke: red;
+        }
+        .button-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+        button {
+            margin-right: 5px;
+            padding: 5px 10px;
+        }
+    </style>
 </head>
 <body>
+<div class="button-container">
+    <button onclick="addNode()">Add Node</button>
+</div>
+<svg id="tree"></svg>
 
-  <div id="leftPane">
-    <header>🧬 OC Family Tree</header>
-    <div id="controls">
-      <button id="addNodeBtn">➕ Add Node</button>
-      <button id="addRelTypeBtn">➕ Add Rel Type</button>
-    </div>
-    <div id="network"></div>
-  </div>
-
-  <div id="sidebar" class="hidden">
-    <h2>Edit Character</h2>
-
-    <label>Name</label>
-    <input id="nName"/>
-
-    <label>Age</label>
-    <input id="nAge"/>
-
-    <label>Gender</label>
-    <select id="nGender">
-      <option value="">Unknown</option>
-      <option value="male">Male</option>
-      <option value="female">Female</option>
-    </select>
-
-    <label>DOB</label>
-    <input id="nDOB" type="date"/>
-
-    <label>DOD</label>
-    <input id="nDOD" type="date"/>
-
-    <label>Notes</label>
-    <textarea id="nNotes" rows="3"></textarea>
-
-    <div class="rel-buttons" id="relButtons"></div>
-
-    <div class="link-controls">
-      <label>Link Existing</label>
-      <select id="linkType"></select>
-      <select id="linkTarget"></select>
-      <button id="linkBtn">Link</button>
-    </div>
-
-    <button id="saveBtn">💾 Save</button>
-    <button id="deleteBtn" style="background:#c53;color:#fff;">🗑️ Delete</button>
-  </div>
-
-
-<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-  // — Utilities —
-  let idCount=0; function newId(){ return ++idCount; }
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-  // — Relationship definitions —
-  const relTypes = [
-    { key:'parent',  label:'Parent',  style:{ dashes:false, color:'#000' } },
-    { key:'child',   label:'Child',   style:{ dashes:false, color:'#000' } },
-    { key:'sibling', label:'Sibling', style:{ dashes:false, color:'#0066cc'} },
-    { key:'partner', label:'Partner', style:{ dashes:true,  color:'#666' } },
-    { key:'affair',  label:'Affair',  style:{ dashes:true,  color:'#c00' } }
-  ];
+    const svg = d3.select("#tree")
+        .attr("width", width)
+        .attr("height", height)
+        .call(d3.zoom().on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        }))
+        .append("g");
 
-  // — DataSets —
-  const nodes = new vis.DataSet();
-  const edges = new vis.DataSet();
+    let idCounter = 0;
+    let nodes = [];
+    let links = [];
 
-  // add initial node
-  nodes.add({
-    id: newId(),
-    label: 'Main OC',
-    name:'Main OC', age:'', gender:'', dob:'', dod:'', notes:''
-  });
+    const g = svg.append("g");
 
-  // — Network Setup —
-  const container = document.getElementById('network');
-  const network = new vis.Network(container,
-    { nodes, edges },
-    {
-      interaction:{ dragNodes:true, dragView:true, zoomView:true },
-      physics:false,
-      manipulation:{
-        enabled:true,
-        addNode: (data, cb) => {
-          const name = prompt('New OC name:','');
-          if(!name) return;
-          data.label = name;
-          cb(data);
-        },
-        editNode: (data, cb) => {
-          const lines = data.label.split('\n');
-          const name = prompt('Name:', lines[0]);
-          if(name===null) return;
-          const age = prompt('Age (blank to skip):', (lines.find(l=>l.startsWith('Age: '))||'').slice(5));
-          const dob = prompt('DOB YYYY-MM-DD:', (lines.find(l=>l.startsWith('b. '))||'').slice(3));
-          const dod = prompt('DOD YYYY-MM-DD:', (lines.find(l=>l.startsWith('d. '))||'').slice(3));
-          const notes = prompt('Notes:', lines.slice(4).join(' '));
-          let lbl = name;
-          if(age)  lbl+='\nAge: '+age;
-          if(dob)  lbl+='\nb. '+dob;
-          if(dod)  lbl+='\nd. '+dod;
-          if(notes)lbl+='\n'+notes;
-          data.label = lbl;
-          cb(data);
-        },
-        addEdge: (data, cb) => {
-          const type = prompt(
-            'Rel type? Enter one of:\n'+
-            relTypes.map(r=>r.key).join(', '),
-            'child'
-          );
-          const rt = relTypes.find(r=>r.key===type);
-          if(!rt) return;
-          data.dashes = rt.style.dashes;
-          data.color  = { color: rt.style.color };
-          data.label  = type;
-          cb(data);
-        },
-        deleteNode:true,
-        deleteEdge:true
-      },
-      nodes:{ shape:'box', margin:10, color:{ border:'#4a90e2', background:'#fff' }, font:{ align:'left'} },
-      edges:{ arrows:{ to:{enabled:true,type:'arrow'}}, smooth:false }
+    function update() {
+        g.selectAll("*").remove();
+
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+            .force("charge", d3.forceManyBody().strength(-500))
+            .force("center", d3.forceCenter(width / 2, height / 2));
+
+        const link = g.selectAll(".link")
+            .data(links)
+            .enter().append("line")
+            .attr("class", d => {
+                if (d.type === "partner") return "link partner-link";
+                if (d.type === "affair") return "link affair-link";
+                return "link";
+            });
+
+        const node = g.selectAll(".node")
+            .data(nodes)
+            .enter().append("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended))
+            .on("click", (event, d) => editNode(d));
+
+        node.append("rect")
+            .attr("width", 100)
+            .attr("height", 40)
+            .attr("x", -50)
+            .attr("y", -20)
+            .attr("rx", 10)
+            .attr("ry", 10)
+            .attr("fill", d => getNodeColor(d));
+
+        node.append("text")
+            .attr("dy", 5)
+            .attr("text-anchor", "middle")
+            .text(d => d.name);
+
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
     }
-  );
 
-  // — Sidebar Logic —
-  const sidebar   = document.getElementById('sidebar');
-  const fld       = {
-    name:  document.getElementById('nName'),
-    age:   document.getElementById('nAge'),
-    gender:document.getElementById('nGender'),
-    dob:   document.getElementById('nDOB'),
-    dod:   document.getElementById('nDOD'),
-    notes: document.getElementById('nNotes')
-  };
-  const relButtons   = document.getElementById('relButtons');
-  const saveBtn      = document.getElementById('saveBtn');
-  const deleteBtn    = document.getElementById('deleteBtn');
-  const addRelTypeBtn= document.getElementById('addRelTypeBtn');
-  const linkTypeSel  = document.getElementById('linkType');
-  const linkTargetSel= document.getElementById('linkTarget');
-  const linkBtn      = document.getElementById('linkBtn');
-  let selectedId = null;
+    function dragstarted(event, d) {
+        if (!event.active) event.subject.fx = event.subject.x;
+        if (!event.active) event.subject.fy = event.subject.y;
+    }
 
-  // populate rel-buttons area
-  function buildRelButtons() {
-    relButtons.innerHTML = '';
-    relTypes.forEach(rt=>{
-      const b = document.createElement('button');
-      b.textContent = rt.label;
-      b.onclick = e=>{
-        e.stopPropagation();
-        const nid = newId();
-        nodes.add({ id:nid, label:rt.label, name:rt.label, age:'', gender:'', dob:'', dod:'', notes:'' });
-        // connect based on type
-        if(rt.key==='parent')   edges.add({ from:nid,to:selectedId,   dashes:rt.style.dashes, color:{color:rt.style.color} });
-        if(rt.key==='child')    edges.add({ from:selectedId,to:nid,   dashes:rt.style.dashes, color:{color:rt.style.color} });
-        if(rt.key==='sibling'){
-          edges.get({ filter:e=>e.to===selectedId&&!e.dashes }).forEach(e2=>{
-            edges.add({ from:e2.from,to:nid,dashes:false,color:{color:'#0066cc'} });
-          });
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+
+    function dragended(event, d) {
+        if (!event.active) {
+            d.fx = null;
+            d.fy = null;
         }
-        if(rt.key==='partner'){
-          edges.add({ from:selectedId,to:nid,dashes:rt.style.dashes,color:{color:rt.style.color} });
-          edges.add({ from:nid,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color} });
+    }
+
+    function addNode() {
+        const name = prompt("Enter name:");
+        if (name) {
+            nodes.push({ id: ++idCounter + "", name: name, gender: null });
+            update();
         }
-        if(rt.key==='affair'){
-          edges.add({ from:selectedId,to:nid,dashes:rt.style.dashes,color:{color:rt.style.color} });
-          edges.add({ from:nid,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color} });
+    }
+
+    function editNode(d) {
+        const name = prompt("Edit name:", d.name);
+        if (name !== null) {
+            d.name = name;
         }
-        refreshLinkControls();
-      };
-      relButtons.appendChild(b);
-    });
-  }
 
-  // populate link-existing controls
-  function refreshLinkControls() {
-    // rel types
-    linkTypeSel.innerHTML = '';
-    relTypes.forEach(rt=>{
-      const o = document.createElement('option');
-      o.value = rt.key; o.textContent = rt.label;
-      linkTypeSel.appendChild(o);
-    });
-    // targets
-    linkTargetSel.innerHTML = '<option value="">Select...</option>';
-    nodes.forEach(n=>{
-      if(n.id!==selectedId){
-        const o = document.createElement('option');
-        o.value = n.id; o.textContent = n.label.split('\n')[0];
-        linkTargetSel.appendChild(o);
-      }
-    });
-  }
+        const gender = prompt("Gender (male/female/leave blank):", d.gender || "");
+        if (gender !== null) {
+            if (gender.toLowerCase() === "male" || gender.toLowerCase() === "female" || gender.trim() === "") {
+                d.gender = gender.toLowerCase();
+            } else {
+                alert("Invalid gender! Use 'male', 'female', or leave blank.");
+            }
+        }
 
-  // when node selected
-  network.on('selectNode', params=>{
-    selectedId = params.nodes[0];
-    const data = nodes.get(selectedId);
-    // fill inputs
-    fld.name.value   = data.label.split('\n')[0];
-    fld.age.value    = (data.label.match(/Age: ([^\n]+)/)||[])[1]||'';
-    fld.gender.value = data.gender||'';
-    fld.dob.value    = (data.label.match(/b\. ([^\n]+)/)||[])[1]||'';
-    fld.dod.value    = (data.label.match(/d\. ([^\n]+)/)||[])[1]||'';
-    fld.notes.value  = (data.label.split('\n').slice(4)||[]).join(' ');
-    // build side controls
-    buildRelButtons();
-    refreshLinkControls();
-    sidebar.classList.remove('hidden');
-  });
-
-  network.on('deselectNode', ()=>{ sidebar.classList.add('hidden'); selectedId=null; });
-
-  // save edits
-  saveBtn.onclick = ()=>{
-    if(!selectedId) return;
-    const lines = [ fld.name.value ];
-    if(fld.age.value)  lines.push('Age: '+fld.age.value);
-    if(fld.dob.value)  lines.push('b. '+fld.dob.value);
-    if(fld.dod.value)  lines.push('d. '+fld.dod.value);
-    if(fld.notes.value)lines.push(fld.notes.value);
-    nodes.update({
-      id: selectedId,
-      label: lines.join('\n'),
-      gender: fld.gender.value
-    });
-  };
-
-  // delete
-  deleteBtn.onclick = ()=>{
-    if(!selectedId) return;
-    nodes.remove(selectedId);
-    edges.get().forEach(e=>{ if(e.from===selectedId||e.to===selectedId) edges.remove(e.id); });
-    sidebar.classList.add('hidden');
-  };
-
-  // link existing
-  linkBtn.onclick = ()=>{
-    if(!selectedId) return alert('Select target!');
-    const type = linkTypeSel.value;
-    const tgt  = +linkTargetSel.value;
-    if(!type||!tgt) return;
-    const rt = relTypes.find(r=>r.key===type);
-    if(type==='parent')   edges.add({ from:tgt,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color} });
-    if(type==='child')    edges.add({ from:selectedId,to:tgt,dashes:rt.style.dashes,color:{color:rt.style.color} });
-    if(type==='sibling'){
-      edges.get({ filter:e=>e.to===selectedId&&!e.dashes }).forEach(e2=>{
-        edges.add({ from:e2.from,to:tgt,dashes:false,color:{color:'#0066cc'} });
-      });
+        const action = prompt("Add relationship? (parent/partner/affair/none):");
+        if (action === "parent" || action === "partner" || action === "affair") {
+            const targetName = prompt("Enter the name of the other node:");
+            const target = nodes.find(n => n.name === targetName);
+            if (target) {
+                if (action === "parent") {
+                    links.push({ source: target.id, target: d.id });
+                } else {
+                    links.push({ source: d.id, target: target.id, type: action });
+                }
+            } else {
+                alert("Node not found.");
+            }
+        }
+        update();
     }
-    if(type==='partner'||type==='affair'){
-      edges.add({ from:selectedId,to:tgt, dashes:rt.style.dashes, color:{color:rt.style.color} });
-      edges.add({ from:tgt,to:selectedId, dashes:rt.style.dashes, color:{color:rt.style.color} });
-    }
-  };
 
-  // add custom rel type
-  addRelTypeBtn.onclick = ()=>{
-    const lbl = prompt('New relationship label?');
-    if(!lbl) return;
-    const key = lbl.toLowerCase().replace(/\s+/g,'');
-    relTypes.push({ key,label:lbl, style:{ dashes:false, color:'#555'} });
-    if(selectedId){
-      buildRelButtons();
-      refreshLinkControls();
+    function getNodeColor(d) {
+        if (d.gender === "male") return "#6495ED"; // blue
+        if (d.gender === "female") return "#FF69B4"; // pink
+        return "#ccc"; // grey if no gender
     }
-  };
 
-  // add node button
-  document.getElementById('addNodeBtn').onclick = ()=>{
-    const name = prompt('New OC name:','');
-    if(!name) return;
-    const nid = newId();
-    nodes.add({ id:nid, label:name, gender:'', notes:'' });
-    // auto-select it
-    network.selectNodes([nid]);
-  };
+    update();
 </script>
 </body>
 </html>

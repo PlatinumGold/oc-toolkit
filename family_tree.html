@@ -2,106 +2,288 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>OC Family Tree (Vis.js)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>OC Family Tree (vis.js)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
   <style>
-    body { margin:0; height:100vh; }
-    #mynetwork { width:100%; height:100%; background:#eef2f5; }
+    body { margin:0; font-family:Arial,sans-serif; height:100vh; display:flex; }
+    #network { flex:1; position:relative; background:#eef2f5; }
+    #header {
+      background: #4a90e2; color:#fff;
+      padding: 12px; text-align:center; font-size:1.2em;
+    }
+    #controls {
+      padding: 8px; background:#fff; border-bottom:1px solid #ccc;
+      text-align:center;
+    }
+    #controls button { margin:0 6px; padding:6px 10px; cursor:pointer; }
+    #sidebar {
+      width: 300px; background:#fff; border-left:1px solid #ccc;
+      padding:15px; box-sizing:border-box; overflow-y:auto;
+    }
+    #sidebar.hidden { display:none; }
+    #sidebar h2 { margin-top:0; color:#4a90e2; }
+    label { display:block; margin-top:10px; font-weight:bold; }
+    input, select, textarea, button {
+      width:100%; padding:6px; margin-top:4px; box-sizing:border-box;
+    }
+    textarea { resize:vertical; }
+    .rel-buttons { margin-top:10px; }
+    .rel-buttons button { margin:4px 2px; padding:6px; }
   </style>
 </head>
 <body>
 
-<div id="mynetwork"></div>
+  <div id="network">
+    <div id="header">🧬 OC Family Tree</div>
+    <div id="controls">
+      <button id="addRelTypeBtn">+ Add Rel Type</button>
+    </div>
+  </div>
 
-<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-<script>
-  // --- Data sets ---
-  const nodes = new vis.DataSet();
-  const edges = new vis.DataSet();
+  <div id="sidebar" class="hidden">
+    <h2>Edit Character</h2>
 
-  // Start with one node
-  nodes.add({ id: 1, label: 'Main OC' });
+    <label>Name</label>
+    <input id="nName"/>
 
-  // --- Create network with manipulation ---
-  const container = document.getElementById('mynetwork');
-  const data = { nodes, edges };
-  const options = {
-    physics: false,
-    interaction: {
-      dragNodes: true,
-      dragView: true,
-      zoomView: true
-    },
-    manipulation: {
-      enabled: true,
+    <label>Age</label>
+    <input id="nAge"/>
 
-      // Adding a new node
-      addNode: function (nodeData, callback) {
-        const name = prompt('Character name?', '');
-        if (name === null) return;  // cancel
-        // You can extend this prompt sequence for age, gender, etc.
-        nodeData.label = name;
-        callback(nodeData);
-      },
+    <label>Gender</label>
+    <select id="nGender">
+      <option value="">Unknown</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
 
-      // Editing an existing node
-      editNode: function (nodeData, callback) {
-        let name = prompt('Name:', nodeData.label.split('\n')[0]);
-        if (name === null) return;
-        let age  = prompt('Age (leave blank if none):', '');
-        let dob  = prompt('Date of Birth (YYYY-MM-DD):', '');
-        let dod  = prompt('Date of Death:', '');
-        let notes = prompt('Notes (optional):', '');
-        // Build multiline label:
-        let lines = [name];
-        if (age)  lines.push('Age: ' + age);
-        if (dob)  lines.push('b. ' + dob);
-        if (dod)  lines.push('d. ' + dod);
-        if (notes)lines.push(notes);
-        nodeData.label = lines.join('\n');
-        callback(nodeData);
-      },
+    <label>DOB</label>
+    <input id="nDOB" type="date"/>
 
-      // Adding a new edge
-      addEdge: function (edgeData, callback) {
-        const type = prompt(
-          'Edge type? Enter exactly: parent, sibling, partner, affair, or child',
-          'child'
-        );
-        if (!type) return;
-        // assign label and style based on type
-        edgeData.label = type;
-        if (type === 'partner') {
-          edgeData.dashes = true;
-          edgeData.color = { color: '#333' };
-        } else if (type === 'affair') {
-          edgeData.dashes = true;
-          edgeData.color = { color: '#c00' };
-        } else {
-          edgeData.dashes = false;
-          edgeData.color = { color: '#000' };
+    <label>DOD</label>
+    <input id="nDOD" type="date"/>
+
+    <label>Notes</label>
+    <textarea id="nNotes" rows="3"></textarea>
+
+    <!-- Link existing characters -->
+    <label>Link Relationship</label>
+    <select id="linkType"></select>
+
+    <label>With</label>
+    <select id="linkTarget"><option value="">Select…</option></select>
+
+    <button id="linkBtn">Link Characters</button>
+
+    <!-- Quick add via rel-buttons -->
+    <div class="rel-buttons" id="relButtons"></div>
+
+    <button id="saveBtn" style="margin-top:10px;">Save</button>
+    <button id="deleteBtn" style="margin-top:6px;background:#c53;color:#fff;">Delete</button>
+  </div>
+
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script>
+    // ID generator
+    let idCount = 0;
+    function newId(){ return 'n'+(++idCount); }
+
+    // Relationship types
+    const relTypes = [
+      { key:'parent',  label:'Parent',  style:{dashes:false, color:'#000'} },
+      { key:'child',   label:'Child',   style:{dashes:false, color:'#000'} },
+      { key:'sibling', label:'Sibling', style:{dashes:false, color:'#000'} },
+      { key:'partner', label:'Partner', style:{dashes:true,  color:'#333'} },
+      { key:'affair',  label:'Affair',  style:{dashes:true,  color:'#c00'} }
+    ];
+
+    // vis.js data sets
+    const nodes = new vis.DataSet();
+    const edges = new vis.DataSet();
+
+    // add root node
+    nodes.add({
+      id: newId(),
+      label: 'Main OC',
+      name:'Main OC', age:'', gender:'', dob:'', dod:'', notes:''
+    });
+
+    // initialize network
+    const network = new vis.Network(
+      document.getElementById('network'),
+      { nodes, edges },
+      {
+        physics: false,
+        interaction: { dragNodes:true, dragView:true, zoomView:true },
+        nodes: { shape:'box', margin:10, font:{align:'left'} },
+        edges: {
+          arrows:{ to:{enabled:true,type:'arrow'} },
+          smooth:{ type:'straightCross' }
         }
-        callback(edgeData);
-      },
+      }
+    );
 
-      deleteNode: true,
-      deleteEdge: true
-    },
+    // sidebar refs
+    const sidebar   = document.getElementById('sidebar');
+    const fld       = {
+      name:  document.getElementById('nName'),
+      age:   document.getElementById('nAge'),
+      gender:document.getElementById('nGender'),
+      dob:   document.getElementById('nDOB'),
+      dod:   document.getElementById('nDOD'),
+      notes: document.getElementById('nNotes')
+    };
+    const relButtons = document.getElementById('relButtons');
+    const saveBtn    = document.getElementById('saveBtn');
+    const deleteBtn  = document.getElementById('deleteBtn');
+    const addRelTypeBtn = document.getElementById('addRelTypeBtn');
+    const linkTypeSel   = document.getElementById('linkType');
+    const linkTargetSel = document.getElementById('linkTarget');
+    const linkBtn       = document.getElementById('linkBtn');
 
-    edges: {
-      arrows: { to: { enabled: true, type: 'arrow' } },
-      smooth: { enabled: true }
-    },
+    let selectedId = null;
 
-    nodes: {
-      shape: 'box',
-      margin: 10,
-      font: { align: 'left' }
+    // populate linkType dropdown
+    function refreshLinkType() {
+      linkTypeSel.innerHTML = '';
+      relTypes.forEach(rt => {
+        const o = document.createElement('option');
+        o.value = rt.key; o.textContent = rt.label;
+        linkTypeSel.appendChild(o);
+      });
     }
-  };
 
-  const network = new vis.Network(container, data, options);
-</script>
+    // refresh linkTarget dropdown
+    function refreshLinkTarget() {
+      linkTargetSel.innerHTML = '<option value="">Select…</option>';
+      nodes.forEach(n => {
+        if (n.id !== selectedId) {
+          const o = document.createElement('option');
+          o.value = n.id; o.textContent = n.name;
+          linkTargetSel.appendChild(o);
+        }
+      });
+    }
+
+    // rebuild rel-buttons in sidebar
+    function buildRelButtons() {
+      relButtons.innerHTML = '';
+      relTypes.forEach(rt => {
+        const b = document.createElement('button');
+        b.textContent = rt.label;
+        b.onclick = () => {
+          if (!selectedId) return;
+          const nid = newId();
+          nodes.add({ id:nid, label:rt.label, name:rt.label, age:'', gender:'', dob:'', dod:'', notes:'' });
+          addEdgeByType(rt.key, selectedId, nid);
+          refreshLinkTarget();
+        };
+        relButtons.appendChild(b);
+      });
+    }
+
+    // add edge logic by type
+    function addEdgeByType(type, src, dest) {
+      const rt = relTypes.find(r=>r.key===type);
+      if (!rt) return;
+      if (type === 'parent') {
+        edges.add({ from: dest, to: src, dashes:rt.style.dashes, color:{color:rt.style.color} });
+      } else if (type === 'child') {
+        edges.add({ from: src, to: dest, dashes:rt.style.dashes, color:{color:rt.style.color} });
+      } else if (type === 'sibling') {
+        // copy all parent→src to parent→dest
+        edges.get().filter(e=>e.to===src && !e.dashes).forEach(e=>{
+          edges.add({ from:e.from, to:dest, dashes:false, color:{color:'#000'} });
+        });
+      } else if (type==='partner' || type==='affair') {
+        edges.add({ from: src, to: dest,   dashes:rt.style.dashes, color:{color:rt.style.color} });
+        edges.add({ from: dest, to: src,   dashes:rt.style.dashes, color:{color:rt.style.color} });
+      } else {
+        // custom one-way
+        edges.add({ from: src, to: dest,   dashes:rt.style.dashes, color:{color:rt.style.color} });
+      }
+    }
+
+    // when a node is selected
+    network.on('selectNode', params => {
+      selectedId = params.nodes[0];
+      const data = nodes.get(selectedId);
+
+      // fill fields
+      fld.name.value   = data.name;
+      fld.age.value    = data.age;
+      fld.gender.value = data.gender;
+      fld.dob.value    = data.dob;
+      fld.dod.value    = data.dod;
+      fld.notes.value  = data.notes;
+
+      // build sidebar UI
+      refreshLinkType();
+      refreshLinkTarget();
+      buildRelButtons();
+      sidebar.classList.remove('hidden');
+    });
+
+    network.on('deselectNode', () => {
+      selectedId = null;
+      sidebar.classList.add('hidden');
+    });
+
+    // save edits
+    saveBtn.onclick = () => {
+      if (!selectedId) return;
+      const upd = { id:selectedId };
+      upd.name   = fld.name.value;
+      upd.age    = fld.age.value;
+      upd.gender = fld.gender.value;
+      upd.dob    = fld.dob.value;
+      upd.dod    = fld.dod.value;
+      upd.notes  = fld.notes.value;
+
+      // multiline label
+      let lines = [upd.name];
+      if (upd.age)  lines.push('Age: '+upd.age);
+      if (upd.dob)  lines.push('b. '+upd.dob);
+      if (upd.dod)  lines.push('d. '+upd.dod);
+      upd.label = lines.join('\n');
+
+      // color by gender
+      if (upd.gender==='male')   upd.color={border:'#4b8bbe',background:'#eef4fc'};
+      else if (upd.gender==='female') upd.color={border:'#d2527f',background:'#fdeef4'};
+      else upd.color={border:'#446688',background:'#fff'};
+
+      nodes.update(upd);
+    };
+
+    // delete node
+    deleteBtn.onclick = () => {
+      if (!selectedId) return;
+      nodes.remove(selectedId);
+      edges.get().forEach(e=>{
+        if (e.from===selectedId||e.to===selectedId) edges.remove(e.id);
+      });
+      sidebar.classList.add('hidden');
+    };
+
+    // link existing
+    linkBtn.onclick = () => {
+      const type = linkTypeSel.value;
+      const target = linkTargetSel.value;
+      if (!type || !target || !selectedId) return alert('Select rel type & target');
+      addEdgeByType(type, selectedId, target);
+    };
+
+    // add new rel type
+    addRelTypeBtn.onclick = () => {
+      const label = prompt('New relationship label?');
+      if (!label) return;
+      const key = label.toLowerCase().replace(/\s+/g,'');
+      relTypes.push({ key, label, style:{dashes:false,color:'#555'} });
+      if (selectedId) {
+        refreshLinkType();
+        buildRelButtons();
+      }
+    };
+  </script>
 </body>
 </html>

@@ -1,25 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>OC Family Tree (vis.js)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet" />
+  <meta charset="UTF-8"/>
+  <title>OC Family Tree (vis.js + Link Mode)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; height: 100vh; display: flex; }
-    #network { flex: 1; background: #eef2f5; }
+    body { margin:0; font-family:Arial,sans-serif; display:flex; height:100vh; }
+    #network { flex:1; position:relative; background:#eef2f5; overflow:auto; }
+    #header { background:#446688; color:#fff; padding:10px; text-align:center; }
+    #controls { padding:8px; background:#fff; border-bottom:1px solid #ccc; text-align:center; }
+    #controls button { margin:0 5px; }
     #sidebar {
-      width: 300px; background: #fff; border-left: 1px solid #ccc;
-      padding: 15px; box-sizing: border-box; overflow-y: auto;
+      width:320px; background:#fff; border-left:1px solid #ccc;
+      padding:15px; box-sizing:border-box; overflow-y:auto;
     }
-    #sidebar.hidden { display: none; }
-    #header { background: #446688; color: #fff; padding: 10px; text-align: center; }
-    #controls { padding: 10px; background: #fff; border-bottom: 1px solid #ccc; text-align: center; }
-    #controls button { margin: 0 5px; }
-    label { display: block; margin-top: 10px; font-weight: bold; }
-    input, select, textarea { width: 100%; padding: 5px; margin-top: 4px; box-sizing: border-box; }
+    #sidebar.hidden { display:none; }
+    #sidebar h2 { margin-top:0; color:#334e68; }
+    label { display:block; margin:10px 0 4px; font-weight:bold; }
+    input, select, textarea, button {
+      width:100%; padding:6px; margin-bottom:8px; box-sizing:border-box;
+    }
     textarea { resize: vertical; }
-    .rel-buttons button { margin: 4px 2px; padding: 6px; }
+    .rel-buttons button { margin:4px 2px; }
   </style>
 </head>
 <body>
@@ -28,175 +31,231 @@
     <div id="header">🧬 OC Family Tree</div>
     <div id="controls">
       <button id="addRelTypeBtn">+ Add Rel Type</button>
+      <button id="linkModeBtn">🔗 Link Mode: Off</button>
     </div>
   </div>
 
   <div id="sidebar" class="hidden">
     <h2>Edit Character</h2>
-    <label>Name</label><input id="nName" />
-    <label>Age</label><input id="nAge" />
+    <label>Name</label><input id="nName"/>
+    <label>Age</label><input id="nAge"/>
     <label>Gender</label>
     <select id="nGender">
       <option value="">Unknown</option>
       <option value="male">Male</option>
       <option value="female">Female</option>
     </select>
-    <label>DOB</label><input id="nDOB" type="date" />
-    <label>DOD</label><input id="nDOD" type="date" />
+    <label>DOB</label><input id="nDOB" type="date"/>
+    <label>DOD</label><input id="nDOD" type="date"/>
     <label>Notes</label><textarea id="nNotes" rows="3"></textarea>
+
+    <label>Existing Character →</label>
+    <select id="linkTarget"><option value="">Select...</option></select>
+    <label>Relationship Type</label>
+    <select id="linkType"></select>
+    <button id="linkBtn">Link Selected</button>
 
     <div class="rel-buttons" id="relButtons"></div>
     <button id="saveBtn">Save</button>
-    <button id="deleteBtn" style="background:#c53;color:#fff;margin-top:10px;">Delete</button>
+    <button id="deleteBtn" style="background:#c53;color:#fff;">Delete</button>
   </div>
 
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <script>
-    // --- Data & Relationship Types ---
-    let idCount = 0;
-    function newId(){ return 'n'+(++idCount); }
-
-    const relTypes = [
-      { key:'parent',  label:'Parent', style:{dashes:false, color:'#000'} },
-      { key:'child',   label:'Child',  style:{dashes:false, color:'#000'} },
-      { key:'sibling', label:'Sibling',style:{dashes:false, color:'#000'} },
-      { key:'partner', label:'Partner',style:{dashes:true,  color:'#333'} },
-      { key:'affair',  label:'Affair', style:{dashes:true,  color:'#c00'} }
+    // --- Data & Rel Types ---
+    let idCount=0;
+    const newId=()=> 'n'+(++idCount);
+    const relTypes=[
+      {key:'parent',label:'Parent',style:{dashes:false,color:'#000'}},
+      {key:'child',label:'Child',style:{dashes:false,color:'#000'}},
+      {key:'sibling',label:'Sibling',style:{dashes:false,color:'#000'}},
+      {key:'partner',label:'Partner',style:{dashes:true,color:'#333'}},
+      {key:'affair',label:'Affair',style:{dashes:true,color:'#c00'}}
     ];
 
-    // Nodes & Edges
-    const nodes = new vis.DataSet();
-    const edges = new vis.DataSet();
-
-    // Initial root node
+    // vis Data
+    const nodes=new vis.DataSet(), edges=new vis.DataSet();
     nodes.add({
-      id: newId(),
-      label: 'Main OC',
-      name: 'Main OC', age:'', gender:'', dob:'', dod:'', notes:''
+      id:newId(), label:'Main OC', name:'Main OC', age:'', gender:'', dob:'', dod:'', notes:''
     });
 
-    // --- vis.js Network Setup ---
-    const container = document.getElementById('network');
-    const network = new vis.Network(container, { nodes, edges }, {
-      layout:{ hierarchical:false },
-      interaction:{ dragNodes:true, dragView:true, zoomView:true },
-      physics:{ enabled:false },
-      nodes:{ shape:'box', margin:10, color:{border:'#446688', background:'#fff'} },
-      edges:{ arrows:{ to:{enabled:true,type:'arrow'}}, smooth:{type:'straightCross'} }
-    });
+    // Network
+    const network=new vis.Network(
+      document.getElementById('network'),
+      { nodes, edges },
+      {
+        layout:{hierarchical:false},
+        interaction:{dragNodes:true,dragView:true,zoomView:true},
+        physics:{enabled:false},
+        nodes:{shape:'box',margin:10,font:{align:'left'}},
+        edges:{arrows:{to:{enabled:true,type:'arrow'}},smooth:{type:'straightCross'}}
+      }
+    );
 
-    // --- Sidebar References ---
-    const sidebar = document.getElementById('sidebar');
-    const fld = {
-      name:  document.getElementById('nName'),
-      age:   document.getElementById('nAge'),
-      gender:document.getElementById('nGender'),
-      dob:   document.getElementById('nDOB'),
-      dod:   document.getElementById('nDOD'),
-      notes: document.getElementById('nNotes')
-    };
-    const relButtons = document.getElementById('relButtons');
-    const saveBtn = document.getElementById('saveBtn');
-    const deleteBtn = document.getElementById('deleteBtn');
-    let selectedId = null;
+    // Sidebar refs
+    const sidebar=document.getElementById('sidebar');
+    const fld={ name:1,age:1,gender:1,dob:1,dod:1,notes:1 };
+    fld.name=document.getElementById('nName');
+    fld.age=document.getElementById('nAge');
+    fld.gender=document.getElementById('nGender');
+    fld.dob=document.getElementById('nDOB');
+    fld.dod=document.getElementById('nDOD');
+    fld.notes=document.getElementById('nNotes');
+    const relButtons=document.getElementById('relButtons');
+    const saveBtn=document.getElementById('saveBtn');
+    const deleteBtn=document.getElementById('deleteBtn');
+    const addRelTypeBtn=document.getElementById('addRelTypeBtn');
+    const linkModeBtn=document.getElementById('linkModeBtn');
+    const linkTarget=document.getElementById('linkTarget');
+    const linkType=document.getElementById('linkType');
+    const linkBtn=document.getElementById('linkBtn');
+    let selectedId=null, linkMode=false;
 
-    // --- Utility: Create relationship edge ---
-    function addRel(from, to, style) {
-      edges.add({ from, to,
-        dashes: style.dashes,
-        color: { color: style.color },
-        arrows: { to:{enabled:true,type:'arrow'} },
-        smooth: { type:'straightCross' }
+    // Populate linkType select
+    function refreshLinkType(){
+      linkType.innerHTML='';
+      relTypes.forEach(rt=>{
+        const o=document.createElement('option');
+        o.value=rt.key; o.textContent=rt.label;
+        linkType.appendChild(o);
       });
     }
 
-    // --- Handle Node Selection ---
-    network.on('selectNode', params => {
-      selectedId = params.nodes[0];
-      const data = nodes.get(selectedId);
-
-      // Populate fields
-      fld.name.value   = data.name;
-      fld.age.value    = data.age;
-      fld.gender.value = data.gender;
-      fld.dob.value    = data.dob;
-      fld.dod.value    = data.dod;
-      fld.notes.value  = data.notes;
-
-      // Build rel-buttons
-      relButtons.innerHTML = '';
-      relTypes.forEach(rt => {
-        const b = document.createElement('button');
-        b.textContent = rt.label;
-        b.onclick = () => {
-          const nid = newId();
-          nodes.add({
-            id: nid,
-            label: rt.label,
-            name: rt.label, age:'', gender:'', dob:'', dod:'', notes:''
-          });
-          // parent: edge → selected; child: selected → edge; sibling: link both ways via common parent?
-          if(rt.key==='parent')   addRel(nid, selectedId, rt.style);
-          if(rt.key==='child')    addRel(selectedId, nid, rt.style);
-          if(rt.key==='sibling') {
-            // find parents of selected, link new node to same parents
-            edges.get().filter(e=>e.to===selectedId && !e.dashes)
-                         .forEach(e=>addRel(e.from, nid, rt.style));
-          }
-          if(rt.key==='partner')  addRel(selectedId, nid, rt.style), addRel(nid, selectedId, rt.style);
-          if(rt.key==='affair')   addRel(selectedId, nid, rt.style), addRel(nid, selectedId, rt.style);
-        };
-        relButtons.appendChild(b);
-      });
-
-      // Show sidebar
-      sidebar.classList.remove('hidden');
-    });
-
-    network.on('deselectNode', ()=>{ selectedId = null; sidebar.classList.add('hidden'); });
-
-    // --- Save Edits ---
-    saveBtn.onclick = () => {
-      if (!selectedId) return;
-      const upd = { id: selectedId };
-      upd.name   = fld.name.value;
-      upd.age    = fld.age.value;
-      upd.gender = fld.gender.value;
-      upd.dob    = fld.dob.value;
-      upd.dod    = fld.dod.value;
-      upd.notes  = fld.notes.value;
-
-      // Reconstruct label (multi-line)
-      let lbl = upd.name;
-      if (upd.age)    lbl += '\\nAge: ' + upd.age;
-      if (upd.dob)    lbl += '\\nBorn: ' + upd.dob;
-      if (upd.dod)    lbl += '\\nDied: ' + upd.dod;
-      upd.label = lbl;
-
-      // Node color by gender
-      if (upd.gender==='male')    upd.color = {border:'#4b8bbe',background:'#eef4fc'};
-      if (upd.gender==='female')  upd.color = {border:'#d2527f',background:'#fdeef4'};
-      nodes.update(upd);
+    // Toggle link mode
+    linkModeBtn.onclick=()=>{
+      linkMode = !linkMode;
+      linkModeBtn.textContent = '🔗 Link Mode: ' + (linkMode?'On':'Off');
     };
 
-    // --- Delete Node ---
-    deleteBtn.onclick = () => {
-      if (!selectedId) return;
-      nodes.remove({ id: selectedId });
-      edges.get().forEach(e => {
-        if (e.from===selectedId || e.to===selectedId) edges.remove(e.id);
+    // Add custom rel type
+    addRelTypeBtn.onclick=()=>{
+      const label=prompt('New relationship label?');
+      if(!label)return;
+      const key=label.toLowerCase().replace(/\\s+/g,'');
+      relTypes.push({key,label,style:{dashes:false,color:'#555'}});
+      refreshLinkType();
+      buildRelButtons();
+    };
+
+    // Handle network clicks for link mode
+    network.on('click', params=>{
+      if(linkMode && params.nodes.length){
+        const id=params.nodes[0];
+        if(!selectedId) {
+          selectedId = id;
+          alert('Source selected. Now click another node or use the dropdown.');
+        } else {
+          applyLink(id, linkTypesEl.value);
+          selectedId=null;
+        }
+      }
+    });
+
+    // Node select
+    network.on('selectNode', params=>{
+      selectedId=params.nodes[0];
+      const d=nodes.get(selectedId);
+      // fill fields
+      fld.name.value=d.name;
+      fld.age.value=d.age;
+      fld.gender.value=d.gender;
+      fld.dob.value=d.dob;
+      fld.dod.value=d.dod;
+      fld.notes.value=d.notes;
+      // populate linkTarget
+      linkTarget.innerHTML='<option value="">Select...</option>';
+      nodes.forEach(n=>{
+        if(n.id!==selectedId){
+          const o=document.createElement('option');
+          o.value=n.id; o.textContent=n.name;
+          linkTarget.appendChild(o);
+        }
       });
+      refreshLinkType();
+      buildRelButtons();
+      sidebar.classList.remove('hidden');
+    });
+    network.on('deselectNode',()=>{ selectedId=null; sidebar.classList.add('hidden'); });
+
+    // Save edits
+    saveBtn.onclick=()=>{
+      if(!selectedId)return;
+      const upd={id:selectedId};
+      upd.name=fld.name.value;
+      upd.age=fld.age.value;
+      upd.gender=fld.gender.value;
+      upd.dob=fld.dob.value;
+      upd.dod=fld.dod.value;
+      upd.notes=fld.notes.value;
+      let label=upd.name;
+      if(upd.age)    label+='\nAge: '+upd.age;
+      if(upd.dob)    label+='\nBorn: '+upd.dob;
+      if(upd.dod)    label+='\nDied: '+upd.dod;
+      upd.label=label;
+      if(upd.gender==='male')    upd.color={border:'#4b8bbe',background:'#eef4fc'};
+      if(upd.gender==='female')  upd.color={border:'#d2527f',background:'#fdeef4'};
+      nodes.update(upd);
+    };
+    // Delete
+    deleteBtn.onclick=()=>{
+      if(!selectedId)return;
+      nodes.remove(selectedId);
+      edges.get().forEach(e=>{ if(e.from===selectedId||e.to===selectedId)edges.remove(e.id); });
       sidebar.classList.add('hidden');
     };
 
-    // --- Add Rel Type ---
-    document.getElementById('addRelTypeBtn').onclick = () => {
-      const label = prompt('New relationship type label (e.g. "Godparent")');
-      if (!label) return;
-      const key = label.toLowerCase().replace(/\\s+/g,'');
-      relTypes.push({ key, label, style:{ dashes:false, color:'#555'} });
-      if (selectedId) network.selectNodes([selectedId]); // rebuild sidebar
+    // Build sidebar rel-buttons
+    function buildRelButtons(){
+      relButtons.innerHTML='';
+      relTypes.forEach(rt=>{
+        const b=document.createElement('button');
+        b.textContent=rt.label;
+        b.onclick=e=>{
+          e.stopPropagation();
+          if(!selectedId)return;
+          const nid=newId();
+          nodes.add({id:nid,label:rt.label,name:rt.label,age:'',gender:'',dob:'',dod:'',notes:''});
+          if(rt.key==='parent')   linkNodes(nid,selectedId,rt.style);
+          else if(rt.key==='child')linkNodes(selectedId,nid,rt.style);
+          else if(rt.key==='sibling'){
+            edges.get({filter:e=>e.to===selectedId&&!e.dashes})
+                 .forEach(e2=>linkNodes(e2.from,nid,rt.style));
+          } else if(rt.key==='partner'||rt.key==='affair'){
+            linkNodes(selectedId,nid,rt.style);
+            linkNodes(nid,selectedId,rt.style);
+          } else {
+            // custom: one-way
+            linkNodes(selectedId,nid,rt.style);
+          }
+        };
+        relButtons.appendChild(b);
+      });
+    }
+
+    // Link via relButtons or link form
+    function linkNodes(f,t,style){
+      edges.add({from:f,to:t,dashes:style.dashes,color:{color:style.color},arrows:{to:{enabled:true,type:'arrow'}}});
+    }
+    function applyLink(targetId, relKey){
+      if(!selectedId||!targetId||!relKey)return;
+      const rt=relTypes.find(r=>r.key===relKey);
+      if(rt.key==='parent')   linkNodes(targetId,selectedId,rt.style);
+      if(rt.key==='child')    linkNodes(selectedId,targetId,rt.style);
+      if(rt.key==='sibling'){
+        edges.get({filter:e=>e.to===selectedId&&!e.dashes})
+             .forEach(e2=>linkNodes(e2.from,targetId,rt.style));
+      }
+      if(rt.key==='partner'||rt.key==='affair'){
+        linkNodes(selectedId,targetId,rt.style);
+        linkNodes(targetId,selectedId,rt.style);
+      }
+    }
+    linkBtn.onclick=()=>{
+      applyLink(linkTarget.value, linkType.value);
     };
+
+    // Kickoff
+    render();
   </script>
 </body>
 </html>

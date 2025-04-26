@@ -18,17 +18,33 @@
       padding:6px; font-size:0.9em;
     }
     #display {
+      position: relative;
       display:flex; align-items:flex-end;
       justify-content:center; height: calc(100vh - 120px);
       overflow-x:auto; padding:20px;
+      /* backdrop: repeating ticks every 30px */
+      background: 
+        repeating-linear-gradient(
+          to top, 
+          transparent, 
+          transparent 29px, 
+          #ccc 30px
+        );
     }
     .char {
+      position: relative;
       margin:0 12px; text-align:center;
       border:3px solid #4a90e2; border-radius:6px;
       padding:6px; background:#fff;
+      z-index: 1; /* above backdrop */
     }
-    .char img {
-      display:block; max-width:80px;
+    .char img, .char .placeholder {
+      display:block; margin:0 auto;
+      max-width:80px;
+    }
+    .char .placeholder {
+      background:#ccc;
+      width:80px;
     }
     .label {
       margin-bottom:8px;
@@ -77,6 +93,7 @@
     const addBtn   = document.getElementById('addBtn');
     const display  = document.getElementById('display');
 
+    // toggle inputs by unit
     unitEl.onchange = () => {
       if (unitEl.value === 'cm') {
         cmGroup.style.display = ''; ftGroup.style.display = 'none';
@@ -91,7 +108,7 @@
       const file  = fileEl.files[0];
       let cm, totalInches;
 
-      if (!name || !file) return alert('Name + image are required.');
+      if (!name) return alert('Name is required.');
 
       if (unitEl.value === 'cm') {
         cm = parseFloat(cmEl.value);
@@ -105,13 +122,21 @@
         cm = totalInches * 2.54;
       }
 
-      const reader = new FileReader();
-      reader.onload = e => {
-        characters.push({ name, cm, inches: totalInches, img: e.target.result, color });
+      // proceed to push character, img optional
+      const reader = file && new FileReader();
+      if (reader) {
+        reader.onload = e => {
+          characters.push({ name, cm, inches: totalInches, img: e.target.result, color });
+          render();
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // no image → placeholder
+        characters.push({ name, cm, inches: totalInches, img: null, color });
         render();
-      };
-      reader.readAsDataURL(file);
+      }
 
+      // reset inputs
       nameEl.value = '';
       cmEl.value = ''; ftEl.value = ''; inEl.value = '';
       fileEl.value = '';
@@ -120,12 +145,15 @@
     function render() {
       display.innerHTML = '';
       if (!characters.length) return;
+
       const maxCm = Math.max(...characters.map(c=>c.cm));
+
       characters.forEach(c => {
         const div = document.createElement('div');
         div.className = 'char';
         div.style.borderColor = c.color;
 
+        // build label
         const ft = Math.floor(c.inches/12);
         const inch = Math.round(c.inches % 12);
         const lbl = document.createElement('div');
@@ -136,12 +164,20 @@
           `${ft}′ ${inch}″`;
         div.appendChild(lbl);
 
+        // compute px height
         const hPx = (c.cm / maxCm) * 300;
-        const img = document.createElement('img');
-        img.src = c.img;
-        img.style.height = hPx + 'px';
 
-        div.appendChild(img);
+        if (c.img) {
+          const img = document.createElement('img');
+          img.src = c.img;
+          img.style.height = hPx + 'px';
+          div.appendChild(img);
+        } else {
+          const ph = document.createElement('div');
+          ph.className = 'placeholder';
+          ph.style.height = hPx + 'px';
+          div.appendChild(ph);
+        }
         display.appendChild(div);
       });
     }

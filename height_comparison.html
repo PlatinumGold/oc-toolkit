@@ -77,7 +77,6 @@
     const addBtn   = document.getElementById('addBtn');
     const display  = document.getElementById('display');
 
-    // toggle inputs by unit
     unitEl.onchange = () => {
       if (unitEl.value === 'cm') {
         cmGroup.style.display = ''; ftGroup.style.display = 'none';
@@ -113,7 +112,6 @@
       };
       reader.readAsDataURL(file);
 
-      // reset
       nameEl.value = '';
       cmEl.value = ''; ftEl.value = ''; inEl.value = '';
       fileEl.value = '';

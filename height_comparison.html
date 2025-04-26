@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OC Height Comparison</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
+    header {
+      background:#4a90e2; color:#fff;
+      padding:12px; text-align:center; font-size:1.3em;
+    }
+    #toolbar {
+      background:#fff; border-bottom:1px solid #ccc;
+      padding:10px; display:flex; align-items:center; gap:10px;
+    }
+    #toolbar input, #toolbar button {
+      padding:6px; font-size:0.9em;
+    }
+    #display {
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      height: calc(100vh - 120px);
+      overflow-x:auto;
+      padding:20px;
+    }
+    .char {
+      margin:0 10px;
+      text-align:center;
+    }
+    .char img {
+      display:block;
+      max-width:100px;
+      /* height will be set dynamically inline */
+    }
+    .char label {
+      margin-top:6px;
+      display:block;
+      font-size:0.9em;
+    }
+  </style>
+</head>
+<body>
+
+  <header>📏 OC Height Comparison</header>
+
+  <div id="toolbar">
+    <input id="nameInput"    type="text"    placeholder="Name…" />
+    <input id="heightInput"  type="number"  placeholder="Height (in)" />
+    <input id="fileInput"    type="file"    accept="image/*" />
+    <button id="addBtn">Add Character</button>
+  </div>
+
+  <div id="display">
+    <!-- JS will inject .char elements here -->
+  </div>
+
+  <script>
+    // --- Data store ---
+    const characters = [];
+
+    // --- Element refs ---
+    const nameEl   = document.getElementById('nameInput');
+    const heightEl = document.getElementById('heightInput');
+    const fileEl   = document.getElementById('fileInput');
+    const addBtn   = document.getElementById('addBtn');
+    const display  = document.getElementById('display');
+
+    // --- Add character handler ---
+    addBtn.onclick = () => {
+      const name   = nameEl.value.trim();
+      const height = parseFloat(heightEl.value);
+      const file   = fileEl.files[0];
+
+      if (!name || isNaN(height) || !file) {
+        return alert('Please enter name, height, and choose an image.');
+      }
+
+      // Read the uploaded image as a data URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        characters.push({
+          name,
+          heightInInches: height,
+          imgSrc: e.target.result
+        });
+        render();
+      };
+      reader.readAsDataURL(file);
+
+      // clear inputs
+      nameEl.value = '';
+      heightEl.value = '';
+      fileEl.value = '';
+    };
+
+    // --- Render function ---
+    function render() {
+      // sort by height descending
+      characters.sort((a,b) => b.heightInInches - a.heightInInches);
+      display.innerHTML = '';
+
+      // find max height to scale relative
+      const maxH = Math.max(...characters.map(c=>c.heightInInches), 1);
+
+      characters.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'char';
+
+        // scale height: e.g. max image height = 300px
+        const hPx = (c.heightInInches / maxH) * 300;
+
+        const img = document.createElement('img');
+        img.src = c.imgSrc;
+        img.style.height = hPx + 'px';
+
+        const lbl = document.createElement('label');
+        lbl.textContent = `${c.name}\n${c.heightInInches}"`;
+
+        div.appendChild(img);
+        div.appendChild(lbl);
+        display.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

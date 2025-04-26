@@ -4,34 +4,39 @@
   <meta charset="UTF-8">
   <title>OC Family Tree</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; margin:0; padding:0; }
-    #toolbar { background:#334e68; padding:10px; color:#fff; display:flex; }
-    #toolbar button { margin-right:8px; padding:6px 10px; font-size:0.9em; cursor:pointer; }
+    body { margin:0; font-family:Arial,sans-serif; }
+    #toolbar {
+      background: #334e68; color: #fff; padding: 8px;
+      display: flex; align-items: center;
+    }
+    #toolbar button {
+      margin-right: 8px; padding: 6px 10px; font-size: 0.9em; cursor:pointer;
+    }
     #treeContainer {
       height: calc(100vh - 40px);
       overflow: auto;
+      background: #eef2f5;
       padding: 20px;
+      box-sizing: border-box;
     }
-    .tree { display:flex; flex-direction:column; align-items:center; }
-    .row  { display:flex; justify-content:center; align-items:center; }
-    .line { width:2px; height:20px; background:#000; margin:0 auto; }
+    .tree { display: flex; flex-direction: column; align-items: center; }
+    .row  { display: flex; justify-content: center; align-items: center; }
+    .line  { width: 2px; height: 20px; background: #000; margin: 0 auto; }
     .node {
-      background:#fff;
-      border:2px solid #334e68;
-      border-radius:6px;
-      padding:10px;
-      margin:10px;
-      min-width:120px;
-      text-align:center;
+      background: #fff; border: 2px solid #334e68;
+      padding: 10px; margin: 10px; min-width: 140px;
+      border-radius: 6px; position: relative;
     }
-    .fields input, .fields select, .fields textarea {
-      width:90%; margin:4px 0; padding:4px; font-size:0.9em;
-      box-sizing:border-box;
+    .fields input,
+    .fields select,
+    .fields textarea {
+      width: 90%; margin: 4px 0; padding: 4px; font-size:0.9em;
+      box-sizing: border-box;
     }
-    .fields textarea { resize:vertical; }
-    .buttons { margin-top:6px; }
+    .fields textarea { resize: vertical; }
+    .buttons { margin-top: 6px; }
     .buttons button {
-      margin:2px; padding:4px 6px; font-size:0.8em; cursor:pointer;
+      margin:2px; padding:4px 6px; font-size:0.85em; cursor:pointer;
     }
   </style>
 </head>
@@ -44,34 +49,38 @@
   <div id="treeContainer"></div>
 
   <script>
-    // --- Setup IDs & rel-types ---
+    // --- ID generator & relationship types ---
     let idCounter = 0;
-    const genId = () => 'n' + (++idCounter);
+    const genId = ()=> 'n'+(++idCounter);
 
+    // initial rel types
     const relTypes = [
-      {key:'parent',label:'Parent'},
-      {key:'sibling',label:'Sibling'},
-      {key:'partner',label:'Partner'},
-      {key:'affair',label:'Affair'},
-      {key:'child',label:'Child'}
+      { key:'parent',  label:'Parent', style:{dashes:false, color:'#000'} },
+      { key:'sibling', label:'Sibling',style:{dashes:false, color:'#000'} },
+      { key:'partner', label:'Partner',style:{dashes:true,  color:'#333'} },
+      { key:'affair',  label:'Affair', style:{dashes:true,  color:'#c00'} },
+      { key:'child',   label:'Child',  style:{dashes:false, color:'#000'} }
     ];
 
-    // Add custom rel type
-    document.getElementById('addRelTypeBtn').onclick = ()=>{
+    // toolbar: add custom rel type
+    document.getElementById('addRelTypeBtn').onclick = () => {
       const label = prompt('New relationship label?');
       if (!label) return;
-      const key = label.toLowerCase().replace(/\\s+/g,'');
-      relTypes.splice(relTypes.length-1, 0, {key,label});
-      render();  // re-draw buttons on all nodes
+      const key = label.toLowerCase().replace(/\s+/g,'');
+      // insert before 'child' so child stays last
+      const idx = relTypes.findIndex(r=>r.key==='child');
+      relTypes.splice(idx, 0, { key, label, style:{ dashes:false, color:'#555' } });
+      render(); // re-draw so new buttons appear
     };
 
-    // --- Tree Data Model ---
+    // --- Tree data model ---
     const treeData = {
-      id: genId(), name:'Main OC', age:'', gender:'', dob:'', dod:'', notes:'',
+      id: genId(),
+      name: 'Main OC', age:'', gender:'', dob:'', dod:'', notes:'',
       parents:[], siblings:[], partners:[], affairs:[], children:[]
     };
 
-    // --- Render Function ---
+    // --- Rendering ---
     function render() {
       const container = document.getElementById('treeContainer');
       container.innerHTML = '';
@@ -82,60 +91,74 @@
       const wrap = document.createElement('div');
       wrap.className = 'tree';
 
-      // Parents row
+      // Parents
       if (d.parents.length) {
-        const pr = document.createElement('div'); pr.className = 'row';
-        d.parents.forEach(p => pr.appendChild(makeNode(p)));
+        const pr = document.createElement('div'); pr.className='row';
+        d.parents.forEach(p=>pr.appendChild(makeNode(p)));
         wrap.appendChild(pr);
         wrap.appendChild(Object.assign(document.createElement('div'),{className:'line'}));
       }
 
-      // Center row: siblings -> this node -> partners/affairs
-      const cr = document.createElement('div'); cr.className = 'row';
+      // Center row: siblings, this node, partners, affairs
+      const cr = document.createElement('div'); cr.className='row';
+      d.siblings.forEach(s=>cr.appendChild(makeNode(s)));
 
-      d.siblings.forEach(s => cr.appendChild(makeNode(s)));
+      // This person
+      const nd = document.createElement('div'); nd.className='node';
 
-      // This person box
-      const nd = document.createElement('div');
-      nd.className = 'node';
-
-      // Editable fields
-      const f = document.createElement('div');
-      f.className = 'fields';
-      // name, age, gender, dob, dod, notes
-      const inName = Object.assign(document.createElement('input'),{placeholder:'Name',value:d.name});
+      // fields container
+      const f = document.createElement('div'); f.className='fields';
+      // name
+      const inName = Object.assign(document.createElement('input'),{
+        placeholder:'Name', value:d.name
+      });
       inName.onblur = ()=>d.name = inName.value;
-      const inAge  = Object.assign(document.createElement('input'),{placeholder:'Age',value:d.age});
+      // age
+      const inAge = Object.assign(document.createElement('input'),{
+        placeholder:'Age', value:d.age
+      });
       inAge.onblur = ()=>d.age = inAge.value;
+      // gender
       const selGen = document.createElement('select');
       ['', 'male','female'].forEach(v=>{
-        const o = document.createElement('option'); o.value=v; o.textContent=v||'Gender';
-        if (d.gender === v) o.selected = true;
+        const o=document.createElement('option'); o.value=v; o.textContent=v||'Gender';
+        if (d.gender===v) o.selected=true;
         selGen.appendChild(o);
       });
       selGen.onchange = ()=>d.gender = selGen.value;
-      const inDOB  = Object.assign(document.createElement('input'),{type:'date',value:d.dob});
+      // DOB
+      const inDOB = Object.assign(document.createElement('input'),{
+        type:'date', value:d.dob
+      });
       inDOB.onblur = ()=>d.dob = inDOB.value;
-      const inDOD  = Object.assign(document.createElement('input'),{type:'date',value:d.dod});
+      // DOD
+      const inDOD = Object.assign(document.createElement('input'),{
+        type:'date', value:d.dod
+      });
       inDOD.onblur = ()=>d.dod = inDOD.value;
-      const taNotes= document.createElement('textarea'); taNotes.rows=2; taNotes.placeholder='Notes'; taNotes.value=d.notes;
-      taNotes.onblur = ()=>d.notes = taNotes.value;
+      // notes
+      const ta = document.createElement('textarea');
+      ta.rows=2; ta.placeholder='Notes'; ta.value=d.notes;
+      ta.onblur = ()=>d.notes = ta.value;
 
-      [inName,inAge,selGen,inDOB,inDOD,taNotes].forEach(el=>f.appendChild(el));
+      [inName, inAge, selGen, inDOB, inDOD, ta].forEach(el=>f.appendChild(el));
       nd.appendChild(f);
 
-      // Buttons for each relationship type + delete
+      // buttons
       const btns = document.createElement('div'); btns.className='buttons';
       relTypes.forEach(rt=>{
-        const b = document.createElement('button'); b.textContent=rt.label;
-        b.onclick = e=>{
+        const b = document.createElement('button');
+        b.textContent = rt.label;
+        b.onclick = e => {
           e.stopPropagation();
           addRel(d, rt.key);
           render();
         };
         btns.appendChild(b);
       });
-      const bd = document.createElement('button'); bd.textContent='Delete';
+      // delete
+      const bd = document.createElement('button');
+      bd.textContent = 'Delete';
       bd.onclick = e=>{
         e.stopPropagation();
         deleteNode(treeData, d.id);
@@ -146,34 +169,38 @@
       nd.appendChild(btns);
       cr.appendChild(nd);
 
+      // partners
       d.partners.forEach(p=>cr.appendChild(makeNode(p)));
+      // affairs
       d.affairs.forEach(a=>cr.appendChild(makeNode(a)));
 
       wrap.appendChild(cr);
 
-      // Children row
+      // children
       if (d.children.length) {
         wrap.appendChild(Object.assign(document.createElement('div'),{className:'line'}));
         const cr2 = document.createElement('div'); cr2.className='row';
-        d.children.forEach(c=>cr2.appendChild(makeNode(c)));
+        d.children.forEach(c2=>cr2.appendChild(makeNode(c2)));
         wrap.appendChild(cr2);
       }
 
       return wrap;
     }
 
-    function addRel(node,type) {
+    function addRel(node, type) {
       const np = {
         id: genId(), name:type, age:'', gender:'', dob:'', dod:'', notes:'',
         parents:[], siblings:[], partners:[], affairs:[], children:[]
       };
       switch(type) {
-        case 'parent':   node.parents.push(np);                    break;
-        case 'sibling':  node.siblings.push(np);                   break;
-        case 'partner':  node.partners.push(np);                   break;
-        case 'affair':   node.affairs.push(np);                    break;
+        case 'parent':   node.parents.push(np); break;
+        case 'sibling':  node.siblings.push(np); break;
+        case 'partner':  node.partners.push(np); break;
+        case 'affair':   node.affairs.push(np); break;
         case 'child':    node.children.push(np); np.parents.push(node); break;
-        default:         node[type+'s'] = node[type+'s']||[]; node[type+'s'].push(np);
+        default:
+          node[type+'s'] = node[type+'s']||[];
+          node[type+'s'].push(np);
       }
     }
 
@@ -187,9 +214,7 @@
       });
     }
 
-    // Kick things off
-    const tc = document.getElementById('treeContainer');
-    tc.style.overflow = 'auto';
+    // initial render
     render();
   </script>
 </body>

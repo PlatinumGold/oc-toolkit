@@ -4,157 +4,236 @@
   <meta charset="UTF-8">
   <title>OC Family Tree</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
-    h1, p { text-align: center; color: #333; }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; }
+    #toolbar {
+      background: #334e68; color: #fff; padding: 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    #toolbar input, #toolbar button {
+      padding: 5px; font-size: 0.9em;
+    }
+    #treeContainer {
+      overflow: hidden; /* pan/zoom viewport */
+      position: relative; width: 100%; height: calc(100vh - 40px);
+      background: #eef2f5;
+      cursor: grab;
+      transform-origin: 0 0;
+    }
     .tree { display: flex; flex-direction: column; align-items: center; }
     .row { display: flex; justify-content: center; margin: 20px 0; }
     .node {
-      background: #fff; border: 2px solid #333; padding: 10px; margin: 10px;
-      min-width: 120px; text-align: center; border-radius: 8px; position: relative;
+      background: #fff; border: 2px solid #333; padding: 10px;
+      margin: 10px; min-width: 120px; text-align: center;
+      border-radius: 8px; position: relative;
     }
-    .node .fields { margin-bottom: 8px; }
-    .node .fields input,
-    .node .fields select {
-      width: 90%; margin: 2px 0; padding: 4px; font-size: 0.9em;
+    .node .fields { margin-bottom: 6px; }
+    .node .fields input, .node .fields select, .node .fields textarea {
+      width: 90%; margin: 2px 0; padding: 4px; font-size: 0.85em;
     }
-    .buttons { margin-top: 8px; }
+    .buttons { margin-top: 6px; }
     .buttons button {
-      margin: 2px; padding: 4px 6px; font-size: 0.8em; cursor: pointer;
+      margin: 2px; padding: 3px 5px; font-size: 0.75em; cursor: pointer;
     }
-    .line-vert {
-      height: 20px; width: 2px; background: #000; margin: auto;
-    }
+    .line-vert { height: 20px; width: 2px; background: #000; margin: auto; }
+    .highlight { box-shadow: 0 0 10px #f39c12; }
   </style>
 </head>
 <body>
-  <h1>OC Family Tree</h1>
-  <p>Use the buttons below each person to add or remove relations. Edit fields inline.</p>
-  <div id="treeContainer" class="tree"></div>
+
+  <div id="toolbar">
+    <button id="undoBtn" disabled>Undo</button>
+    <button id="redoBtn" disabled>Redo</button>
+    <input id="searchInput" placeholder="Search name…" />
+    <button id="addRelTypeBtn">+Rel Type</button>
+  </div>
+
+  <div id="treeContainer"></div>
 
   <script>
-    let idCounter = 0;
-    function genId() { return 'n_' + idCounter++; }
-
-    // Initial data
-    const treeData = {
-      id: genId(), name: 'Main OC', age: '', gender: '', dob: '', dod: '',
-      parents: [], siblings: [], partners: [], affairs: [], children: []
-    };
-
-    // Render entire tree
-    function render() {
-      const cont = document.getElementById('treeContainer');
-      cont.innerHTML = '';
-      cont.appendChild(makeNode(treeData));
+    // --- Data & History ---
+    let history = [], hIndex = -1;
+    function snapshot() {
+      // deep copy treeData
+      history = history.slice(0, hIndex+1);
+      history.push(JSON.parse(JSON.stringify(treeData)));
+      hIndex++;
+      updateUndoRedo();
+    }
+    function undo() {
+      if (hIndex>0) {
+        hIndex--;
+        Object.assign(treeData, JSON.parse(JSON.stringify(history[hIndex])));
+        render();
+      }
+      updateUndoRedo();
+    }
+    function redo() {
+      if (hIndex<history.length-1) {
+        hIndex++;
+        Object.assign(treeData, JSON.parse(JSON.stringify(history[hIndex])));
+        render();
+      }
+      updateUndoRedo();
+    }
+    function updateUndoRedo() {
+      document.getElementById('undoBtn').disabled = hIndex<=0;
+      document.getElementById('redoBtn').disabled = hIndex>=history.length-1;
     }
 
-    // Recursive builder
+    // --- Zoom & Pan ---
+    const tc = document.getElementById('treeContainer');
+    let scale=1, originX=0, originY=0, isPanning=false, startX, startY;
+    function updateTransform() {
+      tc.style.transform = `translate(${originX}px,${originY}px) scale(${scale})`;
+    }
+    tc.addEventListener('wheel', e => {
+      e.preventDefault();
+      const delta = -e.deltaY/500;
+      scale = Math.min(Math.max(0.2, scale+delta), 3);
+      updateTransform();
+    });
+    tc.addEventListener('mousedown', e => {
+      isPanning=true; startX=e.clientX-originX; startY=e.clientY-originY;
+      tc.style.cursor='grabbing';
+    });
+    window.addEventListener('mousemove', e => {
+      if(isPanning){ originX=e.clientX-startX; originY=e.clientY-startY; updateTransform(); }
+    });
+    window.addEventListener('mouseup', () => { isPanning=false; tc.style.cursor='grab'; });
+
+    // --- Custom Rel Types ---
+    let relTypes = [
+      { key:'partner', label:'Partner', style:{dashed:true,color:'#333'} },
+      { key:'affair',  label:'Affair',  style:{dashed:true,color:'#c00'} }
+    ];
+    function addRelType() {
+      const label = prompt('Relationship label? e.g. "Godparent"');
+      if(!label) return;
+      relTypes.push({ key:label.toLowerCase(), label, style:{dashed:false,color:'#555'} });
+      render();
+    }
+
+    // Toolbar buttons
+    document.getElementById('undoBtn').onclick = undo;
+    document.getElementById('redoBtn').onclick = redo;
+    document.getElementById('searchInput').oninput = e => {
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll('.node').forEach(n => {
+        n.classList.toggle('highlight', n.dataset.name.toLowerCase().includes(q) && q);
+      });
+    };
+    document.getElementById('addRelTypeBtn').onclick = addRelType;
+
+    // --- Tree Data Model ---
+    function genId(){return 'n_'+Math.random().toString(36).substr(2,9);}
+    const treeData = {
+      id: genId(), name:'Main OC', age:'', gender:'', dob:'', dod:'',
+      parents:[], siblings:[], partners:[], affairs:[], children:[], notes:''
+    };
+
+    // --- Render Logic ---
+    function render() {
+      snapshot();
+      const c = document.getElementById('treeContainer');
+      c.innerHTML = '';
+      c.appendChild(makeNode(treeData));
+      updateTransform();
+    }
+
     function makeNode(d) {
       const wrap = document.createElement('div');
-      wrap.className = 'tree';
+      wrap.className='tree';
 
-      // Parents
-      if (d.parents.length) {
-        const pr = document.createElement('div'); pr.className='row';
+      if(d.parents.length) {
+        const pr=document.createElement('div');pr.className='row';
         d.parents.forEach(p=>pr.appendChild(makeNode(p)));
         wrap.appendChild(pr);
         wrap.appendChild(Object.assign(document.createElement('div'),{className:'line-vert'}));
       }
 
-      // Center row: siblings, this node, partners, affairs
-      const cr = document.createElement('div'); cr.className='row';
+      const cr=document.createElement('div');cr.className='row';
       d.siblings.forEach(s=>cr.appendChild(makeNode(s)));
 
-      // This person
-      const nd = document.createElement('div'); nd.className='node';
+      // Person node
+      const nd=document.createElement('div');nd.className='node';nd.dataset.name=d.name;
 
-      // Fields: name, age, gender, dob, dod
-      const f = document.createElement('div'); f.className='fields';
-      // name
-      const inName = Object.assign(document.createElement('input'), {
-        value: d.name, placeholder:'Name'
+      // Fields
+      const f=document.createElement('div');f.className='fields';
+      ['name','age','gender','dob','dod','notes'].forEach(key=>{
+        let inp;
+        if(key==='gender') {
+          inp=document.createElement('select');
+          ['','male','female'].forEach(v=>{
+            const o=document.createElement('option');o.value=v;o.textContent=v||'Gender';
+            if(d.gender===v) o.selected=true;
+            inp.appendChild(o);
+          });
+        } else if(key==='notes') {
+          inp=document.createElement('textarea');
+          inp.rows=2; inp.placeholder='Notes';
+          inp.value=d.notes;
+        } else {
+          inp=document.createElement('input');
+          inp.placeholder=key.charAt(0).toUpperCase()+key.slice(1);
+          if(key!=='notes') inp.value=d[key];
+        }
+        inp.onblur = ()=>{ d[key]=inp.value; };
+        f.appendChild(inp);
       });
-      inName.onblur = ()=>d.name=inName.value;
-      // age
-      const inAge = Object.assign(document.createElement('input'), {
-        value: d.age, placeholder:'Age'
-      });
-      inAge.onblur = ()=>d.age=inAge.value;
-      // gender
-      const inGen = document.createElement('select');
-      ['','male','female'].forEach(v=>{
-        const o=document.createElement('option'); o.value=v; o.textContent=v||'Gender';
-        if(v===d.gender) o.selected=true;
-        inGen.appendChild(o);
-      });
-      inGen.onchange = ()=>d.gender=inGen.value;
-      // dob/dod
-      const inDOB = Object.assign(document.createElement('input'), {
-        type:'date', value:d.dob
-      }); inDOB.onblur = ()=>d.dob=inDOB.value;
-      const inDOD = Object.assign(document.createElement('input'), {
-        type:'date', value:d.dod
-      }); inDOD.onblur = ()=>d.dod=inDOD.value;
-
-      [inName,inAge,inGen,inDOB,inDOD].forEach(x=>f.appendChild(x));
       nd.appendChild(f);
 
       // Buttons
-      const btns = document.createElement('div'); btns.className='buttons';
-      [['Parent','parent'],['Sibling','sibling'],['Partner','partner'],
-       ['Affair','affair'],['Child','child'],['Delete','delete']]
-      .forEach(([label,type])=>{
+      const btns=document.createElement('div');btns.className='buttons';
+      ['parent','sibling',...relTypes.map(rt=>rt.key),'child','delete'].forEach(type=>{
+        const rt = relTypes.find(r=>r.key===type);
         const b=document.createElement('button');
-        b.textContent=label;
-        b.onclick=e=>{
-          e.stopPropagation();
-          if(type==='delete') return deleteNode(treeData, d.id), render();
-          addRel(d,type);
-          render();
-        };
+        b.textContent= rt? rt.label : type.charAt(0).toUpperCase()+type.slice(1);
+        b.onclick=e=>{e.stopPropagation(); handleRel(d,type); render();};
         btns.appendChild(b);
       });
       nd.appendChild(btns);
-      cr.appendChild(nd);
 
+      cr.appendChild(nd);
       d.partners.forEach(p=>cr.appendChild(makeNode(p)));
       d.affairs.forEach(a=>cr.appendChild(makeNode(a)));
 
       wrap.appendChild(cr);
 
-      // Children
-      if (d.children.length) {
+      if(d.children.length){
         wrap.appendChild(Object.assign(document.createElement('div'),{className:'line-vert'}));
-        const cr2 = document.createElement('div'); cr2.className='row';
-        d.children.forEach(c=> cr2.appendChild(makeNode(c)));
+        const cr2=document.createElement('div');cr2.className='row';
+        d.children.forEach(c2=>cr2.appendChild(makeNode(c2)));
         wrap.appendChild(cr2);
       }
 
       return wrap;
     }
 
-    // Add relationship
-    function addRel(node,type) {
-      const np = { id:genId(), name:type, age:'', gender:'', dob:'', dod:'',
-                   parents:[], siblings:[], partners:[], affairs:[], children:[] };
-      node[type+'s'].push(np);
-      // If adding a child, also link as parent:
-      if(type==='child') np.parents.push(node);
+    // --- Relationship Handler ---
+    function handleRel(node,type){
+      if(type==='delete') return deleteNode(treeData,node.id);
+      const newNode={ id:genId(), name:type, age:'', gender:'', dob:'', dod:'', parents:[], siblings:[], partners:[], affairs:[], children:[], notes:''};
+      switch(type){
+        case 'parent': node.parents.push(newNode); break;
+        case 'sibling': node.siblings.push(newNode); break;
+        case 'child': node.children.push(newNode); newNode.parents.push(node); break;
+        default:
+          const rt = relTypes.find(r=>r.key===type);
+          if(rt) node[rt.key+'s'] = node[rt.key+'s']||[] , node[rt.key+'s'].push(newNode);
+      }
     }
 
-    // Delete a node by id from the structure
-    function deleteNode(parent, id) {
+    function deleteNode(parent,id){
       ['parents','siblings','partners','affairs','children'].forEach(rel=>{
         parent[rel] = parent[rel].filter(c=>{
           if(c.id===id) return false;
-          // recurse into children
-          deleteNode(c, id);
+          deleteNode(c,id);
           return true;
         });
       });
     }
 
-    // Initial render
+    // --- Kickoff ---
     render();
   </script>
 </body>

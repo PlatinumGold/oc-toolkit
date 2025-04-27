@@ -35,21 +35,18 @@
         );
     }
 
-    /* bottom-up axis labels */
+    /* Axis containers */
     .axis {
       position: absolute;
-      bottom: 20px;
-      top: 20px;
-      display: flex;
-      flex-direction: column-reverse;  /* ← reverse so 0 is bottom */
-      justify-content: space-between;
+      bottom: 20px; top: 20px;
       pointer-events: none;
+      width: 50px;
       font-size: 0.8em;
       color: #555;
       z-index: 0;
     }
-    #axis-left  { left:  0;  width:50px; }
-    #axis-right { right: 0;  width:50px; text-align:right; }
+    #axis-left  { left:  0; }
+    #axis-right { right: 0; text-align: right; }
 
     /* baseline under characters */
     #display::after {
@@ -117,115 +114,133 @@
   </div>
 
   <script>
-    const characters = [];
-    const nameEl   = document.getElementById('nameInput');
-    const unitEl   = document.getElementById('unitSelect');
-    const cmGroup  = document.getElementById('cmGroup');
-    const ftGroup  = document.getElementById('ftGroup');
-    const cmEl     = document.getElementById('heightCm');
-    const ftEl     = document.getElementById('heightFt');
-    const inEl     = document.getElementById('heightIn');
-    const colorEl  = document.getElementById('colorInput');
-    const fileEl   = document.getElementById('fileInput');
-    const addBtn   = document.getElementById('addBtn');
-    const display  = document.getElementById('display');
-    const axisL    = document.getElementById('axis-left');
-    const axisR    = document.getElementById('axis-right');
+    const chars = [];
+    const nameEl = document.getElementById('nameInput');
+    const unitEl = document.getElementById('unitSelect');
+    const cmGroup = document.getElementById('cmGroup');
+    const ftGroup = document.getElementById('ftGroup');
+    const cmEl = document.getElementById('heightCm');
+    const ftEl = document.getElementById('heightFt');
+    const inEl = document.getElementById('heightIn');
+    const colorEl = document.getElementById('colorInput');
+    const fileEl = document.getElementById('fileInput');
+    const addBtn = document.getElementById('addBtn');
+    const display = document.getElementById('display');
+    const axisL = document.getElementById('axis-left');
+    const axisR = document.getElementById('axis-right');
 
-    // toggle cm/ft inputs
     unitEl.onchange = () => {
       if (unitEl.value === 'cm') {
-        cmGroup.style.display = ''; ftGroup.style.display = 'none';
+        cmGroup.style.display = '';
+        ftGroup.style.display = 'none';
       } else {
-        cmGroup.style.display = 'none'; ftGroup.style.display = '';
+        cmGroup.style.display = 'none';
+        ftGroup.style.display = '';
       }
     };
 
     addBtn.onclick = () => {
       const name = nameEl.value.trim();
       const color = colorEl.value;
-      const file  = fileEl.files[0];
-      let cm, totalInches;
+      const file = fileEl.files[0];
+      let cm, inches;
       if (!name) return alert('Name is required.');
 
       if (unitEl.value === 'cm') {
         cm = parseFloat(cmEl.value);
         if (isNaN(cm)) return alert('Enter height in cm.');
-        totalInches = cm * 0.3937008;
+        inches = cm * 0.3937008;
       } else {
         const ft = parseFloat(ftEl.value);
         const inch = parseFloat(inEl.value);
-        if (isNaN(ft) || isNaN(inch))
-          return alert('Enter both feet & inches.');
-        totalInches = ft * 12 + inch;
-        cm = totalInches * 2.54;
+        if (isNaN(ft) || isNaN(inch)) return alert('Enter feet & inches.');
+        inches = ft * 12 + inch;
+        cm = inches * 2.54;
       }
 
-      const reader = file && new FileReader();
-      if (reader) {
+      if (file) {
+        const reader = new FileReader();
         reader.onload = e => {
-          characters.push({ name, cm, inches: totalInches, img: e.target.result, color });
+          chars.push({ name, cm, inches, img: e.target.result, color });
           render();
         };
         reader.readAsDataURL(file);
       } else {
-        characters.push({ name, cm, inches: totalInches, img: null, color });
+        chars.push({ name, cm, inches, img: null, color });
         render();
       }
 
-      // reset
-      nameEl.value = ''; cmEl.value = ''; ftEl.value = ''; inEl.value = ''; fileEl.value = '';
+      nameEl.value = '';
+      cmEl.value = '';
+      ftEl.value = '';
+      inEl.value = '';
+      fileEl.value = '';
     };
 
     function render() {
-      // clear existing
+      // clear
       display.querySelectorAll('.char').forEach(n => n.remove());
       axisL.innerHTML = '';
       axisR.innerHTML = '';
-      if (!characters.length) return;
+      if (!chars.length) return;
 
-      const maxCm = Math.max(...characters.map(c => c.cm));
-      const steps = 6;
+      const maxCm = Math.max(...chars.map(c => c.cm));
+      const maxInches = maxCm * 0.3937008;
+      const maxFeet = Math.ceil(maxInches / 12);
 
-      // build axes
-      for (let i = 0; i < steps; i++) {
-        const ratio = i / (steps - 1);
-        const valCm = Math.round(maxCm * ratio);
-        const l = document.createElement('div');
-        l.textContent = valCm + ' cm';
-        axisL.appendChild(l);
+      // axis container height in px (display height minus 40px paddings)
+      const dispHeight = display.clientHeight;
+      const axisHeight = dispHeight - 40;
 
-        const totalIn = valCm * 0.3937008;
-        const ft = Math.floor(totalIn / 12);
-        const inch = Math.round(totalIn % 12);
-        const r = document.createElement('div');
-        r.textContent = ft + '′ ' + inch + '″';
-        axisR.appendChild(r);
+      // left: ticks every 20cm up to maxCm
+      const cmStep = Math.ceil(maxCm / 10 / 10) * 10; // round up to nearest 10cm
+      for (let v = 0; v <= maxCm; v += cmStep) {
+        const ratio = v / maxCm;
+        const bottomPx = ratio * axisHeight;
+        const lbl = document.createElement('div');
+        lbl.textContent = `${v} cm`;
+        lbl.style.position = 'absolute';
+        lbl.style.bottom = `${bottomPx + 20}px`;
+        axisL.appendChild(lbl);
       }
 
-      // render chars
-      characters.forEach(c => {
+      // right: ticks every 1ft up to maxFeet
+      for (let ft = 0; ft <= maxFeet; ft++) {
+        const inchesVal = ft * 12;
+        const cmVal = inchesVal * 2.54;
+        if (cmVal > maxCm) break;
+        const ratio = cmVal / maxCm;
+        const bottomPx = ratio * axisHeight;
+        const lbl = document.createElement('div');
+        lbl.textContent = `${ft}′ 0″`;
+        lbl.style.position = 'absolute';
+        lbl.style.bottom = `${bottomPx + 20}px`;
+        axisR.appendChild(lbl);
+      }
+
+      // render characters
+      chars.forEach(c => {
         const div = document.createElement('div');
         div.className = 'char';
         div.style.borderColor = c.color;
 
         const ft = Math.floor(c.inches / 12);
         const inch = Math.round(c.inches % 12);
-        const lbl = document.createElement('div');
-        lbl.className = 'label';
-        lbl.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
-        div.appendChild(lbl);
+        const label = document.createElement('div');
+        label.className = 'label';
+        label.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
+        div.appendChild(label);
 
         const hPx = (c.cm / maxCm) * 300;
         if (c.img) {
           const img = document.createElement('img');
           img.src = c.img;
-          img.style.height = hPx + 'px';
+          img.style.height = `${hPx}px`;
           div.appendChild(img);
         } else {
           const ph = document.createElement('div');
           ph.className = 'placeholder';
-          ph.style.height = hPx + 'px';
+          ph.style.height = `${hPx}px`;
           div.appendChild(ph);
         }
         display.appendChild(div);

@@ -21,80 +21,49 @@
     /* display area with ticked backdrop */
     #display {
       position: relative;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      height: calc(100vh - 120px);
-      overflow-x: auto;
-      padding: 20px;
-      background:
-        repeating-linear-gradient(
-          to top,
-          transparent, transparent 29px,
-          #ccc 30px
-        );
+      display: flex; align-items: flex-end; justify-content: center;
+      height: calc(100vh - 120px); overflow-x: auto; padding: 20px;
+      background: repeating-linear-gradient(
+        to top, transparent, transparent 29px, #ccc 30px
+      );
     }
 
     /* Axis containers */
     .axis {
-      position: absolute;
-      bottom: 20px; top: 20px;
-      pointer-events: none;
-      width: 50px;
-      font-size: 0.8em;
-      color: #555;
-      z-index: 0;
-      display: flex;
-      flex-direction: column-reverse; /* bottom-up */
-      justify-content: space-between;
+      position: absolute; bottom: 20px; top: 20px;
+      pointer-events: none; width: 50px;
+      font-size: 0.8em; color: #555; z-index: 0;
+      display: flex; flex-direction: column-reverse; justify-content: space-between;
     }
     #axis-left  { left:  0; }
     #axis-right { right: 0; text-align: right; }
 
     /* baseline under characters */
     #display::after {
-      content: '';
-      position: absolute;
-      bottom: 20px;  /* same offset as axis bottom */
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: #333;
-      z-index: 0;
+      content: ''; position: absolute;
+      bottom: 20px; left: 0; right: 0; height: 2px;
+      background: #333; z-index: 0;
     }
 
     .char {
-      position: relative;
-      margin: 0 12px;
-      text-align: center;
-      border: 3px solid #4a90e2;
-      border-radius: 6px;
-      padding: 6px;
-      background: #fff;
-      z-index: 1; /* above ticks and baseline */
+      position: relative; margin: 0 12px; text-align: center;
+      border: 3px solid #4a90e2; border-radius: 6px;
+      padding: 6px; background: #fff; z-index: 1;
     }
     .char img, .char .placeholder {
-      display: block;
-      margin: 0 auto;
-      max-width: 80px;
+      display: block; margin: 0 auto; max-width: 80px;
     }
     .char .placeholder {
-      background: #ccc;
-      width: 80px;
+      background: #ccc; width: 80px;
     }
     .label {
-      margin-bottom: 8px;
-      font-size: 0.9em;
-      line-height: 1.2;
+      margin-bottom: 8px; font-size: 0.9em; line-height: 1.2;
     }
     .char-controls {
       margin-top: 6px;
     }
     .char-controls button {
-      margin: 0 4px;
-      padding: 2px 6px;
-      font-size: 0.8em;
-      cursor: pointer;
+      margin: 0 4px; padding: 2px 6px; font-size: 0.8em; cursor: pointer;
     }
   </style>
 </head>
@@ -126,179 +95,124 @@
   </div>
 
   <script>
-    let chars = [];
-    let counter = 0;
+    let chars = [], counter = 0;
+    const nameEl = document.getElementById('nameInput'),
+          unitEl = document.getElementById('unitSelect'),
+          cmGroup = document.getElementById('cmGroup'),
+          ftGroup = document.getElementById('ftGroup'),
+          cmEl = document.getElementById('heightCm'),
+          ftEl = document.getElementById('heightFt'),
+          inEl = document.getElementById('heightIn'),
+          colorEl = document.getElementById('colorInput'),
+          fileEl = document.getElementById('fileInput'),
+          addBtn = document.getElementById('addBtn'),
+          display = document.getElementById('display'),
+          axisL = document.getElementById('axis-left'),
+          axisR = document.getElementById('axis-right');
 
-    const nameEl = document.getElementById('nameInput');
-    const unitEl = document.getElementById('unitSelect');
-    const cmGroup = document.getElementById('cmGroup');
-    const ftGroup = document.getElementById('ftGroup');
-    const cmEl = document.getElementById('heightCm');
-    const ftEl = document.getElementById('heightFt');
-    const inEl = document.getElementById('heightIn');
-    const colorEl = document.getElementById('colorInput');
-    const fileEl = document.getElementById('fileInput');
-    const addBtn = document.getElementById('addBtn');
-    const display = document.getElementById('display');
-    const axisL = document.getElementById('axis-left');
-    const axisR = document.getElementById('axis-right');
-
-    // Toggle cm/ft inputs
+    // Toggle inputs
     unitEl.onchange = () => {
-      if (unitEl.value === 'cm') {
-        cmGroup.style.display = '';
-        ftGroup.style.display = 'none';
-      } else {
-        cmGroup.style.display = 'none';
-        ftGroup.style.display = '';
-      }
+      cmGroup.style.display = unitEl.value==='cm' ? '' : 'none';
+      ftGroup.style.display = unitEl.value==='ft' ? '' : 'none';
     };
 
     addBtn.onclick = () => {
-      const name = nameEl.value.trim();
-      const color = colorEl.value;
-      const file = fileEl.files[0];
+      const name = nameEl.value.trim(), color = colorEl.value, file = fileEl.files[0];
       let cm, inches;
       if (!name) return alert('Name is required.');
 
-      if (unitEl.value === 'cm') {
+      if (unitEl.value==='cm') {
         cm = parseFloat(cmEl.value);
         if (isNaN(cm)) return alert('Enter height in cm.');
         inches = cm * 0.3937008;
       } else {
-        const ft = parseFloat(ftEl.value);
-        const inch = parseFloat(inEl.value);
-        if (isNaN(ft) || isNaN(inch))
-          return alert('Enter feet & inches.');
-        inches = ft * 12 + inch;
+        const ft = parseFloat(ftEl.value), inch = parseFloat(inEl.value);
+        if (isNaN(ft)||isNaN(inch)) return alert('Enter both feet & inches.');
+        inches = ft*12 + inch;
         cm = inches * 2.54;
       }
 
       const id = ++counter;
       if (file) {
-        const reader = new FileReader();
-        reader.onload = e => {
-          chars.push({ id, name, cm, inches, img: e.target.result, color });
-          render();
-        };
-        reader.readAsDataURL(file);
+        const r = new FileReader();
+        r.onload = e => { chars.push({id,name,cm,inches,img:e.target.result,color}); render(); };
+        r.readAsDataURL(file);
       } else {
-        chars.push({ id, name, cm, inches, img: null, color });
+        chars.push({id,name,cm,inches,img:null,color});
         render();
       }
 
-      // Reset inputs
-      nameEl.value = '';
-      cmEl.value = '';
-      ftEl.value = '';
-      inEl.value = '';
-      fileEl.value = '';
+      nameEl.value=cmEl.value=ftEl.value=inEl.value=fileEl.value='';
     };
 
     function render() {
-      // Clear old
-      display.querySelectorAll('.char').forEach(n => n.remove());
-      axisL.innerHTML = '';
-      axisR.innerHTML = '';
-      if (!chars.length) return;
+      // clear old
+      display.querySelectorAll('.char').forEach(n=>n.remove());
+      axisL.innerHTML=axisR.innerHTML='';
+      if(!chars.length) return;
 
-      const maxCm = Math.max(...chars.map(c => c.cm));
-      const maxInches = maxCm * 0.3937008;
-      const maxFeet = Math.ceil(maxInches / 12);
+      const maxCm = Math.max(...chars.map(c=>c.cm)),
+            axisMaxCm = maxCm * 1.2,               // 20% headroom
+            axisHeight = display.clientHeight - 40,
+            axisMaxIn = axisMaxCm * 0.3937008,
+            axisMaxFt = Math.ceil(axisMaxIn/12);
 
-      // available axis height in px
-      const axisHeight = display.clientHeight - 40;
-
-      // build left axis at 10cm increments
-      const cmStep = Math.ceil(maxCm / 10 / 10) * 10; 
-      for (let v = 0; v <= maxCm; v += cmStep) {
-        const ratio = v / maxCm;
-        const px = ratio * axisHeight;
-        const lbl = document.createElement('div');
-        lbl.textContent = `${v} cm`;
-        lbl.style.position = 'absolute';
-        lbl.style.bottom = `${px + 20}px`;
+      // left axis every 10cm
+      const cmStep = Math.ceil(axisMaxCm/10/10)*10;
+      for(let v=0; v<=axisMaxCm; v+=cmStep) {
+        const ratio=v/axisMaxCm, px=ratio*axisHeight;
+        const lbl=document.createElement('div');
+        lbl.textContent=`${Math.round(v)} cm`;
+        lbl.style.position='absolute';
+        lbl.style.bottom=`${px+20}px`;
         axisL.appendChild(lbl);
       }
 
-      // build right axis at 1ft increments
-      for (let ft = 0; ft <= maxFeet; ft++) {
-        const inchesVal = ft * 12;
-        const cmVal = inchesVal * 2.54;
-        if (cmVal > maxCm) break;
-        const ratio = cmVal / maxCm;
-        const px = ratio * axisHeight;
-        const lbl = document.createElement('div');
-        lbl.textContent = `${ft}′ 0″`;
-        lbl.style.position = 'absolute';
-        lbl.style.bottom = `${px + 20}px`;
+      // right axis every 1ft
+      for(let ft=0; ft<=axisMaxFt; ft++) {
+        const inVal=ft*12, cmVal=inVal*2.54;
+        if(cmVal>axisMaxCm) break;
+        const ratio=cmVal/axisMaxCm, px=ratio*axisHeight;
+        const lbl=document.createElement('div');
+        lbl.textContent=`${ft}′ 0″`;
+        lbl.style.position='absolute';
+        lbl.style.bottom=`${px+20}px`;
         axisR.appendChild(lbl);
       }
 
-      // render each character
-      chars.forEach((c, i) => {
-        const div = document.createElement('div');
-        div.className = 'char';
-        div.style.borderColor = c.color;
+      // render chars
+      chars.forEach(c=>{
+        const d=document.createElement('div');
+        d.className='char'; d.style.borderColor=c.color;
 
         // label
-        const ft = Math.floor(c.inches / 12);
-        const inch = Math.round(c.inches % 12);
-        const label = document.createElement('div');
-        label.className = 'label';
-        label.innerHTML = 
-          `${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
-        div.appendChild(label);
+        const ft=Math.floor(c.inches/12), inch=Math.round(c.inches%12),
+              lab=document.createElement('div');
+        lab.className='label';
+        lab.innerHTML=`${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
+        d.appendChild(lab);
 
-        // height box
-        const hPx = (c.cm / maxCm) * axisHeight;
-        if (c.img) {
-          const img = document.createElement('img');
-          img.src = c.img;
-          img.style.height = `${hPx}px`;
-          div.appendChild(img);
+        // scaled box
+        const hPx=(c.cm/axisMaxCm)*axisHeight;
+        if(c.img) {
+          const img=document.createElement('img');
+          img.src=c.img; img.style.height=`${hPx}px`;
+          d.appendChild(img);
         } else {
-          const ph = document.createElement('div');
-          ph.className = 'placeholder';
-          ph.style.height = `${hPx}px`;
-          div.appendChild(ph);
+          const ph=document.createElement('div');
+          ph.className='placeholder'; ph.style.height=`${hPx}px`;
+          d.appendChild(ph);
         }
 
-        // edit/delete controls
-        const controls = document.createElement('div');
-        controls.className = 'char-controls';
+        // controls
+        const ctrl=document.createElement('div'); ctrl.className='char-controls';
+        const del=document.createElement('button');
+        del.textContent='🗑️'; del.onclick=()=>{ chars=chars.filter(x=>x.id!==c.id); render(); };
+        ctrl.appendChild(del);
+        d.appendChild(ctrl);
 
-        const editBtn = document.createElement('button');
-        editBtn.textContent = '✏️';
-        editBtn.onclick = () => editChar(c.id);
-        controls.appendChild(editBtn);
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = '🗑️';
-        delBtn.onclick = () => {
-          chars = chars.filter(x=>x.id!==c.id);
-          render();
-        };
-        controls.appendChild(delBtn);
-
-        div.appendChild(controls);
-        display.appendChild(div);
+        display.appendChild(d);
       });
-    }
-
-    function editChar(id) {
-      const c = chars.find(x=>x.id===id);
-      if (!c) return;
-      const name = prompt('Name:', c.name);
-      if (name!==null) c.name = name;
-      const cm = parseFloat(prompt('Height (cm):', c.cm));
-      if (!isNaN(cm)) {
-        c.cm = cm;
-        c.inches = cm * 0.3937008;
-      }
-      const color = prompt('Border color (hex):', c.color);
-      if (/^#?[0-9A-Fa-f]{6}$/.test(color)) c.color = color.startsWith('#') ? color : '#'+color;
-      render();
     }
   </script>
 </body>

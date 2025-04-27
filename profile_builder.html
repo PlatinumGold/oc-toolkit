@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OC Profile Builder</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
+    header {
+      background:#4a90e2; color:#fff;
+      padding:12px; text-align:center; font-size:1.3em;
+    }
+    #toolbar {
+      background:#fff; border-bottom:1px solid #ccc;
+      padding:12px; display:flex; flex-wrap:wrap; gap:12px;
+    }
+    #toolbar input, #toolbar select, #toolbar textarea, #toolbar button {
+      padding:6px; font-size:0.9em;
+      border:1px solid #ccc; border-radius:4px;
+    }
+    #toolbar textarea { resize:vertical; }
+    #profiles {
+      padding:20px; display:flex; flex-wrap:wrap; gap:20px;
+    }
+    .profile-card {
+      background:#fff; border:2px solid #4a90e2;
+      border-radius:8px; width:200px; position:relative;
+      overflow:hidden; display:flex; flex-direction:column;
+    }
+    .profile-card img {
+      width:100%; height:150px; object-fit:cover;
+    }
+    .profile-content {
+      padding:10px; flex:1; font-size:0.9em;
+    }
+    .profile-content h3 { margin:4px 0; }
+    .profile-controls {
+      display:flex; justify-content:space-between;
+      padding:8px; background:#f9f9f9;
+    }
+    .profile-controls button {
+      background:#4a90e2; color:#fff; border:none;
+      padding:4px 8px; border-radius:4px; cursor:pointer;
+      font-size:0.8em;
+    }
+    .profile-controls button.delete { background:#c53; }
+  </style>
+</head>
+<body>
+  <header>👤 OC Profile Builder</header>
+
+  <div id="toolbar">
+    <input id="nameIn"       type="text"    placeholder="Name*"/>
+    <input id="speciesIn"    type="text"    placeholder="Species"/>
+    <input id="ageIn"        type="number"  placeholder="Age"/>
+    <select id="genderIn">
+      <option value="">Gender</option>
+      <option>Male</option>
+      <option>Female</option>
+      <option>Other</option>
+    </select>
+    <textarea id="bioIn" rows="2" placeholder="Backstory…"></textarea>
+    <input id="imgIn" type="file" accept="image/*"/>
+    <button id="addProfileBtn">Add Profile</button>
+  </div>
+
+  <div id="profiles">
+    <!-- Profile cards appear here -->
+  </div>
+
+  <script>
+    let profiles = [], nextId = 1;
+
+    const nameIn    = document.getElementById('nameIn'),
+          speciesIn = document.getElementById('speciesIn'),
+          ageIn     = document.getElementById('ageIn'),
+          genderIn  = document.getElementById('genderIn'),
+          bioIn     = document.getElementById('bioIn'),
+          imgIn     = document.getElementById('imgIn'),
+          addBtn    = document.getElementById('addProfileBtn'),
+          container = document.getElementById('profiles');
+
+    addBtn.onclick = () => {
+      const name    = nameIn.value.trim();
+      if (!name) return alert('Name is required.');
+      const profile = {
+        id: nextId++,
+        name,
+        species: speciesIn.value.trim(),
+        age: ageIn.value,
+        gender: genderIn.value,
+        bio: bioIn.value.trim(),
+        img: null
+      };
+      if (imgIn.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          profile.img = e.target.result;
+          profiles.push(profile);
+          renderProfiles();
+        };
+        reader.readAsDataURL(imgIn.files[0]);
+      } else {
+        profiles.push(profile);
+        renderProfiles();
+      }
+      // reset
+      nameIn.value = speciesIn.value = ageIn.value = genderIn.value = bioIn.value = '';
+      imgIn.value = '';
+    };
+
+    function renderProfiles() {
+      container.innerHTML = '';
+      profiles.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'profile-card';
+
+        const img = document.createElement('img');
+        img.src = p.img || 'https://via.placeholder.com/200x150?text=No+Image';
+        card.appendChild(img);
+
+        const content = document.createElement('div');
+        content.className = 'profile-content';
+        content.innerHTML = `
+          <h3>${p.name}</h3>
+          <p><strong>Species:</strong> ${p.species||'—'}</p>
+          <p><strong>Age:</strong> ${p.age||'—'}</p>
+          <p><strong>Gender:</strong> ${p.gender||'—'}</p>
+          <p>${p.bio}</p>
+        `;
+        card.appendChild(content);
+
+        const controls = document.createElement('div');
+        controls.className = 'profile-controls';
+
+        const edit = document.createElement('button');
+        edit.textContent = '✏️ Edit';
+        edit.onclick = () => editProfile(p.id);
+        controls.appendChild(edit);
+
+        const del = document.createElement('button');
+        del.textContent = '🗑️ Delete';
+        del.className = 'delete';
+        del.onclick = () => {
+          profiles = profiles.filter(x=>x.id!==p.id);
+          renderProfiles();
+        };
+        controls.appendChild(del);
+
+        card.appendChild(controls);
+        container.appendChild(card);
+      });
+    }
+
+    function editProfile(id) {
+      const p = profiles.find(x=>x.id===id);
+      if (!p) return;
+      const name    = prompt('Name:', p.name);
+      if (name!==null) p.name = name;
+      const species = prompt('Species:', p.species);
+      if (species!==null) p.species = species;
+      const age     = prompt('Age:', p.age);
+      if (age!==null) p.age = age;
+      const gender  = prompt('Gender:', p.gender);
+      if (gender!==null) p.gender = gender;
+      const bio     = prompt('Backstory:', p.bio);
+      if (bio!==null) p.bio = bio;
+      renderProfiles();
+    }
+  </script>
+</body>
+</html>

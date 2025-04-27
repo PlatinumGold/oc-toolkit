@@ -44,6 +44,9 @@
       font-size: 0.8em;
       color: #555;
       z-index: 0;
+      display: flex;
+      flex-direction: column-reverse; /* bottom-up */
+      justify-content: space-between;
     }
     #axis-left  { left:  0; }
     #axis-right { right: 0; text-align: right; }
@@ -84,6 +87,15 @@
       font-size: 0.9em;
       line-height: 1.2;
     }
+    .char-controls {
+      margin-top: 6px;
+    }
+    .char-controls button {
+      margin: 0 4px;
+      padding: 2px 6px;
+      font-size: 0.8em;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -114,7 +126,9 @@
   </div>
 
   <script>
-    const chars = [];
+    let chars = [];
+    let counter = 0;
+
     const nameEl = document.getElementById('nameInput');
     const unitEl = document.getElementById('unitSelect');
     const cmGroup = document.getElementById('cmGroup');
@@ -129,6 +143,7 @@
     const axisL = document.getElementById('axis-left');
     const axisR = document.getElementById('axis-right');
 
+    // Toggle cm/ft inputs
     unitEl.onchange = () => {
       if (unitEl.value === 'cm') {
         cmGroup.style.display = '';
@@ -153,23 +168,26 @@
       } else {
         const ft = parseFloat(ftEl.value);
         const inch = parseFloat(inEl.value);
-        if (isNaN(ft) || isNaN(inch)) return alert('Enter feet & inches.');
+        if (isNaN(ft) || isNaN(inch))
+          return alert('Enter feet & inches.');
         inches = ft * 12 + inch;
         cm = inches * 2.54;
       }
 
+      const id = ++counter;
       if (file) {
         const reader = new FileReader();
         reader.onload = e => {
-          chars.push({ name, cm, inches, img: e.target.result, color });
+          chars.push({ id, name, cm, inches, img: e.target.result, color });
           render();
         };
         reader.readAsDataURL(file);
       } else {
-        chars.push({ name, cm, inches, img: null, color });
+        chars.push({ id, name, cm, inches, img: null, color });
         render();
       }
 
+      // Reset inputs
       nameEl.value = '';
       cmEl.value = '';
       ftEl.value = '';
@@ -178,7 +196,7 @@
     };
 
     function render() {
-      // clear
+      // Clear old
       display.querySelectorAll('.char').forEach(n => n.remove());
       axisL.innerHTML = '';
       axisR.innerHTML = '';
@@ -188,50 +206,52 @@
       const maxInches = maxCm * 0.3937008;
       const maxFeet = Math.ceil(maxInches / 12);
 
-      // axis container height in px (display height minus 40px paddings)
-      const dispHeight = display.clientHeight;
-      const axisHeight = dispHeight - 40;
+      // available axis height in px
+      const axisHeight = display.clientHeight - 40;
 
-      // left: ticks every 20cm up to maxCm
-      const cmStep = Math.ceil(maxCm / 10 / 10) * 10; // round up to nearest 10cm
+      // build left axis at 10cm increments
+      const cmStep = Math.ceil(maxCm / 10 / 10) * 10; 
       for (let v = 0; v <= maxCm; v += cmStep) {
         const ratio = v / maxCm;
-        const bottomPx = ratio * axisHeight;
+        const px = ratio * axisHeight;
         const lbl = document.createElement('div');
         lbl.textContent = `${v} cm`;
         lbl.style.position = 'absolute';
-        lbl.style.bottom = `${bottomPx + 20}px`;
+        lbl.style.bottom = `${px + 20}px`;
         axisL.appendChild(lbl);
       }
 
-      // right: ticks every 1ft up to maxFeet
+      // build right axis at 1ft increments
       for (let ft = 0; ft <= maxFeet; ft++) {
         const inchesVal = ft * 12;
         const cmVal = inchesVal * 2.54;
         if (cmVal > maxCm) break;
         const ratio = cmVal / maxCm;
-        const bottomPx = ratio * axisHeight;
+        const px = ratio * axisHeight;
         const lbl = document.createElement('div');
         lbl.textContent = `${ft}′ 0″`;
         lbl.style.position = 'absolute';
-        lbl.style.bottom = `${bottomPx + 20}px`;
+        lbl.style.bottom = `${px + 20}px`;
         axisR.appendChild(lbl);
       }
 
-      // render characters
-      chars.forEach(c => {
+      // render each character
+      chars.forEach((c, i) => {
         const div = document.createElement('div');
         div.className = 'char';
         div.style.borderColor = c.color;
 
+        // label
         const ft = Math.floor(c.inches / 12);
         const inch = Math.round(c.inches % 12);
         const label = document.createElement('div');
         label.className = 'label';
-        label.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
+        label.innerHTML = 
+          `${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
         div.appendChild(label);
 
-        const hPx = (c.cm / maxCm) * 300;
+        // height box
+        const hPx = (c.cm / maxCm) * axisHeight;
         if (c.img) {
           const img = document.createElement('img');
           img.src = c.img;
@@ -243,8 +263,42 @@
           ph.style.height = `${hPx}px`;
           div.appendChild(ph);
         }
+
+        // edit/delete controls
+        const controls = document.createElement('div');
+        controls.className = 'char-controls';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.onclick = () => editChar(c.id);
+        controls.appendChild(editBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.onclick = () => {
+          chars = chars.filter(x=>x.id!==c.id);
+          render();
+        };
+        controls.appendChild(delBtn);
+
+        div.appendChild(controls);
         display.appendChild(div);
       });
+    }
+
+    function editChar(id) {
+      const c = chars.find(x=>x.id===id);
+      if (!c) return;
+      const name = prompt('Name:', c.name);
+      if (name!==null) c.name = name;
+      const cm = parseFloat(prompt('Height (cm):', c.cm));
+      if (!isNaN(cm)) {
+        c.cm = cm;
+        c.inches = cm * 0.3937008;
+      }
+      const color = prompt('Border color (hex):', c.color);
+      if (/^#?[0-9A-Fa-f]{6}$/.test(color)) c.color = color.startsWith('#') ? color : '#'+color;
+      render();
     }
   </script>
 </body>

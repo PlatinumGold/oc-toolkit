@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>OC Alignment Chart</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { margin:0; font-family: Arial, sans-serif; background:#eef2f5; }
+    header {
+      background:#4a90e2; color:#fff;
+      padding:12px; text-align:center; font-size:1.3em;
+    }
+    #toolbar {
+      background:#fff; border-bottom:1px solid #ccc;
+      padding:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+    }
+    #toolbar input, #toolbar select, #toolbar button {
+      padding:6px; font-size:0.9em;
+    }
+
+    #main {
+      display:flex; height:calc(100vh - 120px);
+    }
+
+    /* POOL */
+    #pool {
+      width:200px; border-right:1px solid #ccc;
+      padding:10px; overflow-y:auto;
+      background:#fafafa;
+    }
+    #pool h3 { margin-top:0; }
+    .card {
+      border:2px solid #4a90e2; border-radius:6px;
+      padding:6px; margin-bottom:8px; background:#fff;
+      cursor:grab; display:flex; align-items:center; gap:6px;
+    }
+    .card .name { flex:1; font-size:0.9em; }
+    .card .controls button {
+      background: none; border:none; cursor:pointer; padding:2px;
+    }
+
+    /* CHART GRID */
+    #chart {
+      flex:1; display:grid;
+      grid-template-columns:repeat(3,1fr);
+      grid-template-rows:repeat(3,1fr);
+      gap:4px; padding:10px; position:relative;
+    }
+    .cell {
+      border:2px solid #333; border-radius:4px;
+      min-height:100px; position:relative;
+      padding-top:20px; /* space for header */
+      background:#f5f5f5;
+    }
+    .cell[data-align$="good"]    { background:#e8f5e9; }
+    .cell[data-align="true-neutral"] { background:#fafafa; }
+    .cell[data-align$="evil"]    { background:#ffebee; }
+    .cell-header {
+      position:absolute; top:4px; left:6px;
+      font-size:0.8em; color:#333; font-weight:bold;
+    }
+
+    /* Drop highlight */
+    .cell.over { outline:3px dashed #4a90e2; }
+
+    .placeholder {
+      width:40px; height:40px; background:#ccc;
+      border-radius:4px; flex-shrink:0;
+    }
+  </style>
+</head>
+<body>
+
+<header>🛡️ OC Alignment Chart</header>
+
+<div id="toolbar">
+  <input id="nameInput" type="text" placeholder="Name…" />
+  <input id="colorInput" type="color" value="#4a90e2" title="Border color"/>
+  <input id="fileInput" type="file" accept="image/*"/>
+  <button id="addBtn">Add OC</button>
+</div>
+
+<div id="main">
+  <div id="pool">
+    <h3>OC Pool</h3>
+    <!-- Cards appear here -->
+  </div>
+
+  <div id="chart">
+    <!-- 9 alignment cells -->
+    <div class="cell" data-align="lawful-good"><div class="cell-header">Lawful Good</div></div>
+    <div class="cell" data-align="neutral-good"><div class="cell-header">Neutral Good</div></div>
+    <div class="cell" data-align="chaotic-good"><div class="cell-header">Chaotic Good</div></div>
+
+    <div class="cell" data-align="lawful-neutral"><div class="cell-header">Lawful Neutral</div></div>
+    <div class="cell" data-align="true-neutral"><div class="cell-header">True Neutral</div></div>
+    <div class="cell" data-align="chaotic-neutral"><div class="cell-header">Chaotic Neutral</div></div>
+
+    <div class="cell" data-align="lawful-evil"><div class="cell-header">Lawful Evil</div></div>
+    <div class="cell" data-align="neutral-evil"><div class="cell-header">Neutral Evil</div></div>
+    <div class="cell" data-align="chaotic-evil"><div class="cell-header">Chaotic Evil</div></div>
+  </div>
+</div>
+
+<script>
+  let chars = [], nextId = 1;
+
+  const pool   = document.getElementById('pool'),
+        chart  = document.getElementById('chart'),
+        nameIn = document.getElementById('nameInput'),
+        colorIn= document.getElementById('colorInput'),
+        fileIn = document.getElementById('fileInput'),
+        addBtn = document.getElementById('addBtn');
+
+  // Add OC to pool
+  addBtn.onclick = () => {
+    const name = nameIn.value.trim();
+    if (!name) return alert('Enter a name.');
+    const color = colorIn.value;
+    const file  = fileIn.files[0];
+    const id    = nextId++;
+    if (file) {
+      const r = new FileReader();
+      r.onload = e => {
+        chars.push({id,name,color,img:e.target.result});
+        renderCard({id,name,color,img:e.target.result});
+      };
+      r.readAsDataURL(file);
+    } else {
+      chars.push({id,name,color,img:null});
+      renderCard({id,name,color,img:null});
+    }
+    nameIn.value = fileIn.value = '';
+  };
+
+  // Render a single card into the pool
+  function renderCard(c) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.draggable = true;
+    card.dataset.id = c.id;
+    card.style.borderColor = c.color;
+
+    const imgOrPlaceholder = c.img
+      ? Object.assign(document.createElement('img'),{src:c.img,width:40,height:40})
+      : Object.assign(document.createElement('div'),{className:'placeholder'});
+    card.appendChild(imgOrPlaceholder);
+
+    const span = document.createElement('div');
+    span.className = 'name';
+    span.textContent = c.name;
+    card.appendChild(span);
+
+    const ctr = document.createElement('div');
+    ctr.className = 'controls';
+    // Edit
+    const eBtn = document.createElement('button');
+    eBtn.textContent = '✏️';
+    eBtn.onclick = e => {
+      e.stopPropagation();
+      const name = prompt('Name:', c.name);
+      if (name !== null) {
+        c.name = name;
+        span.textContent = name;
+      }
+    };
+    ctr.appendChild(eBtn);
+    // Delete
+    const dBtn = document.createElement('button');
+    dBtn.textContent = '🗑️';
+    dBtn.onclick = e => {
+      e.stopPropagation();
+      chars = chars.filter(x=>x.id!==c.id);
+      document.querySelectorAll(`[data-id="${c.id}"]`).forEach(n=>n.remove());
+    };
+    ctr.appendChild(dBtn);
+    card.appendChild(ctr);
+
+    // Drag events
+    card.addEventListener('dragstart', ev => {
+      ev.dataTransfer.setData('text/plain', c.id);
+      setTimeout(()=>card.style.opacity='0.5', 0);
+    });
+    card.addEventListener('dragend', ev => {
+      card.style.opacity = '1';
+    });
+
+    pool.appendChild(card);
+  }
+
+  // Make pool droppable
+  pool.addEventListener('dragover', e=>{
+    e.preventDefault();
+  });
+  pool.addEventListener('drop', e=>{
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain');
+    const card = document.querySelector(`.card[data-id="${id}"]`);
+    pool.appendChild(card);
+  });
+
+  // Set up all 9 cells
+  document.querySelectorAll('.cell').forEach(cell=>{
+    cell.addEventListener('dragover', e=>{ e.preventDefault(); cell.classList.add('over'); });
+    cell.addEventListener('dragleave', e=>{ cell.classList.remove('over'); });
+    cell.addEventListener('drop', e=>{
+      e.preventDefault();
+      cell.classList.remove('over');
+      const id = e.dataTransfer.getData('text/plain');
+      const card = document.querySelector(`.card[data-id="${id}"]`);
+      cell.appendChild(card);
+    });
+  });
+</script>
+
+</body>
+</html>

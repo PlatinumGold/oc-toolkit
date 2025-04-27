@@ -18,25 +18,38 @@
       padding:6px; font-size:0.9em;
     }
     #display {
-      position: relative;
+      position:relative;
       display:flex; align-items:flex-end;
       justify-content:center; height: calc(100vh - 120px);
       overflow-x:auto; padding:20px;
-      /* backdrop: repeating ticks every 30px */
-      background: 
+      background:
         repeating-linear-gradient(
-          to top, 
-          transparent, 
-          transparent 29px, 
+          to top,
+          transparent, transparent 29px,
           #ccc 30px
         );
     }
+    /* Axis labels */
+    .axis {
+      position:absolute;
+      bottom:20px;
+      top:20px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      pointer-events:none;
+      font-size:0.8em;
+      color:#555;
+      z-index:0;
+    }
+    #axis-left { left: 0; width: 50px; }
+    #axis-right{ right:0; width: 50px; text-align:right; }
     .char {
-      position: relative;
+      position:relative;
       margin:0 12px; text-align:center;
       border:3px solid #4a90e2; border-radius:6px;
       padding:6px; background:#fff;
-      z-index: 1; /* above backdrop */
+      z-index:1;
     }
     .char img, .char .placeholder {
       display:block; margin:0 auto;
@@ -54,6 +67,7 @@
   </style>
 </head>
 <body>
+
   <header>📏 OC Height Comparison</header>
 
   <div id="toolbar">
@@ -62,22 +76,23 @@
       <option value="cm">cm</option>
       <option value="ft">ft/in</option>
     </select>
-
     <div id="cmGroup">
       <input id="heightCm" type="number" placeholder="Height (cm)"/>
     </div>
     <div id="ftGroup" style="display:none;">
-      <input id="heightFt"     type="number" placeholder="Feet" style="width:60px;"/> 
-      <input id="heightIn"     type="number" placeholder="Inches" style="width:60px;"/>
+      <input id="heightFt" type="number" placeholder="Feet" style="width:60px;"/>
+      <input id="heightIn" type="number" placeholder="Inches" style="width:60px;"/>
     </div>
-
     <input id="colorInput" type="color" value="#4a90e2" title="Border color" />
-
     <input id="fileInput"  type="file"    accept="image/*" />
     <button id="addBtn">Add Character</button>
   </div>
 
-  <div id="display"></div>
+  <div id="display">
+    <!-- Axis labels -->
+    <div id="axis-left" class="axis"></div>
+    <div id="axis-right" class="axis"></div>
+  </div>
 
   <script>
     const characters = [];
@@ -92,8 +107,10 @@
     const fileEl   = document.getElementById('fileInput');
     const addBtn   = document.getElementById('addBtn');
     const display  = document.getElementById('display');
+    const axisL    = document.getElementById('axis-left');
+    const axisR    = document.getElementById('axis-right');
 
-    // toggle inputs by unit
+    // Toggle cm / ft inputs
     unitEl.onchange = () => {
       if (unitEl.value === 'cm') {
         cmGroup.style.display = ''; ftGroup.style.display = 'none';
@@ -107,7 +124,6 @@
       const color = colorEl.value;
       const file  = fileEl.files[0];
       let cm, totalInches;
-
       if (!name) return alert('Name is required.');
 
       if (unitEl.value === 'cm') {
@@ -122,51 +138,68 @@
         cm = totalInches * 2.54;
       }
 
-      // proceed to push character, img optional
-      const reader = file && new FileReader();
-      if (reader) {
+      // Read image if any
+      if (file) {
+        const reader = new FileReader();
         reader.onload = e => {
           characters.push({ name, cm, inches: totalInches, img: e.target.result, color });
           render();
         };
         reader.readAsDataURL(file);
       } else {
-        // no image → placeholder
         characters.push({ name, cm, inches: totalInches, img: null, color });
         render();
       }
 
-      // reset inputs
-      nameEl.value = '';
-      cmEl.value = ''; ftEl.value = ''; inEl.value = '';
-      fileEl.value = '';
+      // Reset
+      nameEl.value = ''; cmEl.value = ''; ftEl.value = ''; inEl.value = ''; fileEl.value = '';
     };
 
     function render() {
-      display.innerHTML = '';
+      // Clear existing chars
+      display.querySelectorAll('.char').forEach(n=>n.remove());
+      // Remove old axis
+      axisL.innerHTML = '';
+      axisR.innerHTML = '';
       if (!characters.length) return;
 
-      const maxCm = Math.max(...characters.map(c=>c.cm));
+      // find max cm
+      const maxCm = Math.max(...characters.map(c => c.cm));
 
+      // Build axis: 6 evenly spaced labels
+      const steps = 6;
+      for (let i = 0; i < steps; i++) {
+        const ratio = i / (steps - 1);
+        const valCm = Math.round(maxCm * ratio);
+        // Left label: cm
+        const l = document.createElement('div');
+        l.textContent = valCm + ' cm';
+        axisL.appendChild(l);
+        // Right label: ft/in
+        const totalIn = valCm * 0.3937008;
+        const ftVal = Math.floor(totalIn / 12);
+        const inVal = Math.round(totalIn % 12);
+        const r = document.createElement('div');
+        r.textContent = ftVal + '′ ' + inVal + '″';
+        axisR.appendChild(r);
+      }
+
+      // Render characters
       characters.forEach(c => {
         const div = document.createElement('div');
         div.className = 'char';
         div.style.borderColor = c.color;
 
-        // build label
-        const ft = Math.floor(c.inches/12);
+        // Label
+        const ft = Math.floor(c.inches / 12);
         const inch = Math.round(c.inches % 12);
         const lbl = document.createElement('div');
         lbl.className = 'label';
-        lbl.innerHTML = 
-          `${c.name}<br>`+
-          `${Math.round(c.cm)} cm<br>`+
-          `${ft}′ ${inch}″`;
+        lbl.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
         div.appendChild(lbl);
 
-        // compute px height
+        // Scale silhouette height (max = 300px)
         const hPx = (c.cm / maxCm) * 300;
-
         if (c.img) {
           const img = document.createElement('img');
           img.src = c.img;

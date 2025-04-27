@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>OC Relationship Map</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link href="https://unpkg.com/vis-network/styles/vis-network.min.css" rel="stylesheet"/>
+  <style>
+    body { margin:0; display:flex; height:100vh; font-family:Arial,sans-serif; }
+    #leftPane { flex:1; position:relative; }
+    header {
+      background:#4a90e2; color:#fff;
+      padding:12px; text-align:center; font-size:1.3em;
+    }
+    #controls {
+      background:#fff; border-bottom:1px solid #ccc;
+      padding:8px; text-align:center;
+    }
+    #controls button { margin:0 4px; padding:6px 10px; cursor:pointer; }
+    #network { width:100%; height:calc(100% - 80px); background:#eef2f5; }
+    #sidebar {
+      width:300px; background:#fff; border-left:1px solid #ccc;
+      display:flex; flex-direction:column; overflow-y:auto;
+    }
+    #sidebar.hidden { display:none; }
+    #sidebar h2 { margin:12px 0; color:#4a90e2; text-align:center; }
+    #sidebar label { margin:8px 0 4px; font-weight:bold; }
+    #sidebar input, #sidebar select, #sidebar button {
+      width:100%; margin-bottom:8px; padding:6px; box-sizing:border-box;
+    }
+    #sidebar textarea { resize:vertical; }
+    .rel-buttons button { margin:4px 2px; padding:6px; cursor:pointer; }
+  </style>
+</head>
+<body>
+
+  <div id="leftPane">
+    <header>🔗 OC Relationship Map</header>
+    <div id="controls">
+      <button id="addNodeBtn">➕ Add OC</button>
+      <button id="addRelTypeBtn">➕ Add Rel Type</button>
+    </div>
+    <div id="network"></div>
+  </div>
+
+  <div id="sidebar" class="hidden">
+    <h2>Edit OC</h2>
+
+    <label>Name</label><input id="nName"/>
+
+    <label>Border Color</label><input id="nColor" type="color" value="#4a90e2"/>
+
+    <label>Image URL (optional)</label><input id="nImg" placeholder="Paste URL…"/>
+
+    <div class="rel-buttons" id="relButtons"></div>
+
+    <div class="link-controls">
+      <label>Link Existing</label>
+      <select id="linkType"></select>
+      <select id="linkTarget"></select>
+      <button id="linkBtn">Link</button>
+    </div>
+
+    <button id="saveBtn">💾 Save</button>
+    <button id="deleteBtn" style="background:#c53;color:#fff;">🗑️ Delete</button>
+  </div>
+
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+  // —— Setup ——  
+  let idCount = 0;
+  function newId(){ return ++idCount; }
+
+  // Default relationship types
+  const relTypes = [
+    { key:'ally',   label:'Ally',   style:{ dashes:false, color:'#4CAF50'} },
+    { key:'enemy',  label:'Enemy',  style:{ dashes:false, color:'#F44336'} },
+    { key:'mentor', label:'Mentor', style:{ dashes:true,  color:'#2196F3'} },
+    { key:'rival',  label:'Rival',  style:{ dashes:true,  color:'#FF9800'} }
+  ];
+
+  // Nodes & edges datasets
+  const nodes = new vis.DataSet();
+  const edges = new vis.DataSet();
+
+  // Add initial sample OC
+  nodes.add({ id:newId(), label:'Main OC', color:{border:'#4a90e2',background:'#fff'} });
+
+  // Create the network
+  const container = document.getElementById('network');
+  const network = new vis.Network(container, { nodes, edges }, {
+    interaction:{ dragNodes:true, dragView:true, zoomView:true },
+    physics:{ enabled:false },
+    nodes:{ shape:'box', margin:10, font:{ align:'left' } },
+    edges:{ arrows:{ to:{enabled:true,type:'arrow'}}, smooth:false }
+  });
+
+  // —— Sidebar logic ——  
+  const sidebar    = document.getElementById('sidebar');
+  const fld        = {
+    name:  document.getElementById('nName'),
+    color: document.getElementById('nColor'),
+    img:   document.getElementById('nImg')
+  };
+  const relButtons   = document.getElementById('relButtons');
+  const saveBtn      = document.getElementById('saveBtn');
+  const deleteBtn    = document.getElementById('deleteBtn');
+  const addNodeBtn   = document.getElementById('addNodeBtn');
+  const addRelTypeBtn= document.getElementById('addRelTypeBtn');
+  const linkTypeSel  = document.getElementById('linkType');
+  const linkTargetSel= document.getElementById('linkTarget');
+  const linkBtn      = document.getElementById('linkBtn');
+  let selectedId = null;
+
+  // Build relation buttons
+  function buildRelButtons(){
+    relButtons.innerHTML = '';
+    relTypes.forEach(rt=>{
+      const b = document.createElement('button');
+      b.textContent = rt.label;
+      b.onclick = e=>{
+        e.stopPropagation();
+        const nid = newId();
+        nodes.add({ id:nid, label:rt.label, color:{border:'#4a90e2'} });
+        edges.add({
+          from:selectedId, to:nid,
+          dashes:rt.style.dashes,
+          color:{ color:rt.style.color },
+          arrows:{ to:{enabled:true} }
+        });
+        edges.add({
+          from:nid, to:selectedId,
+          dashes:rt.style.dashes,
+          color:{ color:rt.style.color },
+          arrows:{ to:{enabled:true} }
+        });
+        refreshLinkControls();
+      };
+      relButtons.appendChild(b);
+    });
+  }
+  // Build “link existing” dropdowns
+  function refreshLinkControls(){
+    linkTypeSel.innerHTML = '';
+    relTypes.forEach(rt=>{
+      const o=document.createElement('option');
+      o.value=rt.key; o.textContent=rt.label;
+      linkTypeSel.appendChild(o);
+    });
+    linkTargetSel.innerHTML = '<option value="">Select…</option>';
+    nodes.forEach(n=>{
+      if(n.id!==selectedId){
+        const o=document.createElement('option');
+        o.value=n.id; o.textContent=n.label.split('\n')[0];
+        linkTargetSel.appendChild(o);
+      }
+    });
+  }
+
+  // When a node is selected
+  network.on('selectNode', params=>{
+    selectedId = params.nodes[0];
+    const data = nodes.get(selectedId);
+    fld.name.value  = data.label.split('\n')[0];
+    fld.color.value = data.color.border;
+    fld.img.value   = data.image || '';
+    buildRelButtons();
+    refreshLinkControls();
+    sidebar.classList.remove('hidden');
+  });
+  network.on('deselectNode', ()=>{ sidebar.classList.add('hidden'); selectedId=null; });
+
+  // Save edits
+  saveBtn.onclick = ()=>{
+    if(!selectedId) return;
+    nodes.update({
+      id:selectedId,
+      label: fld.name.value,
+      color:{ border:fld.color.value, background:'#fff' },
+      image: fld.img.value || undefined
+    });
+  };
+
+  // Delete node
+  deleteBtn.onclick = ()=>{
+    if(!selectedId) return;
+    nodes.remove(selectedId);
+    edges.get().forEach(e=>{
+      if(e.from===selectedId||e.to===selectedId) edges.remove(e.id);
+    });
+    sidebar.classList.add('hidden');
+  };
+
+  // Link existing
+  linkBtn.onclick = ()=>{
+    if(!selectedId) return;
+    const type = linkTypeSel.value;
+    const tgt  = +linkTargetSel.value;
+    if(!type||!tgt) return;
+    const rt = relTypes.find(r=>r.key===type);
+    edges.add({ from:selectedId,to:tgt, dashes:rt.style.dashes, color:{color:rt.style.color}, arrows:{ to:{enabled:true} } });
+  };
+
+  // Add OC button
+  addNodeBtn.onclick = ()=>{
+    const name=prompt('OC Name:','');
+    if(!name) return;
+    const nid=newId();
+    nodes.add({ id:nid, label:name, color:{border:'#4a90e2',background:'#fff'} });
+    network.selectNodes([nid]);
+  };
+
+  // Add custom relationship type
+  addRelTypeBtn.onclick = ()=>{
+    const lbl=prompt('New relationship label?');
+    if(!lbl) return;
+    const key=lbl.toLowerCase().replace(/\s+/g,'');
+    relTypes.push({ key,label:lbl, style:{ dashes:false, color:'#555' } });
+    if(selectedId){ buildRelButtons(); refreshLinkControls(); }
+  };
+</script>
+
+</body>
+</html>

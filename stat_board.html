@@ -6,9 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root {
-      --accent-color: #4CAF50;
-    }
+    :root { --accent-color: #4CAF50; }
     body { margin:0; font-family:Arial,sans-serif; background:#f0f4f8; }
     header {
       background: var(--accent-color);
@@ -18,85 +16,52 @@
       font-size: 1.5em;
     }
     #controls {
-      background: #fff;
-      border-bottom: 1px solid #ccc;
-      padding: 16px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 16px;
+      background: #fff; border-bottom:1px solid #ccc;
+      padding: 16px; display:flex; flex-wrap:wrap; align-items:center; gap:16px;
     }
-    #controls input[type="text"],
-    #controls select {
-      font-size: 1em; padding: 8px;
-      border: 1px solid #ccc; border-radius: 4px;
+    #controls input[type="text"], #controls select {
+      font-size:1em; padding:8px; border:1px solid #ccc; border-radius:4px;
     }
-    #controls input[type="file"] {
-      font-size: 0.9em;
-    }
+    #controls input[type="file"] { font-size:0.9em; }
     #controls button {
-      background: var(--accent-color);
-      color: #fff;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1em;
+      background: var(--accent-color); color:#fff; border:none;
+      padding:10px 16px; border-radius:4px; cursor:pointer; font-size:1em;
     }
-    details {
-      margin-left: auto;
-      font-size: 0.9em;
-    }
-    #profiles {
-      display: flex; flex-wrap: wrap;
-      gap: 20px; padding: 20px;
-      justify-content: center;
-    }
+    details { margin-left:auto; font-size:0.9em; }
+    #profiles { display:flex; flex-wrap:wrap; gap:20px; padding:20px; justify-content:center; }
     .profile-card {
-      background: #fff;
-      border: 2px solid var(--accent-color);
-      border-radius: 8px;
-      width: 300px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      display: flex; flex-direction: column;
-      overflow: hidden;
+      background:#fff; border:2px solid var(--accent-color);
+      border-radius:8px; width:300px; box-shadow:0 2px 6px rgba(0,0,0,0.1);
+      display:flex; flex-direction:column; overflow:hidden;
     }
     .profile-header {
-      background: var(--accent-color);
-      color: #fff;
-      padding: 10px;
-      text-align: center;
-      font-weight: bold;
+      background:var(--accent-color); color:#fff; padding:10px;
+      text-align:center; font-weight:bold;
     }
     .profile-image {
-      width: 100%; height: 140px;
-      object-fit: cover; background: #ddd;
+      width:100%; height:140px; object-fit:cover; background:#ddd;
     }
-    .profile-content {
-      padding: 12px; flex: 1;
-    }
-    .stat-list, .stat-sliders {
-      display: grid; gap: 8px;
-    }
+    .profile-content { padding:12px; flex:1; }
+    .stat-list, .stat-sliders { display:grid; gap:8px; }
     .stat-list .row {
-      display: flex; justify-content: space-between; align-items: center;
+      display:flex; justify-content:space-between; align-items:center;
     }
     .stat-list input[type="number"] {
-      width: 50px; padding: 4px;
+      width:50px; padding:4px;
     }
     .stat-sliders .row {
-      display: flex; align-items: center; gap: 8px;
+      display:flex; align-items:center; gap:8px;
     }
     .stat-sliders input[type="range"] {
-      flex: 1; cursor: pointer;
+      flex:1; cursor:pointer;
     }
     .profile-footer {
-      padding: 10px; text-align: right;
+      padding:10px; text-align:right;
     }
     .profile-footer button {
-      background: #c53; color: #fff;
-      border: none; padding: 6px 10px;
-      border-radius: 4px; cursor: pointer;
+      background:#c53; color:#fff; border:none;
+      padding:6px 10px; border-radius:4px; cursor:pointer;
+      margin-left:8px;
     }
   </style>
 </head>
@@ -118,13 +83,13 @@
   <button id="exportBtn">📥 Export JSON</button>
   <details>
     <summary>Stat Descriptions</summary>
-    <ul style="padding-left:18px; margin:8px 0;">
-      <li><strong>Strength:</strong> Physical power and force.</li>
-      <li><strong>Dexterity:</strong> Agility, reflexes, and coordination.</li>
-      <li><strong>Constitution:</strong> Endurance and health.</li>
-      <li><strong>Intelligence:</strong> Problem-solving and knowledge.</li>
-      <li><strong>Wisdom:</strong> Perception and insight.</li>
-      <li><strong>Charisma:</strong> Social influence and charm.</li>
+    <ul style="padding-left:18px; margin:8px 0; font-size:0.9em;">
+      <li><strong>Strength:</strong> Physical power.</li>
+      <li><strong>Dexterity:</strong> Agility.</li>
+      <li><strong>Constitution:</strong> Endurance.</li>
+      <li><strong>Intelligence:</strong> Knowledge.</li>
+      <li><strong>Wisdom:</strong> Insight.</li>
+      <li><strong>Charisma:</strong> Charm.</li>
     </ul>
   </details>
 </div>
@@ -152,11 +117,20 @@
 
   function deleteProfile(id) {
     profiles = profiles.filter(p=>p.id!==id);
-    // destroy both chart types if exist
     ['radar','jojo'].forEach(type=>{
       const key = `${type}-${id}`;
-      if (radarCharts[key]) { radarCharts[key].destroy(); delete radarCharts[key]; }
+      if (radarCharts[key]) {
+        radarCharts[key].destroy();
+        delete radarCharts[key];
+      }
     });
+    renderProfiles();
+  }
+
+  function randomizeProfile(id) {
+    const p = profiles.find(pr => pr.id===id);
+    if (!p) return;
+    p.statValues = stats.map(()=>Math.floor(Math.random()*11));
     renderProfiles();
   }
 
@@ -193,9 +167,8 @@
           input.type='number'; input.min=0; input.max=10; input.value=p.statValues[i];
           input.addEventListener('input', ()=>{
             p.statValues[i] = Math.min(10,Math.max(0,+input.value));
-            // update radar if visible
             ['radar','jojo'].forEach(type=>{
-              const key=`${type}-${p.id}`;
+              const key = `${type}-${p.id}`;
               if (radarCharts[key]) {
                 radarCharts[key].data.datasets[0].data = p.statValues;
                 radarCharts[key].update();
@@ -218,7 +191,7 @@
             p.statValues[i] = +slider.value;
             valet.textContent = slider.value;
             ['radar','jojo'].forEach(type=>{
-              const key=`${type}-${p.id}`;
+              const key = `${type}-${p.id}`;
               if (radarCharts[key]) {
                 radarCharts[key].data.datasets[0].data = p.statValues;
                 radarCharts[key].update();
@@ -232,38 +205,39 @@
       } else if (style === 'radar' || style === 'jojo') {
         const canvas = document.createElement('canvas');
         const typeKey = style==='radar' ? 'radar' : 'jojo';
+        const labels = style==='radar' ? stats : jojoStats;
         canvas.id = `${typeKey}-${p.id}`;
         canvas.style.maxWidth='260px'; content.appendChild(canvas);
-        setTimeout(()=>{
-          const labels = style==='radar' ? stats : jojoStats;
-          const key = `${typeKey}-${p.id}`;
-          const data = p.statValues;
-          if (radarCharts[key]) {
-            radarCharts[key].data.datasets[0].data = data;
-            radarCharts[key].update();
-          } else {
-            radarCharts[key] = new Chart(canvas, {
-              type:'radar',
-              data:{ labels, datasets:[{
-                label:p.name, data,
-                backgroundColor:'rgba(76,175,80,0.2)',
-                borderColor:'var(--accent-color)',
-                pointBackgroundColor:'var(--accent-color)'
-              }] },
-              options:{
-                scales:{ r:{ min:0,max:10,ticks:{ stepSize:1 } } },
-                plugins:{ legend:{ display:false } }
-              }
-            });
-          }
-        },50);
+        const ctx = canvas.getContext('2d');
+        const chartKey = `${typeKey}-${p.id}`;
+        if (radarCharts[chartKey]) {
+          radarCharts[chartKey].data.labels = labels;
+          radarCharts[chartKey].data.datasets[0].data = p.statValues;
+          radarCharts[chartKey].update();
+        } else {
+          radarCharts[chartKey] = new Chart(ctx, {
+            type:'radar',
+            data:{ labels, datasets:[{
+              label:p.name, data:p.statValues,
+              backgroundColor:'rgba(76,175,80,0.2)',
+              borderColor:'var(--accent-color)',
+              pointBackgroundColor:'var(--accent-color)'
+            }]},
+            options:{
+              scales:{ r:{ min:0,max:10,ticks:{ stepSize:1 } } },
+              plugins:{ legend:{ display:false } }
+            }
+          });
+        }
       }
 
       card.appendChild(content);
       const footer = document.createElement('div'); footer.className='profile-footer';
+      const rand = document.createElement('button'); rand.textContent='🎲 Randomize';
+      rand.onclick = ()=> randomizeProfile(p.id);
       const del = document.createElement('button'); del.textContent='🗑️ Delete';
       del.onclick = ()=> deleteProfile(p.id);
-      footer.appendChild(del); card.appendChild(footer);
+      footer.append(rand,del); card.appendChild(footer);
       profilesDiv.appendChild(card);
     });
   }

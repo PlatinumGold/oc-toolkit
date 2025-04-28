@@ -6,71 +6,52 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
-    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
-    header {
-      background:#4a90e2; color:#fff;
-      padding:12px; text-align:center; font-size:1.3em;
-    }
+    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5 }
+    header { background:#4a90e2; color:#fff; padding:12px; text-align:center; }
     #toolbar {
       background:#fff; border-bottom:1px solid #ccc;
-      padding:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+      padding:10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
     }
-    #toolbar input, #toolbar select, #toolbar button, #toolbar label {
-      padding:6px; font-size:0.9em; border:1px solid #ccc; border-radius:4px;
+    #toolbar input,#toolbar select,#toolbar button,#toolbar label {
+      font-size:0.9em; padding:6px; border:1px solid #ccc; border-radius:4px;
     }
-    #toolbar label { border:none; padding:0; margin-left:4px; }
+    #toolbar label { border:none; margin-left:4px; }
     #filterPanel {
-      background:#fff; border:1px solid #ccc; padding:8px;
-      border-radius:4px; margin-left:auto; display:flex; flex-direction:column;
-      font-size:0.9em;
+      margin-left:auto; background:#fff; border:1px solid #ccc;
+      padding:8px; border-radius:4px; font-size:0.9em;
     }
-    #filterPanel label { margin-bottom:4px; }
-    #contextControls {
-      display:none; align-items:center; gap:8px;
-    }
-    #chart {
-      position:relative;
-      width:100%; height:calc(100vh - 160px);
-      background:#fafafa;
-    }
-    svg { width:100%; height:100%; }
+    #chart { position:relative; height:calc(100vh - 160px); background:#fafafa }
+    svg { width:100%; height:100% }
     .legend {
       position:absolute; top:10px; right:10px;
-      background:rgba(255,255,255,0.8); padding:8px; border:1px solid #ccc;
+      background:rgba(255,255,255,0.9); padding:8px; border:1px solid #ccc;
       font-size:0.9em; border-radius:4px;
     }
-    .legend-item { display:flex; align-items:center; margin-bottom:4px; }
-    .legend-color {
-      width:16px; height:2px; margin-right:6px; cursor:pointer;
-    }
-    .rel-line { transition: stroke-opacity 0.2s, stroke-width 0.2s; }
+    .legend-item { display:flex; align-items:center; margin-bottom:4px }
+    .legend-color { width:16px; height:2px; margin-right:6px; cursor:pointer }
+    .rel-path { fill:none; transition:stroke-opacity .2s,stroke-width .2s }
   </style>
 </head>
 <body>
-
   <header>🔗 OC Relationship Map</header>
-
   <div id="toolbar">
     <input id="nameInput" type="text" placeholder="OC Name…"/>
-    <input id="borderColor" type="color" value="#4a90e2" title="Border color"/>
+    <input id="borderColor" type="color" value="#4a90e2"/>
     <input id="imgInput" type="file" accept="image/*"/>
     <button id="addOcBtn">➕ Add OC</button>
 
-    <div id="contextControls">
-      <select id="ctxTgtSelect"><option value="">Target OC</option></select>
+    <div id="contextControls" style="display:none;align-items:center;gap:8px">
+      <select id="ctxTgtSelect"><option>Target OC</option></select>
       <input type="checkbox" id="ctxMutualChk"/><label for="ctxMutualChk">Mutual</label>
-      <select id="ctxRelSelect"><option value="">Relation Type</option></select>
+      <select id="ctxRelSelect"><option>Relation Type</option></select>
       <button id="ctxAddRelBtn">➕ Add Relation</button>
-      <button id="ctxDeleteOcBtn">🗑️ Delete OC</button>
+      <button id="ctxDelOcBtn">🗑️ Delete OC</button>
     </div>
 
-    <input type="color" id="newRelColor" value="#555555" title="Pick rel color"/>
+    <input id="newRelColor" type="color" value="#555555"/>
     <button id="newRelTypeBtn">➕ New Rel Type</button>
 
-    <div id="filterPanel">
-      <strong>Filters</strong>
-      <!-- checkboxes inserted dynamically -->
-    </div>
+    <div id="filterPanel"><strong>Filters</strong></div>
   </div>
 
   <div id="chart">
@@ -79,232 +60,213 @@
   </div>
 
   <script>
-    let ocId=0, relTypeId=0;
-    let nodes=[], edges=[];
-    const relTypes = [
-      { id:++relTypeId, key:'ally',   label:'Ally',   color:'#4CAF50' },
-      { id:++relTypeId, key:'enemy',  label:'Enemy',  color:'#F44336' },
-      { id:++relTypeId, key:'mentor', label:'Mentor', color:'#2196F3' },
-      { id:++relTypeId, key:'rival',  label:'Rival',  color:'#FF9800' }
-    ];
+  // — Data —
+  let ocId=0, relTypeId=0;
+  let nodes = [], edges = [];
+  const relTypes = [
+    {id:++relTypeId,key:'ally',  label:'Ally',   color:'#4CAF50'},
+    {id:++relTypeId,key:'enemy', label:'Enemy',  color:'#F44336'},
+    {id:++relTypeId,key:'mentor',label:'Mentor', color:'#2196F3'},
+    {id:++relTypeId,key:'rival', label:'Rival',  color:'#FF9800'}
+  ];
 
-    // D3 setup
-    const svg = d3.select('svg');
-    const width = document.getElementById('chart').clientWidth;
-    const height = document.getElementById('chart').clientHeight;
-    const radius = Math.min(width, height)/2 - 100; // inset for arrowheads
+  // — UI refs —
+  const svg      = d3.select('svg'),
+        width    = document.getElementById('chart').clientWidth,
+        height   = document.getElementById('chart').clientHeight,
+        radius   = Math.min(width,height)/2 - 100,
+        nameIn   = document.getElementById('nameInput'),
+        borderIn = document.getElementById('borderColor'),
+        imgIn    = document.getElementById('imgInput'),
+        addOcBtn = document.getElementById('addOcBtn'),
+        ctxCtr   = document.getElementById('contextControls'),
+        ctxTgt   = document.getElementById('ctxTgtSelect'),
+        ctxMut   = document.getElementById('ctxMutualChk'),
+        ctxRel   = document.getElementById('ctxRelSelect'),
+        ctxAdd   = document.getElementById('ctxAddRelBtn'),
+        ctxDel   = document.getElementById('ctxDelOcBtn'),
+        newRelC  = document.getElementById('newRelColor'),
+        newRelB  = document.getElementById('newRelTypeBtn'),
+        filterP  = document.getElementById('filterPanel'),
+        legend   = document.getElementById('legend');
 
-    // UI references
-    const nameIn       = document.getElementById('nameInput');
-    const borderIn     = document.getElementById('borderColor');
-    const imgIn        = document.getElementById('imgInput');
-    const addOcBtn     = document.getElementById('addOcBtn');
-    const contextCtr   = document.getElementById('contextControls');
-    const ctxTgtSel    = document.getElementById('ctxTgtSelect');
-    const ctxMutual    = document.getElementById('ctxMutualChk');
-    const ctxRelSel    = document.getElementById('ctxRelSelect');
-    const ctxAddRel    = document.getElementById('ctxAddRelBtn');
-    const ctxDelOc     = document.getElementById('ctxDeleteOcBtn');
-    const newRelColor  = document.getElementById('newRelColor');
-    const newRelBtn    = document.getElementById('newRelTypeBtn');
-    const filterPanel  = document.getElementById('filterPanel');
-    const legendDiv    = document.getElementById('legend');
+  // — Helpers —
+  function refreshFilters(){
+    filterP.innerHTML = '<strong>Filters</strong>';
+    relTypes.forEach(r=>{
+      const lbl = document.createElement('label');
+      lbl.innerHTML = `<input type="checkbox" data-relid="${r.id}" checked/> ${r.label}`;
+      filterP.appendChild(lbl);
+    });
+  }
+  function getEnabled() {
+    return Array.from(filterP.querySelectorAll('input')).filter(cb=>cb.checked)
+      .map(cb=>+cb.dataset.relid);
+  }
+  function refreshContext(id){
+    ctxTgt.innerHTML = '<option>Target OC</option>';
+    nodes.filter(n=>n.id!==id).forEach(n=>{
+      ctxTgt.innerHTML += `<option value="${n.id}">${n.name}</option>`;
+    });
+    ctxRel.innerHTML = '<option>Relation Type</option>';
+    relTypes.forEach(r=>{
+      ctxRel.innerHTML += `<option value="${r.id}">${r.label}</option>`;
+    });
+  }
+  function renderLegend(){
+    legend.innerHTML = '<strong>Relationships</strong>';
+    relTypes.forEach(r=>{
+      const item = document.createElement('div'); item.className='legend-item';
+      const sw = document.createElement('div'); sw.className='legend-color';
+      sw.style.background = r.color;
+      sw.onclick = ()=>{
+        const c = prompt(`Color for "${r.label}"?`, r.color);
+        if(/^#?[0-9A-Fa-f]{6}$/.test(c)) { r.color = c.startsWith('#')?c:'#'+c; render(); }
+      };
+      const txt = document.createElement('span'); txt.textContent=' '+r.label;
+      item.appendChild(sw); item.appendChild(txt); legend.appendChild(item);
+    });
+  }
 
-    function refreshFilters() {
-      filterPanel.innerHTML = '<strong>Filters</strong>';
-      relTypes.forEach(r=>{
-        const lbl = document.createElement('label');
-        lbl.innerHTML = `<input type="checkbox" data-relid="${r.id}" checked/> ${r.label}`;
-        filterPanel.appendChild(lbl);
-      });
+  // — Add OC —
+  addOcBtn.onclick = ()=>{
+    const name = nameIn.value.trim();
+    if(!name) return alert('Name required');
+    const id = ++ocId, border = borderIn.value;
+    if(imgIn.files[0]){
+      const fr=new FileReader();
+      fr.onload=e=>{
+        nodes.push({id,name,border,img:e.target.result});
+        nameIn.value=imgIn.value=''; render();
+      };
+      fr.readAsDataURL(imgIn.files[0]);
+    } else {
+      nodes.push({id,name,border,img:null});
+      nameIn.value=''; render();
     }
+  };
 
-    function getEnabledRelIds() {
-      return Array.from(filterPanel.querySelectorAll('input[type="checkbox"]'))
-        .filter(cb => cb.checked)
-        .map(cb => +cb.dataset.relid);
-    }
+  // — New Rel Type —
+  newRelB.onclick = ()=>{
+    const lbl=prompt('Relationship label?');
+    if(!lbl) return;
+    const col=newRelC.value, id=++relTypeId;
+    relTypes.push({id,key:lbl.toLowerCase().replace(/\\s+/g,''),label:lbl,color:col});
+    refreshFilters(); render();
+  };
 
-    function refreshContextSelects(sourceId) {
-      ctxTgtSel.innerHTML = '<option value="">Target OC</option>';
-      nodes.forEach(n => {
-        if (n.id !== sourceId) ctxTgtSel.innerHTML += `<option value="${n.id}">${n.name}</option>`;
-      });
-      ctxRelSel.innerHTML = '<option value="">Relation Type</option>';
-      relTypes.forEach(r => {
-        ctxRelSel.innerHTML += `<option value="${r.id}">${r.label}</option>`;
-      });
-    }
+  // — Main render —
+  function render(){
+    svg.selectAll('*').remove();
+    refreshFilters(); renderLegend();
 
-    function renderLegend() {
-      legendDiv.innerHTML = '<strong>Relationships</strong>';
-      relTypes.forEach(r => {
-        const item = document.createElement('div');
-        item.className = 'legend-item';
-        const sw = document.createElement('div');
-        sw.className = 'legend-color';
-        sw.style.background = r.color;
-        sw.onclick = () => {
-          const c = prompt(`New color for "${r.label}"?`, r.color);
-          if (/^#?[0-9A-Fa-f]{6}$/.test(c)) {
-            r.color = c.startsWith('#')?c:'#'+c;
+    // markers
+    const defs = svg.append('defs');
+    relTypes.forEach(r=>{
+      defs.append('marker')
+        .attr('id',`arr${r.id}`)
+        .attr('viewBox','0 0 10 10')
+        .attr('refX','30').attr('refY','5')
+        .attr('markerUnits','strokeWidth')
+        .attr('markerWidth','6').attr('markerHeight','6')
+        .attr('orient','auto')
+        .append('path')
+          .attr('d','M0,0 L10,5 L0,10Z')
+          .attr('fill',r.color);
+    });
+
+    const g = svg.append('g').attr('transform',`translate(${width/2},${height/2})`);
+
+    // position nodes
+    const step = Math.PI*2/(nodes.length||1);
+    nodes.forEach((n,i)=>{
+      const ang=i*step - Math.PI/2;
+      n.x=Math.cos(ang)*radius; n.y=Math.sin(ang)*radius;
+    });
+
+    // draw edges
+    const enabled = getEnabled();
+    edges.forEach(e=>{
+      if(!enabled.includes(e.type)) return;
+      const rt=relTypes.find(r=>r.id===e.type),
+            s=nodes.find(n=>n.id===e.source),
+            t=nodes.find(n=>n.id===e.target);
+      // use curved path for mutual, straight for single
+      const isMutual = e.mutual;
+      const dx=t.x-s.x, dy=t.y-s.y;
+      const dr = isMutual ? Math.hypot(dx,dy)*0.7 : 0;
+      const path = isMutual
+        ? `M${s.x},${s.y} A${dr},${dr} 0 0,1 ${t.x},${t.y}`
+        : `M${s.x},${s.y} L${t.x},${t.y}`;
+      g.append('path')
+        .attr('d',path)
+        .attr('stroke',rt.color)
+        .attr('stroke-width',2)
+        .attr('class','rel-path')
+        .attr('marker-end',`url(#arr${rt.id})`)
+        .attr('marker-start',isMutual?`url(#arr${rt.id})`:null)
+        .attr('fill','none')
+        .attr('stroke-dasharray',(rt.key==='mentor'||rt.key==='rival')?'4,4':'0');
+    });
+
+    // draw nodes
+    const ng = g.selectAll('.node-group')
+      .data(nodes, d=>d.id)
+      .join('g')
+        .attr('class','node-group')
+        .attr('transform',d=>`translate(${d.x},${d.y})`)
+        .on('click',(e,d)=>{
+          ctxCtr.style.display='flex';
+          refreshContext(d.id);
+          ctxAdd.onclick=()=>{
+            const t=+ctxTgt.value, r=+ctxRel.value;
+            if(!t||!r) return alert('Pick target & type');
+            edges.push({source:d.id,target:t,type:r,mutual:ctxMut.checked});
             render();
-            renderLegend();
-          }
-        };
-        const text = document.createElement('span');
-        text.textContent = ' ' + r.label;
-        item.appendChild(sw);
-        item.appendChild(text);
-        legendDiv.appendChild(item);
-      });
-    }
+          };
+          ctxDel.onclick=()=>{ 
+            nodes=nodes.filter(n=>n.id!==d.id);
+            edges=edges.filter(x=>x.source!==d.id&&x.target!==d.id);
+            ctxCtr.style.display='none';
+            render(); 
+          };
+        })
+        .on('mouseover',(e,d)=>{
+          svg.selectAll('.rel-path')
+            .attr('stroke-opacity',0.2).attr('stroke-width',2);
+          svg.selectAll('.rel-path')
+            .filter(x=>x.source===d.id||x.target===d.id)
+            .attr('stroke-opacity',1).attr('stroke-width',4);
+        })
+        .on('mouseout',()=>{
+          svg.selectAll('.rel-path')
+            .attr('stroke-opacity',1).attr('stroke-width',2);
+        });
 
-    addOcBtn.onclick = () => {
-      const name = nameIn.value.trim();
-      if (!name) return alert('Name required');
-      const border = borderIn.value;
-      const id = ++ocId;
-      if (imgIn.files[0]) {
-        const fr = new FileReader();
-        fr.onload = e => {
-          nodes.push({id, name, border, img:e.target.result});
-          nameIn.value = imgIn.value = '';
-          render();
-        };
-        fr.readAsDataURL(imgIn.files[0]);
+    ng.each(function(d){
+      const c = d3.select(this);
+      if(d.img){
+        c.append('image')
+          .attr('href',d.img).attr('x',-24).attr('y',-24)
+          .attr('width',48).attr('height',48)
+          .attr('clip-path','circle(24px at 24px 24px)');
       } else {
-        nodes.push({id, name, border, img:null});
-        nameIn.value = '';
-        render();
+        c.append('circle').attr('r',24).attr('fill','#ccc');
       }
-    };
+      c.append('circle')
+        .attr('r',26).attr('fill','none')
+        .attr('stroke',d.border).attr('stroke-width',3);
+      c.append('text')
+        .text(d.name).attr('y',36)
+        .attr('text-anchor','middle')
+        .attr('font-size','0.8em');
+    });
+  }
 
-    newRelBtn.onclick = () => {
-      const label = prompt('Relationship label?');
-      if (!label) return;
-      const col = newRelColor.value;
-      const id = ++relTypeId;
-      relTypes.push({id, key:label.toLowerCase().replace(/\s+/g,''), label, color:col});
-      refreshFilters();
-      render();
-    };
-
-    function render() {
-      svg.selectAll('*').remove();
-      refreshFilters();
-      renderLegend();
-
-      // Define arrowhead markers
-      const defs = svg.append('defs');
-      relTypes.forEach(r => {
-        defs.append('marker')
-          .attr('id', `arr${r.id}`)
-          .attr('viewBox','0 0 10 10')
-          .attr('refX','10').attr('refY','5')
-          .attr('markerUnits','strokeWidth')
-          .attr('markerWidth','6').attr('markerHeight','6')
-          .attr('orient','auto')
-          .append('path')
-            .attr('d','M0,0 L10,5 L0,10Z')
-            .attr('fill', r.color);
-      });
-
-      const group = svg.append('g')
-        .attr('transform', `translate(${width/2},${height/2})`);
-
-      // Position nodes
-      const angleStep = Math.PI*2 / (nodes.length || 1);
-      nodes.forEach((n,i) => {
-        const angle = i*angleStep - Math.PI/2;
-        n.x = Math.cos(angle)*radius;
-        n.y = Math.sin(angle)*radius;
-      });
-
-      // Draw edges
-      const enabled = getEnabledRelIds();
-      edges.forEach(e => {
-        if (!enabled.includes(e.type)) return;
-        const rt = relTypes.find(r=>r.id===e.type),
-              src = nodes.find(n=>n.id===e.source),
-              tgt = nodes.find(n=>n.id===e.target);
-        group.append('line')
-          .attr('x1',src.x).attr('y1',src.y)
-          .attr('x2',tgt.x).attr('y2',tgt.y)
-          .attr('stroke', rt.color)
-          .attr('stroke-width', 2)
-          .attr('marker-end', `url(#arr${rt.id})`)
-          .attr('stroke-dasharray', (rt.key==='mentor'||rt.key==='rival')?'4,4':'0')
-          .attr('class','rel-line');
-      });
-
-      // Draw nodes with hover & click
-      const ng = group.selectAll('.node-group')
-        .data(nodes, d=>d.id)
-        .join('g')
-          .attr('class','node-group')
-          .attr('transform', d=>`translate(${d.x},${d.y})`)
-          .on('click', (event, d) => {
-            contextCtr.style.display = 'flex';
-            refreshContextSelects(d.id);
-            ctxAddRel.onclick = () => {
-              const t = +ctxTgtSel.value, r = +ctxRelSel.value;
-              if(!t||!r) return alert('Select target & type');
-              edges.push({source:d.id, target:t, type:r});
-              if(ctxMutual.checked) edges.push({source:t, target:d.id, type:r});
-              render();
-            };
-            ctxDelOc.onclick = () => {
-              nodes = nodes.filter(n=>n.id!==d.id);
-              edges = edges.filter(e=>e.source!==d.id && e.target!==d.id);
-              contextCtr.style.display = 'none';
-              render();
-            };
-          })
-          .on('mouseover', (event, d) => {
-            svg.selectAll('.rel-line')
-              .attr('stroke-opacity', 0.2)
-              .attr('stroke-width', 2);
-            svg.selectAll('.rel-line')
-              .filter(e => e.source===d.id || e.target===d.id)
-              .attr('stroke-opacity', 1)
-              .attr('stroke-width', 4);
-          })
-          .on('mouseout', () => {
-            svg.selectAll('.rel-line')
-              .attr('stroke-opacity', 1)
-              .attr('stroke-width', 2);
-          });
-
-      ng.each(function(d){
-        const c = d3.select(this);
-        if(d.img){
-          c.append('image')
-            .attr('href',d.img)
-            .attr('x',-24).attr('y',-24)
-            .attr('width',48).attr('height',48)
-            .attr('clip-path','circle(24px at 24px 24px)');
-        } else {
-          c.append('circle').attr('r',24).attr('fill','#ccc');
-        }
-        c.append('circle')
-          .attr('r',26)
-          .attr('fill','none')
-          .attr('stroke', d.border)
-          .attr('stroke-width',3);
-        c.append('text')
-          .text(d.name)
-          .attr('y',36)
-          .attr('text-anchor','middle')
-          .attr('font-size','0.8em');
-      });
-    }
-
-    // Initialize with one node
-    nodes.push({id:++ocId, name:'Main OC', border:'#4a90e2', img:null});
-    refreshFilters();
-    render();
+  // init
+  nodes.push({id:++ocId,name:'Main OC',border:'#4a90e2',img:null});
+  refreshFilters();
+  render();
   </script>
-
 </body>
 </html>

@@ -34,7 +34,7 @@
     #controls input[type="file"] {
       font-size: 0.9em;
     }
-    #controls button {
+    #controls button, #controls a.button {
       background: var(--accent-color);
       color: #fff;
       border: none;
@@ -42,7 +42,11 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 1em;
+      text-decoration: none;
+      display: inline-block;
     }
+    details { margin-left: auto; }
+    details summary { cursor: pointer; font-size: 0.9em; }
     #profiles {
       display: flex; flex-wrap: wrap;
       gap: 20px; padding: 20px;
@@ -52,7 +56,7 @@
       background: #fff;
       border: 2px solid var(--accent-color);
       border-radius: 8px;
-      width: 280px;
+      width: 300px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       display: flex; flex-direction: column;
       overflow: hidden;
@@ -74,23 +78,17 @@
     .stat-list, .stat-sliders {
       display: grid; gap: 8px;
     }
-    .stat-list div {
-      font-size: 0.95em;
-      display: flex; justify-content: space-between;
+    .stat-list .row {
+      display: flex; justify-content: space-between; align-items: center;
     }
-    .stat-sliders .slider-row {
+    .stat-list input[type="number"] {
+      width: 50px; padding: 4px;
+    }
+    .stat-sliders .row {
       display: flex; align-items: center; gap: 8px;
     }
-    .slider-bar {
-      flex: 1; height: 12px;
-      background: #e0e0e0;
-      border-radius: 6px; overflow: hidden;
-    }
-    .slider-bar .fill {
-      height: 100%;
-      background: var(--accent-color);
-      border-radius: 6px 0 0 6px;
-      transition: width 0.3s;
+    .stat-sliders input[type="range"] {
+      flex: 1; cursor: pointer;
     }
     .profile-footer {
       padding: 10px; text-align: right;
@@ -116,6 +114,18 @@
       <option value="radar">Radar Chart</option>
     </select>
     <button id="addProfileBtn">➕ Add OC</button>
+    <button id="exportBtn">📥 Export JSON</button>
+    <details>
+      <summary>Stat Descriptions</summary>
+      <ul style="padding-left: 18px; margin: 8px 0; font-size:0.9em;">
+        <li><strong>Strength:</strong> Physical power and force.</li>
+        <li><strong>Dexterity:</strong> Agility, reflexes, and coordination.</li>
+        <li><strong>Constitution:</strong> Endurance and health.</li>
+        <li><strong>Intelligence:</strong> Problem-solving and knowledge.</li>
+        <li><strong>Wisdom:</strong> Perception and insight.</li>
+        <li><strong>Charisma:</strong> Social influence and charm.</li>
+      </ul>
+    </details>
   </div>
 
   <div id="profiles"></div>
@@ -128,7 +138,8 @@
           nameIn      = document.getElementById('nameInput'),
           imgIn       = document.getElementById('imgInput'),
           styleSelect = document.getElementById('styleSelect'),
-          addBtn      = document.getElementById('addProfileBtn');
+          addBtn      = document.getElementById('addProfileBtn'),
+          exportBtn   = document.getElementById('exportBtn');
 
     function createProfile(name, imgSrc) {
       const id = nextId++;
@@ -143,40 +154,54 @@
       renderProfiles();
     }
 
+    function exportJSON() {
+      const dataStr = JSON.stringify(profiles, null, 2);
+      const blob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'profiles.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
     function renderProfiles() {
       profilesDiv.innerHTML = '';
       profiles.forEach(p => {
         const card = document.createElement('div'); card.className = 'profile-card';
-        // header
         const hdr = document.createElement('div'); hdr.className = 'profile-header';
         hdr.textContent = p.name; card.appendChild(hdr);
-        // image
         if (p.imgSrc) {
           const img = document.createElement('img');
           img.src = p.imgSrc; img.className = 'profile-image';
           card.appendChild(img);
         }
-        // content
         const content = document.createElement('div'); content.className = 'profile-content';
         const style = styleSelect.value;
         if (style === 'numbers') {
-          const list = document.createElement('div'); list.className = 'stat-list';
-          stats.forEach((s,i) => {
-            const row = document.createElement('div');
-            row.innerHTML = `<span>${s}</span><span>${p.statValues[i]}</span>`;
-            list.appendChild(row);
+          const container = document.createElement('div'); container.className = 'stat-list';
+          stats.forEach((s,i)=>{
+            const row = document.createElement('div'); row.className = 'row';
+            const label = document.createElement('span'); label.textContent = s;
+            const input = document.createElement('input');
+            input.type = 'number'; input.min='0'; input.max='10'; input.value = p.statValues[i];
+            input.addEventListener('input', ()=> {
+              p.statValues[i] = Math.min(10, Math.max(0, +input.value));
+            });
+            row.append(label, input);
+            container.appendChild(row);
           });
-          content.appendChild(list);
+          content.appendChild(container);
         } else if (style === 'sliders') {
           const container = document.createElement('div'); container.className = 'stat-sliders';
-          stats.forEach((s,i) => {
-            const row = document.createElement('div'); row.className = 'slider-row';
-            const label = document.createElement('label'); label.textContent = s;
-            const bar = document.createElement('div'); bar.className = 'slider-bar';
-            const fill = document.createElement('div'); fill.className = 'fill';
-            fill.style.width = (p.statValues[i]*10) + '%';
-            bar.appendChild(fill);
-            row.append(label, bar);
+          stats.forEach((s,i)=>{
+            const row = document.createElement('div'); row.className='row';
+            const label = document.createElement('span'); label.textContent = s;
+            const slider = document.createElement('input');
+            slider.type = 'range'; slider.min='0'; slider.max='10'; slider.value = p.statValues[i];
+            slider.addEventListener('input', ()=> {
+              p.statValues[i] = +slider.value;
+            });
+            row.append(label, slider);
             container.appendChild(row);
           });
           content.appendChild(container);
@@ -186,8 +211,9 @@
           canvas.style.maxWidth = '260px';
           content.appendChild(canvas);
           setTimeout(()=> {
+            const data = p.statValues;
             if (radarCharts[p.id]) {
-              radarCharts[p.id].data.datasets[0].data = p.statValues;
+              radarCharts[p.id].data.datasets[0].data = data;
               radarCharts[p.id].update();
             } else {
               radarCharts[p.id] = new Chart(canvas, {
@@ -196,7 +222,7 @@
                   labels: stats,
                   datasets: [{
                     label: p.name,
-                    data: p.statValues,
+                    data,
                     backgroundColor: 'rgba(76,175,80,0.2)',
                     borderColor: 'var(--accent-color)',
                     pointBackgroundColor: 'var(--accent-color)'
@@ -213,16 +239,15 @@
           }, 50);
         }
         card.appendChild(content);
-        // footer
-        const footer = document.createElement('div'); footer.className = 'profile-footer';
-        const del = document.createElement('button'); del.textContent = '🗑️ Delete';
+        const footer = document.createElement('div'); footer.className='profile-footer';
+        const del = document.createElement('button'); del.textContent='🗑️ Delete';
         del.onclick = ()=> deleteProfile(p.id);
         footer.appendChild(del); card.appendChild(footer);
         profilesDiv.appendChild(card);
       });
     }
 
-    addBtn.onclick = () => {
+    addBtn.onclick = ()=> {
       const name = nameIn.value.trim();
       if (!name) return alert('Enter a name.');
       if (imgIn.files[0]) {
@@ -237,7 +262,9 @@
         nameIn.value = '';
       }
     };
+
     styleSelect.onchange = renderProfiles;
+    exportBtn.onclick = exportJSON;
   </script>
 </body>
 </html>

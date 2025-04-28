@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>OC Stat Board</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
+    header { background:#4a90e2; color:#fff; padding:12px; text-align:center; }
+    #controls {
+      background:#fff; border-bottom:1px solid #ccc;
+      padding:12px; display:flex; flex-wrap:wrap; align-items:center; gap:12px;
+    }
+    #controls label, #controls select {
+      font-size:0.95em;
+    }
+    #controls input[type=number] {
+      width:60px; margin-left:4px; padding:4px;
+    }
+    #display { padding:20px; }
+    .stat-list, .stat-sliders {
+      display:grid; grid-template-columns:repeat(2,1fr); gap:12px;
+      max-width:400px; margin:0 auto;
+    }
+    .stat-list div, .stat-sliders div {
+      background:#fff; padding:8px; border:1px solid #ccc; border-radius:4px;
+    }
+    .slider-bar {
+      width:100%; height:8px; background:#ddd; border-radius:4px; margin-top:4px;
+      position:relative;
+    }
+    .slider-bar .fill {
+      height:100%; background:#4a90e2; border-radius:4px 0 0 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>📊 OC Stat Board</header>
+
+  <div id="controls">
+    <!-- Stat inputs -->
+    <div>
+      <label>STR<input id="stat-STR" type="number" min="0" max="10" value="5"/></label>
+      <label>DEX<input id="stat-DEX" type="number" min="0" max="10" value="5"/></label>
+      <label>CON<input id="stat-CON" type="number" min="0" max="10" value="5"/></label>
+      <label>INT<input id="stat-INT" type="number" min="0" max="10" value="5"/></label>
+      <label>WIS<input id="stat-WIS" type="number" min="0" max="10" value="5"/></label>
+      <label>CHA<input id="stat-CHA" type="number" min="0" max="10" value="5"/></label>
+    </div>
+
+    <!-- Display style selector -->
+    <div>
+      <label for="styleSelect">Display style:</label>
+      <select id="styleSelect">
+        <option value="numbers">Numbers</option>
+        <option value="sliders">Sliders</option>
+        <option value="radar">Radar Chart</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="display">
+    <!-- 1) Numbers -->
+    <div id="numbersView" class="stat-list"></div>
+
+    <!-- 2) Sliders -->
+    <div id="slidersView" class="stat-sliders" style="display:none;"></div>
+
+    <!-- 3) Radar Chart -->
+    <canvas id="radarView" style="max-width:500px; margin:0 auto; display:none;"></canvas>
+  </div>
+
+  <script>
+    const stats = ['STR','DEX','CON','INT','WIS','CHA'];
+    const inputs = {};
+    stats.forEach(s => inputs[s] = document.getElementById(`stat-${s}`));
+
+    const numbersView = document.getElementById('numbersView');
+    const slidersView = document.getElementById('slidersView');
+    const radarCanvas = document.getElementById('radarView');
+    let radarChart;
+
+    function renderNumbers() {
+      numbersView.innerHTML = '';
+      stats.forEach(s => {
+        const val = inputs[s].value;
+        const div = document.createElement('div');
+        div.textContent = `${s}: ${val}`;
+        numbersView.appendChild(div);
+      });
+    }
+
+    function renderSliders() {
+      slidersView.innerHTML = '';
+      stats.forEach(s => {
+        const val = inputs[s].value;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<strong>${s}</strong>`;
+        const bar = document.createElement('div');
+        bar.className = 'slider-bar';
+        const fill = document.createElement('div');
+        fill.className = 'fill';
+        fill.style.width = (val*10) + '%';
+        bar.appendChild(fill);
+        wrapper.appendChild(bar);
+        slidersView.appendChild(wrapper);
+      });
+    }
+
+    function renderRadar() {
+      const data = stats.map(s => +inputs[s].value);
+      if (radarChart) {
+        radarChart.data.datasets[0].data = data;
+        radarChart.update();
+        return;
+      }
+      radarChart = new Chart(radarCanvas, {
+        type: 'radar',
+        data: {
+          labels: stats,
+          datasets: [{
+            label: 'OC Stats',
+            data,
+            fill: true,
+            backgroundColor: 'rgba(74,144,226,0.2)',
+            borderColor: '#4a90e2',
+            pointBackgroundColor: '#4a90e2'
+          }]
+        },
+        options: {
+          scales: {
+            r: { min: 0, max: 10, ticks: { stepSize: 1 } }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    function updateView() {
+      const style = document.getElementById('styleSelect').value;
+      numbersView.style.display = style==='numbers' ? 'grid' : 'none';
+      slidersView.style.display = style==='sliders' ? 'grid' : 'none';
+      radarCanvas.style.display = style==='radar' ? 'block' : 'none';
+
+      renderNumbers();
+      renderSliders();
+      if (style==='radar') renderRadar();
+    }
+
+    // Re-render whenever any input changes
+    stats.forEach(s => inputs[s].addEventListener('input', updateView));
+    document.getElementById('styleSelect').addEventListener('change', updateView);
+
+    // Initial render
+    updateView();
+  </script>
+</body>
+</html>

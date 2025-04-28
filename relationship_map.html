@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>OC Relationship Map (Circle)</title>
+  <title>OC Relationship Map</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
@@ -15,16 +15,17 @@
       background:#fff; border-bottom:1px solid #ccc;
       padding:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px;
     }
-    #toolbar input, #toolbar select, #toolbar button {
+    #toolbar input, #toolbar select, #toolbar button, #toolbar label {
       padding:6px; font-size:0.9em; border:1px solid #ccc; border-radius:4px;
     }
+    #toolbar label { border:none; padding:0; margin-left:4px; }
     #chart {
       position:relative;
       width:100%; height:calc(100vh - 120px);
       background:#fafafa;
     }
     svg { width:100%; height:100%; }
-    .node-group { cursor: pointer; }
+    .node-group { cursor:pointer; }
     .legend {
       position:absolute; top:10px; right:10px;
       background:rgba(255,255,255,0.8); padding:8px; border:1px solid #ccc;
@@ -38,209 +39,227 @@
 </head>
 <body>
 
-<header>🔄 OC Relationship Map (Circle)</header>
+  <header>🔗 OC Relationship Map</header>
 
-<div id="toolbar">
-  <input id="nameInput" type="text" placeholder="OC Name…" />
-  <input id="borderColor" type="color" value="#4a90e2" title="Border color"/>
-  <input id="imgInput" type="file" accept="image/*"/>
-  <button id="addOcBtn">Add OC</button>
+  <div id="toolbar">
+    <input id="nameInput" type="text" placeholder="OC Name…"/>
+    <input id="borderColor" type="color" value="#4a90e2" title="Border color"/>
+    <input id="imgInput" type="file" accept="image/*"/>
+    <button id="addOcBtn">Add OC</button>
 
-  <select id="srcSelect"><option value="">Source OC</option></select>
-  <select id="tgtSelect"><option value="">Target OC</option></select>
-  <select id="relSelect"><option value="">Relation Type</option></select>
-  <button id="addRelBtn">Add Relation</button>
+    <select id="editSelect"><option value="">Select OC to Edit/Delete</option></select>
+    <button id="editOcBtn">✏️ Edit OC</button>
+    <button id="deleteOcBtn">🗑️ Delete OC</button>
 
-  <button id="newRelTypeBtn">➕ New Rel Type</button>
-</div>
+    <select id="srcSelect"><option value="">Source OC</option></select>
+    <select id="tgtSelect"><option value="">Target OC</option></select>
+    <input type="checkbox" id="mutualChk"/><label for="mutualChk">Mutual</label>
+    <select id="relSelect"><option value="">Relation Type</option></select>
+    <button id="addRelBtn">Add Relation</button>
 
-<div id="chart">
-  <div class="legend" id="legend"></div>
-  <svg></svg>
-</div>
+    <button id="newRelTypeBtn">➕ New Rel Type</button>
+  </div>
 
-<script>
-  // — Data stores —
-  let ocId = 0, relTypeId = 0;
-  const nodes = [], edges = [];
-  const relTypes = [
-    { id: ++relTypeId, key:'ally',   label:'Ally',   color:'#4CAF50' },
-    { id: ++relTypeId, key:'enemy',  label:'Enemy',  color:'#F44336' },
-    { id: ++relTypeId, key:'mentor', label:'Mentor', color:'#2196F3' },
-    { id: ++relTypeId, key:'rival',  label:'Rival',  color:'#FF9800' }
-  ];
+  <div id="chart">
+    <div class="legend" id="legend"></div>
+    <svg></svg>
+  </div>
 
-  // — D3 setup —
-  const svg = d3.select('svg');
-  const width = document.getElementById('chart').clientWidth;
-  const height = document.getElementById('chart').clientHeight;
-  const radius = Math.min(width, height)/2 - 60;
-  const g = svg.append('g')
-    .attr('transform', `translate(${width/2},${height/2})`);
+  <script>
+    // — Data stores —
+    let ocId = 0, relTypeId = 0;
+    let nodes = [], edges = [];
+    const relTypes = [
+      { id: ++relTypeId, key:'ally',   label:'Ally',   color:'#4CAF50' },
+      { id: ++relTypeId, key:'enemy',  label:'Enemy',  color:'#F44336' },
+      { id: ++relTypeId, key:'mentor', label:'Mentor', color:'#2196F3' },
+      { id: ++relTypeId, key:'rival',  label:'Rival',  color:'#FF9800' }
+    ];
 
-  // — UI refs —
-  const nameIn      = document.getElementById('nameInput');
-  const borderIn    = document.getElementById('borderColor');
-  const imgIn       = document.getElementById('imgInput');
-  const addOcBtn    = document.getElementById('addOcBtn');
-  const srcSelect   = document.getElementById('srcSelect');
-  const tgtSelect   = document.getElementById('tgtSelect');
-  const relSelect   = document.getElementById('relSelect');
-  const addRelBtn   = document.getElementById('addRelBtn');
-  const newRelBtn   = document.getElementById('newRelTypeBtn');
-  const legendDiv   = document.getElementById('legend');
+    // — D3 setup —
+    const svg = d3.select('svg');
+    const width = document.getElementById('chart').clientWidth;
+    const height = document.getElementById('chart').clientHeight;
+    const radius = Math.min(width, height)/2 - 60;
 
-  // — Helpers to update selects & legend —
-  function refreshOCSelects() {
-    [srcSelect, tgtSelect].forEach(sel=>{
-      sel.innerHTML = `<option value="">${sel.id==='srcSelect'?'Source':'Target'} OC</option>`;
-      nodes.forEach(n=> sel.innerHTML += `<option value="${n.id}">${n.name}</option>`);
-    });
-  }
-  function refreshRelSelect() {
-    relSelect.innerHTML = '<option value="">Relation Type</option>';
-    relTypes.forEach(r=>{
-      relSelect.innerHTML += `<option value="${r.id}">${r.label}</option>`;
-    });
-  }
-  function renderLegend() {
-    legendDiv.innerHTML = '<strong>Legend</strong>';
-    relTypes.forEach(r=>{
-      const item = document.createElement('div');
-      item.className = 'legend-item';
-      const sw = document.createElement('div');
-      sw.className = 'legend-color';
-      sw.style.background = r.color;
-      sw.onclick = ()=> {
-        const c = prompt('New color for "'+r.label+'":', r.color);
-        if(/^#?[0-9A-Fa-f]{6}$/.test(c)) {
-          r.color = c.startsWith('#')?c:'#'+c;
+    // — UI refs —
+    const nameIn      = document.getElementById('nameInput');
+    const borderIn    = document.getElementById('borderColor');
+    const imgIn       = document.getElementById('imgInput');
+    const addOcBtn    = document.getElementById('addOcBtn');
+    const editSelect  = document.getElementById('editSelect');
+    const editOcBtn   = document.getElementById('editOcBtn');
+    const deleteOcBtn = document.getElementById('deleteOcBtn');
+    const srcSelect   = document.getElementById('srcSelect');
+    const tgtSelect   = document.getElementById('tgtSelect');
+    const mutualChk   = document.getElementById('mutualChk');
+    const relSelect   = document.getElementById('relSelect');
+    const addRelBtn   = document.getElementById('addRelBtn');
+    const newRelBtn   = document.getElementById('newRelTypeBtn');
+    const legendDiv   = document.getElementById('legend');
+
+    // — Helpers —
+    function refreshOCSelects() {
+      [srcSelect, tgtSelect, editSelect].forEach(sel=>{
+        const placeholder = sel === editSelect
+          ? 'Select OC to Edit/Delete'
+          : (sel===srcSelect ? 'Source OC' : 'Target OC');
+        sel.innerHTML = `<option value="">${placeholder}</option>`;
+        nodes.forEach(n=> sel.innerHTML += `<option value="${n.id}">${n.name}</option>`);
+      });
+    }
+    function refreshRelSelect() {
+      relSelect.innerHTML = '<option value="">Relation Type</option>';
+      relTypes.forEach(r=>{
+        relSelect.innerHTML += `<option value="${r.id}">${r.label}</option>`;
+      });
+    }
+    function renderLegend() {
+      legendDiv.innerHTML = '<strong>Relationships</strong>';
+      relTypes.forEach(r=>{
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        const sw = document.createElement('div');
+        sw.className = 'legend-color';
+        sw.style.background = r.color;
+        sw.onclick = ()=> {
+          const c = prompt('New color for "'+r.label+'":', r.color);
+          if(/^#?[0-9A-Fa-f]{6}$/.test(c)) {
+            r.color = c.startsWith('#')?c:'#'+c;
+            render();
+            renderLegend();
+          }
+        };
+        const lbl = document.createElement('span');
+        lbl.textContent = ' ' + r.label;
+        item.appendChild(sw);
+        item.appendChild(lbl);
+        legendDiv.appendChild(item);
+      });
+    }
+
+    // — Add/Edit/Delete OC —
+    addOcBtn.onclick = () => {
+      const name = nameIn.value.trim();
+      if(!name) return alert('Name required');
+      const border = borderIn.value;
+      const id = ++ocId;
+      if(imgIn.files[0]) {
+        const fr = new FileReader();
+        fr.onload = e => {
+          nodes.push({ id,name,border,img:e.target.result });
+          nameIn.value = imgIn.value = '';
+          refreshOCSelects();
           render();
-          renderLegend();
-        }
-      };
-      const lbl = document.createElement('span');
-      lbl.textContent = ' ' + r.label;
-      item.appendChild(sw);
-      item.appendChild(lbl);
-      legendDiv.appendChild(item);
-    });
-  }
-
-  // — Add OC —
-  addOcBtn.onclick = () => {
-    const name = nameIn.value.trim();
-    if(!name) return alert('Name required');
-    const border = borderIn.value;
-    const id = ++ocId;
-    if(imgIn.files[0]) {
-      const fr = new FileReader();
-      fr.onload = e => {
-        nodes.push({ id,name,border,img:e.target.result });
-        nameIn.value = imgIn.value = '';
+        };
+        fr.readAsDataURL(imgIn.files[0]);
+      } else {
+        nodes.push({ id,name,border,img:null });
+        nameIn.value = '';
         refreshOCSelects();
         render();
-      };
-      fr.readAsDataURL(imgIn.files[0]);
-    } else {
-      nodes.push({ id,name,border,img:null });
-      nameIn.value = '';
-      refreshOCSelects();
-      render();
-    }
-  };
-
-  // — Add Relation —
-  addRelBtn.onclick = () => {
-    const s = +srcSelect.value, t = +tgtSelect.value, r = +relSelect.value;
-    if(!s||!t||!r) return alert('Select source, target & type');
-    edges.push({ source:s, target:t, type:r });
-    render();
-  };
-
-  // — New Rel Type —
-  newRelBtn.onclick = () => {
-    const label = prompt('Relationship label:');
-    if(!label) return;
-    const col = prompt('Color (hex):','#555555');
-    if(!/^#?[0-9A-Fa-f]{6}$/.test(col)) return alert('Invalid color');
-    const id = ++relTypeId;
-    relTypes.push({ id, key:label.toLowerCase().replace(/\s+/g,''), label, color:col });
-    refreshRelSelect();
-    renderLegend();
-  };
-
-  // — Render function —
-  function render() {
-    svg.selectAll('*').remove();
-    const group = svg.append('g')
-      .attr('transform', `translate(${width/2},${height/2})`);
-
-    // Re-draw legend
-    renderLegend();
-
-    // Re-draw selects
-    refreshRelSelect();
-
-    // Compute node positions on circle
-    const angleStep = Math.PI*2 / nodes.length;
-    nodes.forEach((n,i)=>{
-      const angle = i*angleStep - Math.PI/2;
-      n.x = Math.cos(angle)*radius;
-      n.y = Math.sin(angle)*radius;
-    });
-
-    // Draw edges
-    edges.forEach(e=>{
-      const rt = relTypes.find(r=>r.id===e.type);
-      const src = nodes.find(n=>n.id===e.source);
-      const tgt = nodes.find(n=>n.id===e.target);
-      group.append('line')
-        .attr('x1',src.x).attr('y1',src.y)
-        .attr('x2',tgt.x).attr('y2',tgt.y)
-        .attr('stroke', rt.color)
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', rt.key==='mentor'||rt.key==='rival'?'4,4':'0');
-    });
-
-    // Draw nodes
-    const ng = group.selectAll('.node-group')
-      .data(nodes, d=>d.id)
-      .join('g')
-        .attr('class','node-group')
-        .attr('transform', d=>`translate(${d.x},${d.y})`);
-
-    // Circle or image
-    ng.each(function(d){
-      const container = d3.select(this);
-      if(d.img) {
-        container.append('image')
-          .attr('href',d.img)
-          .attr('x',-24).attr('y',-24)
-          .attr('width',48).attr('height',48)
-          .attr('clip-path','circle(24px at 24px 24px)');
-      } else {
-        container.append('circle')
-          .attr('r',24)
-          .attr('fill','#ccc');
       }
-      container.append('circle')
-        .attr('r',26)
-        .attr('fill','none')
-        .attr('stroke',d.border)
-        .attr('stroke-width',3);
+    };
+    editOcBtn.onclick = () => {
+      const id = +editSelect.value;
+      if(!id) return alert('Select an OC');
+      const oc = nodes.find(n=>n.id===id);
+      const name = prompt('Name:',oc.name);
+      if(name!==null) oc.name = name;
+      const border = prompt('Border color:', oc.border);
+      if(/^#?[0-9A-Fa-f]{6}$/.test(border)) oc.border = border.startsWith('#')?border:'#'+border;
+      render(); refreshOCSelects();
+    };
+    deleteOcBtn.onclick = () => {
+      const id = +editSelect.value;
+      if(!id) return alert('Select an OC');
+      nodes = nodes.filter(n=>n.id!==id);
+      edges = edges.filter(e=> e.source!==id && e.target!==id);
+      refreshOCSelects(); render();
+    };
 
-      container.append('text')
-        .text(d.name)
-        .attr('y',36)
-        .attr('text-anchor','middle')
-        .attr('font-size','0.8em');
-    });
-  }
+    // — Add Relation —
+    addRelBtn.onclick = () => {
+      const s = +srcSelect.value, t = +tgtSelect.value, r = +relSelect.value;
+      if(!s||!t||!r) return alert('Select source, target & type');
+      edges.push({ source:s, target:t, type:r });
+      if(mutualChk.checked) edges.push({ source:t, target:s, type:r });
+      render();
+    };
 
-  // Initial render
-  render();
-</script>
+    // — New Rel Type —
+    newRelBtn.onclick = () => {
+      const label = prompt('Relationship label:');
+      if(!label) return;
+      const col = prompt('Color (hex):','#555555');
+      if(!/^#?[0-9A-Fa-f]{6}$/.test(col)) return alert('Invalid color');
+      const id = ++relTypeId;
+      relTypes.push({ id, key:label.toLowerCase().replace(/\\s+/g,''), label, color:col });
+      refreshRelSelect(); renderLegend();
+    };
+
+    // — Render function —
+    function render() {
+      svg.selectAll('*').remove();
+      const group = svg.append('g').attr('transform', `translate(${width/2},${height/2})`);
+      renderLegend(); refreshRelSelect(); refreshOCSelects();
+
+      // Node positions
+      const angleStep = Math.PI*2 / (nodes.length || 1);
+      nodes.forEach((n,i)=> {
+        const angle = i*angleStep - Math.PI/2;
+        n.x = Math.cos(angle)*radius;
+        n.y = Math.sin(angle)*radius;
+      });
+
+      // Edges
+      edges.forEach(e=> {
+        const rt = relTypes.find(r=>r.id===e.type),
+              src = nodes.find(n=>n.id===e.source),
+              tgt = nodes.find(n=>n.id===e.target);
+        group.append('line')
+          .attr('x1',src.x).attr('y1',src.y)
+          .attr('x2',tgt.x).attr('y2',tgt.y)
+          .attr('stroke',RTcolor=>rt.color)
+          .attr('stroke-width',2)
+          .attr('stroke-dasharray',(rt.key==='mentor'||rt.key==='rival')?'4,4':'0');
+      });
+
+      // Nodes
+      const ng = group.selectAll('.node-group')
+        .data(nodes, d=>d.id)
+        .join('g')
+          .attr('class','node-group')
+          .attr('transform', d=>`translate(${d.x},${d.y})`);
+
+      ng.each(function(d) {
+        const c = d3.select(this);
+        if(d.img) {
+          c.append('image')
+            .attr('href',d.img)
+            .attr('x',-24).attr('y',-24)
+            .attr('width',48).attr('height',48)
+            .attr('clip-path','circle(24px at 24px 24px)');
+        } else {
+          c.append('circle').attr('r',24).attr('fill','#ccc');
+        }
+        c.append('circle')
+          .attr('r',26)
+          .attr('fill','none')
+          .attr('stroke',d.border)
+          .attr('stroke-width',3);
+
+        c.append('text')
+          .text(d.name)
+          .attr('y',36)
+          .attr('text-anchor','middle')
+          .attr('font-size','0.8em');
+      });
+    }
+
+    // Initial render
+    render();
+  </script>
 
 </body>
 </html>

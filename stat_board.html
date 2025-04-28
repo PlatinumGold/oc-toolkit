@@ -6,32 +6,99 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
-    header { background:#4a90e2; color:#fff; padding:12px; text-align:center; }
+    :root {
+      --accent-color: #4CAF50;
+    }
+    body { margin:0; font-family:Arial,sans-serif; background:#f0f4f8; }
+    header {
+      background: var(--accent-color);
+      color: #fff;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.5em;
+    }
     #controls {
-      background:#fff; border-bottom:1px solid #ccc;
-      padding:12px; display:flex; flex-wrap:wrap; align-items:center; gap:12px;
+      background: #fff;
+      border-bottom: 1px solid #ccc;
+      padding: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
     }
-    #controls label, #controls select {
-      font-size:0.95em;
+    #controls input[type="text"],
+    #controls select {
+      font-size: 1em; padding: 8px;
+      border: 1px solid #ccc; border-radius: 4px;
     }
-    #controls input[type=number] {
-      width:60px; margin-left:4px; padding:4px;
+    #controls input[type="file"] {
+      font-size: 0.9em;
     }
-    #display { padding:20px; }
+    #controls button {
+      background: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    #profiles {
+      display: flex; flex-wrap: wrap;
+      gap: 20px; padding: 20px;
+      justify-content: center;
+    }
+    .profile-card {
+      background: #fff;
+      border: 2px solid var(--accent-color);
+      border-radius: 8px;
+      width: 280px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .profile-header {
+      background: var(--accent-color);
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .profile-image {
+      width: 100%; height: 140px;
+      object-fit: cover; background: #ddd;
+    }
+    .profile-content {
+      padding: 12px; flex: 1;
+    }
     .stat-list, .stat-sliders {
-      display:grid; grid-template-columns:repeat(2,1fr); gap:12px;
-      max-width:400px; margin:0 auto;
+      display: grid; gap: 8px;
     }
-    .stat-list div, .stat-sliders div {
-      background:#fff; padding:8px; border:1px solid #ccc; border-radius:4px;
+    .stat-list div {
+      font-size: 0.95em;
+      display: flex; justify-content: space-between;
+    }
+    .stat-sliders .slider-row {
+      display: flex; align-items: center; gap: 8px;
     }
     .slider-bar {
-      width:100%; height:8px; background:#ddd; border-radius:4px; margin-top:4px;
-      position:relative;
+      flex: 1; height: 12px;
+      background: #e0e0e0;
+      border-radius: 6px; overflow: hidden;
     }
     .slider-bar .fill {
-      height:100%; background:#4a90e2; border-radius:4px 0 0 4px;
+      height: 100%;
+      background: var(--accent-color);
+      border-radius: 6px 0 0 6px;
+      transition: width 0.3s;
+    }
+    .profile-footer {
+      padding: 10px; text-align: right;
+    }
+    .profile-footer button {
+      background: #c53; color: #fff;
+      border: none; padding: 6px 10px;
+      border-radius: 4px; cursor: pointer;
     }
   </style>
 </head>
@@ -40,123 +107,137 @@
   <header>📊 OC Stat Board</header>
 
   <div id="controls">
-    <!-- Stat inputs -->
-    <div>
-      <label>STR<input id="stat-STR" type="number" min="0" max="10" value="5"/></label>
-      <label>DEX<input id="stat-DEX" type="number" min="0" max="10" value="5"/></label>
-      <label>CON<input id="stat-CON" type="number" min="0" max="10" value="5"/></label>
-      <label>INT<input id="stat-INT" type="number" min="0" max="10" value="5"/></label>
-      <label>WIS<input id="stat-WIS" type="number" min="0" max="10" value="5"/></label>
-      <label>CHA<input id="stat-CHA" type="number" min="0" max="10" value="5"/></label>
-    </div>
-
-    <!-- Display style selector -->
-    <div>
-      <label for="styleSelect">Display style:</label>
-      <select id="styleSelect">
-        <option value="numbers">Numbers</option>
-        <option value="sliders">Sliders</option>
-        <option value="radar">Radar Chart</option>
-      </select>
-    </div>
+    <input id="nameInput" type="text" placeholder="OC Name…" />
+    <input id="imgInput" type="file" accept="image/*" />
+    <label for="styleSelect">Display:</label>
+    <select id="styleSelect">
+      <option value="numbers">Numbers</option>
+      <option value="sliders">Sliders</option>
+      <option value="radar">Radar Chart</option>
+    </select>
+    <button id="addProfileBtn">➕ Add OC</button>
   </div>
 
-  <div id="display">
-    <!-- 1) Numbers -->
-    <div id="numbersView" class="stat-list"></div>
-
-    <!-- 2) Sliders -->
-    <div id="slidersView" class="stat-sliders" style="display:none;"></div>
-
-    <!-- 3) Radar Chart -->
-    <canvas id="radarView" style="max-width:500px; margin:0 auto; display:none;"></canvas>
-  </div>
+  <div id="profiles"></div>
 
   <script>
-    const stats = ['STR','DEX','CON','INT','WIS','CHA'];
-    const inputs = {};
-    stats.forEach(s => inputs[s] = document.getElementById(`stat-${s}`));
+    const stats = ['Strength','Dexterity','Constitution','Intelligence','Wisdom','Charisma'];
+    let profiles = [], nextId = 1, radarCharts = {};
 
-    const numbersView = document.getElementById('numbersView');
-    const slidersView = document.getElementById('slidersView');
-    const radarCanvas = document.getElementById('radarView');
-    let radarChart;
+    const profilesDiv = document.getElementById('profiles'),
+          nameIn      = document.getElementById('nameInput'),
+          imgIn       = document.getElementById('imgInput'),
+          styleSelect = document.getElementById('styleSelect'),
+          addBtn      = document.getElementById('addProfileBtn');
 
-    function renderNumbers() {
-      numbersView.innerHTML = '';
-      stats.forEach(s => {
-        const val = inputs[s].value;
-        const div = document.createElement('div');
-        div.textContent = `${s}: ${val}`;
-        numbersView.appendChild(div);
-      });
+    function createProfile(name, imgSrc) {
+      const id = nextId++;
+      const statValues = stats.map(()=>5);
+      profiles.push({ id, name, imgSrc, statValues });
+      renderProfiles();
     }
 
-    function renderSliders() {
-      slidersView.innerHTML = '';
-      stats.forEach(s => {
-        const val = inputs[s].value;
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = `<strong>${s}</strong>`;
-        const bar = document.createElement('div');
-        bar.className = 'slider-bar';
-        const fill = document.createElement('div');
-        fill.className = 'fill';
-        fill.style.width = (val*10) + '%';
-        bar.appendChild(fill);
-        wrapper.appendChild(bar);
-        slidersView.appendChild(wrapper);
-      });
+    function deleteProfile(id) {
+      profiles = profiles.filter(p=>p.id!==id);
+      if (radarCharts[id]) { radarCharts[id].destroy(); delete radarCharts[id]; }
+      renderProfiles();
     }
 
-    function renderRadar() {
-      const data = stats.map(s => +inputs[s].value);
-      if (radarChart) {
-        radarChart.data.datasets[0].data = data;
-        radarChart.update();
-        return;
-      }
-      radarChart = new Chart(radarCanvas, {
-        type: 'radar',
-        data: {
-          labels: stats,
-          datasets: [{
-            label: 'OC Stats',
-            data,
-            fill: true,
-            backgroundColor: 'rgba(74,144,226,0.2)',
-            borderColor: '#4a90e2',
-            pointBackgroundColor: '#4a90e2'
-          }]
-        },
-        options: {
-          scales: {
-            r: { min: 0, max: 10, ticks: { stepSize: 1 } }
-          },
-          plugins: {
-            legend: { display: false }
-          }
+    function renderProfiles() {
+      profilesDiv.innerHTML = '';
+      profiles.forEach(p => {
+        const card = document.createElement('div'); card.className = 'profile-card';
+        // header
+        const hdr = document.createElement('div'); hdr.className = 'profile-header';
+        hdr.textContent = p.name; card.appendChild(hdr);
+        // image
+        if (p.imgSrc) {
+          const img = document.createElement('img');
+          img.src = p.imgSrc; img.className = 'profile-image';
+          card.appendChild(img);
         }
+        // content
+        const content = document.createElement('div'); content.className = 'profile-content';
+        const style = styleSelect.value;
+        if (style === 'numbers') {
+          const list = document.createElement('div'); list.className = 'stat-list';
+          stats.forEach((s,i) => {
+            const row = document.createElement('div');
+            row.innerHTML = `<span>${s}</span><span>${p.statValues[i]}</span>`;
+            list.appendChild(row);
+          });
+          content.appendChild(list);
+        } else if (style === 'sliders') {
+          const container = document.createElement('div'); container.className = 'stat-sliders';
+          stats.forEach((s,i) => {
+            const row = document.createElement('div'); row.className = 'slider-row';
+            const label = document.createElement('label'); label.textContent = s;
+            const bar = document.createElement('div'); bar.className = 'slider-bar';
+            const fill = document.createElement('div'); fill.className = 'fill';
+            fill.style.width = (p.statValues[i]*10) + '%';
+            bar.appendChild(fill);
+            row.append(label, bar);
+            container.appendChild(row);
+          });
+          content.appendChild(container);
+        } else if (style === 'radar') {
+          const canvas = document.createElement('canvas');
+          canvas.id = 'radar-' + p.id;
+          canvas.style.maxWidth = '260px';
+          content.appendChild(canvas);
+          setTimeout(()=> {
+            if (radarCharts[p.id]) {
+              radarCharts[p.id].data.datasets[0].data = p.statValues;
+              radarCharts[p.id].update();
+            } else {
+              radarCharts[p.id] = new Chart(canvas, {
+                type: 'radar',
+                data: {
+                  labels: stats,
+                  datasets: [{
+                    label: p.name,
+                    data: p.statValues,
+                    backgroundColor: 'rgba(76,175,80,0.2)',
+                    borderColor: 'var(--accent-color)',
+                    pointBackgroundColor: 'var(--accent-color)'
+                  }]
+                },
+                options: {
+                  scales: {
+                    r: { min: 0, max: 10, ticks: { stepSize: 1 } }
+                  },
+                  plugins: { legend: { display: false } }
+                }
+              });
+            }
+          }, 50);
+        }
+        card.appendChild(content);
+        // footer
+        const footer = document.createElement('div'); footer.className = 'profile-footer';
+        const del = document.createElement('button'); del.textContent = '🗑️ Delete';
+        del.onclick = ()=> deleteProfile(p.id);
+        footer.appendChild(del); card.appendChild(footer);
+        profilesDiv.appendChild(card);
       });
     }
 
-    function updateView() {
-      const style = document.getElementById('styleSelect').value;
-      numbersView.style.display = style==='numbers' ? 'grid' : 'none';
-      slidersView.style.display = style==='sliders' ? 'grid' : 'none';
-      radarCanvas.style.display = style==='radar' ? 'block' : 'none';
-
-      renderNumbers();
-      renderSliders();
-      if (style==='radar') renderRadar();
-    }
-
-    // Re-render whenever any input changes
-    stats.forEach(s => inputs[s].addEventListener('input', updateView));
-    document.getElementById('styleSelect').addEventListener('change', updateView);
-
-    // Initial render
-    updateView();
+    addBtn.onclick = () => {
+      const name = nameIn.value.trim();
+      if (!name) return alert('Enter a name.');
+      if (imgIn.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          createProfile(name, e.target.result);
+          nameIn.value = ''; imgIn.value = '';
+        };
+        reader.readAsDataURL(imgIn.files[0]);
+      } else {
+        createProfile(name, null);
+        nameIn.value = '';
+      }
+    };
+    styleSelect.onchange = renderProfiles;
   </script>
 </body>
 </html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>OC Stat Board</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --accent-color: #4CAF50;
+    }
+    body { margin:0; font-family:Arial,sans-serif; background:#f0f4f8; }
+    header {
+      background: var(--accent-color);
+      color: #fff;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.5em;
+    }
+    #controls {
+      background: #fff;
+      border-bottom: 1px solid #ccc;
+      padding: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+    }
+    #controls input[type="text"],
+    #controls select {
+      font-size: 1em; padding: 8px;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    #controls input[type="file"] {
+      font-size: 0.9em;
+    }
+    #controls button {
+      background: var(--accent-color);
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    details {
+      margin-left: auto;
+      font-size: 0.9em;
+    }
+    #profiles {
+      display: flex; flex-wrap: wrap;
+      gap: 20px; padding: 20px;
+      justify-content: center;
+    }
+    .profile-card {
+      background: #fff;
+      border: 2px solid var(--accent-color);
+      border-radius: 8px;
+      width: 300px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .profile-header {
+      background: var(--accent-color);
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .profile-image {
+      width: 100%; height: 140px;
+      object-fit: cover; background: #ddd;
+    }
+    .profile-content {
+      padding: 12px; flex: 1;
+    }
+    .stat-list, .stat-sliders {
+      display: grid; gap: 8px;
+    }
+    .stat-list .row {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .stat-list input[type="number"] {
+      width: 50px; padding: 4px;
+    }
+    .stat-sliders .row {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .stat-sliders input[type="range"] {
+      flex: 1; cursor: pointer;
+    }
+    .profile-footer {
+      padding: 10px; text-align: right;
+    }
+    .profile-footer button {
+      background: #c53; color: #fff;
+      border: none; padding: 6px 10px;
+      border-radius: 4px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<header>📊 OC Stat Board</header>
+
+<div id="controls">
+  <input id="nameInput" type="text" placeholder="OC Name…" />
+  <input id="imgInput" type="file" accept="image/*" />
+  <label for="styleSelect">Display:</label>
+  <select id="styleSelect">
+    <option value="numbers">Numbers</option>
+    <option value="sliders">Sliders</option>
+    <option value="radar">Radar Chart</option>
+    <option value="jojo">Radar Chart (JoJo)</option>
+  </select>
+  <button id="addProfileBtn">➕ Add OC</button>
+  <button id="exportBtn">📥 Export JSON</button>
+  <details>
+    <summary>Stat Descriptions</summary>
+    <ul style="padding-left:18px; margin:8px 0;">
+      <li><strong>Strength:</strong> Physical power and force.</li>
+      <li><strong>Dexterity:</strong> Agility, reflexes, and coordination.</li>
+      <li><strong>Constitution:</strong> Endurance and health.</li>
+      <li><strong>Intelligence:</strong> Problem-solving and knowledge.</li>
+      <li><strong>Wisdom:</strong> Perception and insight.</li>
+      <li><strong>Charisma:</strong> Social influence and charm.</li>
+    </ul>
+  </details>
+</div>
+
+<div id="profiles"></div>
+
+<script>
+  const stats = ['Strength','Dexterity','Constitution','Intelligence','Wisdom','Charisma'];
+  const jojoStats = ['Destructive Power','Speed','Range','Durability','Precision','Developmental Potential'];
+  let profiles = [], nextId = 1, radarCharts = {};
+
+  const profilesDiv = document.getElementById('profiles'),
+        nameIn      = document.getElementById('nameInput'),
+        imgIn       = document.getElementById('imgInput'),
+        styleSelect = document.getElementById('styleSelect'),
+        addBtn      = document.getElementById('addProfileBtn'),
+        exportBtn   = document.getElementById('exportBtn');
+
+  function createProfile(name, imgSrc) {
+    const id = nextId++;
+    const statValues = stats.map(()=>5);
+    profiles.push({ id, name, imgSrc, statValues });
+    renderProfiles();
+  }
+
+  function deleteProfile(id) {
+    profiles = profiles.filter(p=>p.id!==id);
+    // destroy both chart types if exist
+    ['radar','jojo'].forEach(type=>{
+      const key = `${type}-${id}`;
+      if (radarCharts[key]) { radarCharts[key].destroy(); delete radarCharts[key]; }
+    });
+    renderProfiles();
+  }
+
+  function exportJSON() {
+    const dataStr = JSON.stringify(profiles, null, 2);
+    const blob = new Blob([dataStr], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'profiles.json'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function renderProfiles() {
+    profilesDiv.innerHTML = '';
+    profiles.forEach(p => {
+      const card = document.createElement('div'); card.className='profile-card';
+      const hdr = document.createElement('div'); hdr.className='profile-header';
+      hdr.textContent = p.name; card.appendChild(hdr);
+
+      if (p.imgSrc) {
+        const img = document.createElement('img'); img.src=p.imgSrc; img.className='profile-image';
+        card.appendChild(img);
+      }
+
+      const content = document.createElement('div'); content.className='profile-content';
+      const style = styleSelect.value;
+
+      if (style === 'numbers') {
+        const container = document.createElement('div'); container.className='stat-list';
+        stats.forEach((s,i)=>{
+          const row = document.createElement('div'); row.className='row';
+          const label = document.createElement('span'); label.textContent=s;
+          const input = document.createElement('input');
+          input.type='number'; input.min=0; input.max=10; input.value=p.statValues[i];
+          input.addEventListener('input', ()=>{
+            p.statValues[i] = Math.min(10,Math.max(0,+input.value));
+            // update radar if visible
+            ['radar','jojo'].forEach(type=>{
+              const key=`${type}-${p.id}`;
+              if (radarCharts[key]) {
+                radarCharts[key].data.datasets[0].data = p.statValues;
+                radarCharts[key].update();
+              }
+            });
+          });
+          row.append(label,input); container.appendChild(row);
+        });
+        content.appendChild(container);
+
+      } else if (style === 'sliders') {
+        const container = document.createElement('div'); container.className='stat-sliders';
+        stats.forEach((s,i)=>{
+          const row = document.createElement('div'); row.className='row';
+          const label = document.createElement('span'); label.textContent=s;
+          const slider = document.createElement('input');
+          slider.type='range'; slider.min=0; slider.max=10; slider.value=p.statValues[i];
+          const valet = document.createElement('span'); valet.textContent=p.statValues[i];
+          slider.addEventListener('input', ()=>{
+            p.statValues[i] = +slider.value;
+            valet.textContent = slider.value;
+            ['radar','jojo'].forEach(type=>{
+              const key=`${type}-${p.id}`;
+              if (radarCharts[key]) {
+                radarCharts[key].data.datasets[0].data = p.statValues;
+                radarCharts[key].update();
+              }
+            });
+          });
+          row.append(label,slider,valet); container.appendChild(row);
+        });
+        content.appendChild(container);
+
+      } else if (style === 'radar' || style === 'jojo') {
+        const canvas = document.createElement('canvas');
+        const typeKey = style==='radar' ? 'radar' : 'jojo';
+        canvas.id = `${typeKey}-${p.id}`;
+        canvas.style.maxWidth='260px'; content.appendChild(canvas);
+        setTimeout(()=>{
+          const labels = style==='radar' ? stats : jojoStats;
+          const key = `${typeKey}-${p.id}`;
+          const data = p.statValues;
+          if (radarCharts[key]) {
+            radarCharts[key].data.datasets[0].data = data;
+            radarCharts[key].update();
+          } else {
+            radarCharts[key] = new Chart(canvas, {
+              type:'radar',
+              data:{ labels, datasets:[{
+                label:p.name, data,
+                backgroundColor:'rgba(76,175,80,0.2)',
+                borderColor:'var(--accent-color)',
+                pointBackgroundColor:'var(--accent-color)'
+              }] },
+              options:{
+                scales:{ r:{ min:0,max:10,ticks:{ stepSize:1 } } },
+                plugins:{ legend:{ display:false } }
+              }
+            });
+          }
+        },50);
+      }
+
+      card.appendChild(content);
+      const footer = document.createElement('div'); footer.className='profile-footer';
+      const del = document.createElement('button'); del.textContent='🗑️ Delete';
+      del.onclick = ()=> deleteProfile(p.id);
+      footer.appendChild(del); card.appendChild(footer);
+      profilesDiv.appendChild(card);
+    });
+  }
+
+  addBtn.onclick = ()=> {
+    const name = nameIn.value.trim();
+    if (!name) return alert('Enter a name.');
+    if (imgIn.files[0]) {
+      const reader = new FileReader();
+      reader.onload = e => { createProfile(name, e.target.result); nameIn.value=''; imgIn.value=''; };
+      reader.readAsDataURL(imgIn.files[0]);
+    } else {
+      createProfile(name, null); nameIn.value='';
+    }
+  };
+  styleSelect.onchange = renderProfiles;
+  exportBtn.onclick = exportJSON;
+</script>
+
+</body>
+</html>

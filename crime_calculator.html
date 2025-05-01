@@ -6,37 +6,47 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
     body { font-family: Arial, sans-serif; margin:0; }
-    header {
-      background: #c0392b; color: #fff;
-      padding: 16px; text-align: center; font-size: 1.5em;
-    }
-    main { padding: 20px; max-width: 600px; margin: auto; }
-    label { display: block; margin: 12px 0 4px; }
+    header { background:#c0392b; color:white; padding:16px; text-align:center; font-size:1.5em; }
+    main { max-width:700px; margin:20px auto; padding:0 16px; }
+    label { display:block; margin-top:12px; }
     select, input[type="number"], input[type="text"] {
-      width: 100%; padding: 8px; box-sizing: border-box;
+      width:100%; padding:8px; box-sizing:border-box; margin-top:4px;
     }
-    .inline { display: inline-block; width: 48%; }
-    .inline + .inline { margin-left: 4%; }
-    #customOverrides { margin-top: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #ccc; }
-    #results { margin-top: 20px; padding: 12px; background: #eef; border-radius: 4px; }
-    button { margin-top: 16px; padding: 10px 20px; background: #c0392b; color: #fff; border: none; cursor: pointer; }
-    #triggerModal {
-      display: none; position: fixed; top:0; left:0; right:0; bottom:0;
-      background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+    .inline { display:inline-block; width:48%; vertical-align:top; }
+    .inline + .inline { margin-left:4%; }
+    #subtype, #otherText { margin-top:4px; }
+    #saModal {
+      display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+      background:rgba(0,0,0,0.6); align-items:center; justify-content:center;
     }
-    #triggerModal .modal {
-      background: #fff; padding: 20px; max-width: 400px; text-align: center;
-      border-radius: 6px;
+    #saModal .modal {
+      background:white; padding:20px; border-radius:6px; max-width:400px; text-align:center;
     }
-    #triggerModal button { margin: 12px 8px 0; }
+    button, input[type="button"] {
+      margin-top:16px; padding:10px 20px;
+      background:#c0392b; color:white; border:none; cursor:pointer;
+      font-size:1em;
+    }
+    #stack { margin-top:20px; }
+    #stack table {
+      width:100%; border-collapse:collapse; margin-top:8px;
+    }
+    #stack th, #stack td {
+      border:1px solid #ccc; padding:6px; text-align:left;
+    }
+    #stack td small { display:block; color:#666; margin-top:4px; }
+    #results { margin-top:20px; padding:12px; background:#eef; border-radius:4px; }
+    #persistMsg { font-size:.9em; color:#666; margin-top:8px; }
   </style>
 </head>
 <body>
-  <header>⚖️ Crime Sentence Calculator</header>
-  <main>
-    <label for="category">Crime Category</label>
+
+<header>⚖️ Crime Sentence Calculator</header>
+<main>
+
+  <label>Crime Category
     <select id="category">
-      <option value="">— Select Category —</option>
+      <option value="">— Select —</option>
       <option value="murder">Murder</option>
       <option value="sa">Sexual Assault (SA)</option>
       <option value="stealing">Stealing</option>
@@ -48,251 +58,322 @@
       <option value="torture">Torture</option>
       <option value="other">Other</option>
     </select>
+  </label>
 
-    <div id="saWarning" style="display:none;">
-      <div id="triggerModal">
-        <div class="modal">
-          <p><strong>Trigger Warning:</strong><br>This category includes graphic sexual violence. Proceed?</p>
-          <button id="warnOk">I Understand</button>
-        </div>
-      </div>
+  <!-- Trigger warning modal -->
+  <div id="saModal">
+    <div class="modal">
+      <p><strong>Trigger Warning:</strong><br>
+      This category includes graphic sexual violence.</p>
+      <button id="saOk">I Understand</button>
     </div>
+  </div>
 
-    <label for="subtype">Crime Subtype</label>
-    <select id="subtype"></select>
-    <input id="otherText" type="text" placeholder="Enter custom crime" style="display:none;"/>
+  <label>Crime Subtype</label>
+  <select id="subtype" disabled></select>
+  <input id="otherText" type="text" placeholder="Enter custom crime" style="display:none;"/>
 
-    <label for="country">Country (sentencing norms)</label>
-    <select id="country">
-      <option value="">Default (world average)</option>
-      <option value="usa">USA</option>
-      <option value="uk">UK</option>
-      <option value="canada">Canada</option>
-      <option value="australia">Australia</option>
-      <option value="germany">Germany</option>
-      <option value="france">France</option>
-    </select>
+  <label>Country (affects sentencing)</label>
+  <select id="country">
+    <option value="">Default (World Avg)</option>
+    <option value="usa">USA</option>
+    <option value="uk">UK</option>
+    <option value="canada">Canada</option>
+    <option value="australia">Australia</option>
+    <option value="germany">Germany</option>
+    <option value="france">France</option>
+  </select>
 
-    <div id="customOverrides">
-      <p><em>Override sentencing (optional):</em></p>
-      <div class="inline">
-        <label for="minYears">Min Years</label>
-        <input id="minYears" type="number" min="0"/>
-      </div>
-      <div class="inline">
-        <label for="maxYears">Max Years</label>
-        <input id="maxYears" type="number" min="0"/>
-      </div>
-      <label>
-        <input id="capitalPunishment" type="checkbox"/>
-        Capital Punishment?
-      </label>
+  <div id="customOverrides">
+    <p><em>Override defaults (optional):</em></p>
+    <div class="inline">
+      <label>Min Years<input id="minYears" type="number" min="0"/></label>
     </div>
+    <div class="inline">
+      <label>Max Years<input id="maxYears" type="number" min="0"/></label>
+    </div>
+    <label><input id="capitalPun" type="checkbox"/> Capital Punishment?</label>
+  </div>
 
-    <button id="calculateBtn">Calculate Sentence</button>
-    <div id="results"></div>
-  </main>
+  <div>
+    <label>Quantity (# of times committed)
+      <input id="qty" type="number" min="1" value="1"/>
+    </label>
+  </div>
 
-  <script>
-    // — Dropdown data —
-    const subtypes = {
-      murder: [
-        { key: 'first', label: 'First-Degree' },
-        { key: 'second', label: 'Second-Degree' },
-        { key: 'voluntary', label: 'Voluntary Manslaughter' },
-        { key: 'involuntary', label: 'Involuntary Manslaughter' }
-      ],
-      sa: [
-        { key: 'rape', label: 'Rape' },
-        { key: 'aggravatedRape', label: 'Aggravated Rape' },
-        { key: 'statutory', label: 'Statutory Assault' }
-      ],
-      stealing: [
-        { key: 'petty', label: 'Petty Theft' },
-        { key: 'armed', label: 'Armed Robbery' },
-        { key: 'burglary', label: 'Burglary' },
-        { key: 'embezzlement', label: 'Embezzlement' }
-      ],
-      trafficking: [
-        { key: 'human', label: 'Human Trafficking' },
-        { key: 'drug', label: 'Drug Trafficking' }
-      ],
-      piracy: [
-        { key: 'maritime', label: 'Maritime Piracy' },
-        { key: 'digital', label: 'Digital Piracy' }
-      ],
-      arson: [
-        { key: 'arson', label: 'Arson' }
-      ],
-      fraud: [
-        { key: 'tax', label: 'Tax Fraud/Evasion' },
-        { key: 'financial', label: 'Financial Fraud' }
-      ],
-      genocide: [
-        { key: 'genocide', label: 'Genocide' }
-      ],
-      torture: [
-        { key: 'torture', label: 'Torture' }
-      ]
-    };
+  <button id="addCrime">➕ Add Crime to Stack</button>
 
-    // — Default sentencing ranges (world average) —
-    const defaultRanges = {
-      first:      { min:20, max:40, capital:true },
-      second:     { min:15, max:30, capital:false },
-      voluntary:  { min:3,  max:10, capital:false },
-      involuntary:{ min:1,  max:5,  capital:false },
-      rape:       { min:10, max:30, capital:false },
-      aggravatedRape:{min:15,max:40,capital:false},
-      statutory:  { min:5,  max:15, capital:false },
-      petty:      { min:0,  max:2,  capital:false },
-      armed:      { min:7,  max:20, capital:false },
-      burglary:   { min:5,  max:20, capital:false },
-      embezzlement:{min:1, max:10, capital:false },
-      human:      { min:10, max:30, capital:false },
-      drug:       { min:5,  max:40, capital:false },
-      maritime:   { min:5,  max:20, capital:false },
-      digital:    { min:0,  max:2,  capital:false },
-      arson:      { min:5,  max:20, capital:false },
-      tax:        { min:2,  max:10, capital:false },
-      financial:  { min:2,  max:10, capital:false },
-      genocide:   { min:25, max:50, capital:false },
-      torture:    { min:5,  max:25, capital:false }
-    };
+  <div id="stack">
+    <h3>Crime Stack</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Crime</th><th>Qty</th>
+          <th>Range</th><th>Capital</th><th>Definition</th><th>Remove</th>
+        </tr>
+      </thead>
+      <tbody id="stackBody"></tbody>
+    </table>
+    <label>
+      <input type="radio" name="mode" value="concurrent" checked/> Concurrent
+    </label>
+    <label>
+      <input type="radio" name="mode" value="consecutive"/> Consecutive
+    </label>
+  </div>
 
-    // Example country modifiers
-    const countryMods = {
-      usa:     { minMul:1.1, maxMul:1.2 },
-      uk:      { minMul:0.9, maxMul:0.95 },
-      canada:  { minMul:0.8, maxMul:0.9 },
-      australia:{minMul:0.85,maxMul:0.95},
-      germany: { minMul:0.7, maxMul:0.8 },
-      france:  { minMul:0.8, maxMul:0.9 }
-    };
+  <button id="calculate">Calculate Sentence</button>
+  <div id="results"></div>
+  <div id="persistMsg">Your stack and settings are saved automatically.</div>
+</main>
 
-    // — Elements —
-    const catEl     = document.getElementById('category');
-    const subEl     = document.getElementById('subtype');
-    const otherEl   = document.getElementById('otherText');
-    const countryEl = document.getElementById('country');
-    const minEl     = document.getElementById('minYears');
-    const maxEl     = document.getElementById('maxYears');
-    const capEl     = document.getElementById('capitalPunishment');
-    const resEl     = document.getElementById('results');
-    const calcBtn   = document.getElementById('calculateBtn');
-    const modal     = document.getElementById('triggerModal');
-    const warnOk    = document.getElementById('warnOk');
+<script>
+  // — Data definitions — 
+  const categories = {
+    murder:     ['first','second','voluntary','involuntary'],
+    sa:         ['rape','statutory','sexualAssault'],
+    stealing:   ['petty','armed','burglary','embezzlement'],
+    trafficking:['human','drug'],
+    piracy:     ['maritime','digital'],
+    arson:      ['firstArson','secondArson'],
+    fraud:      ['bank','insurance','election'],
+    genocide:   ['genocide'],
+    torture:    ['torture'],
+    other:      []  // free-text
+  };
+  const subtypeLabels = {
+    first:  'First-Degree Murder',
+    second: 'Second-Degree Murder',
+    voluntary:'Voluntary Manslaughter',
+    involuntary:'Involuntary Manslaughter',
+    rape:   'Rape',
+    statutory:'Statutory Rape',
+    sexualAssault:'Sexual Assault',
+    petty:  'Petty Theft (Larceny)',
+    armed:  'Armed Robbery',
+    burglary:'Burglary',
+    embezzlement:'Embezzlement',
+    human:  'Human Trafficking',
+    drug:   'Drug Trafficking',
+    maritime:'Maritime Piracy',
+    digital:'Digital Piracy',
+    firstArson:'First-Degree Arson',
+    secondArson:'Second-Degree Arson',
+    bank:   'Bank Fraud',
+    insurance:'Insurance Fraud',
+    election:'Election Fraud',
+    genocide:'Genocide',
+    torture:'Torture'
+  };
+  const definitions = {
+    'First-Degree Murder':'Intentional killing with premeditation.',
+    'Second-Degree Murder':'Intentional killing without premeditation.',
+    'Voluntary Manslaughter':'Heat-of-passion killing.',
+    'Involuntary Manslaughter':'Unintentional killing by negligence.',
+    'Rape':'Non-consensual sexual intercourse.',
+    'Statutory Rape':'Sexual act with minor.',
+    'Sexual Assault':'Any non-consensual sexual act.',
+    'Petty Theft (Larceny)':'Stealing low-value property.',
+    'Armed Robbery':'Theft using a weapon.',
+    'Burglary':'Unlawful entry to commit theft.',
+    'Embezzlement':'Misappropriation of funds.',
+    'Human Trafficking':'Exploitation of persons.',
+    'Drug Trafficking':'Distribution of illegal drugs.',
+    'Maritime Piracy':'Robbery at sea.',
+    'Digital Piracy':'Unauthorized copying/distribution.',
+    'First-Degree Arson':'Willful burning of property.',
+    'Second-Degree Arson':'Less severe arson.',
+    'Bank Fraud':'Deception to obtain bank assets.',
+    'Insurance Fraud':'False insurance claims.',
+    'Election Fraud':'Illicit manipulation of elections.',
+    'Genocide':'Intent to destroy a group.',
+    'Torture':'Inflicting severe pain.'
+  };
+  const defaultRanges = {
+    first: {min:20,max:40,cap:true},
+    second:{min:15,max:30,cap:false},
+    voluntary:{min:3,max:10,cap:false},
+    involuntary:{min:1,max:5,cap:false},
+    rape:{min:10,max:30,cap:false},
+    statutory:{min:5,max:15,cap:false},
+    sexualAssault:{min:8,max:25,cap:false},
+    petty:{min:0,max:2,cap:false},
+    armed:{min:7,max:20,cap:false},
+    burglary:{min:5,max:20,cap:false},
+    embezzlement:{min:1,max:10,cap:false},
+    human:{min:10,max:30,cap:false},
+    drug:{min:5,max:40,cap:false},
+    maritime:{min:5,max:20,cap:false},
+    digital:{min:0,max:2,cap:false},
+    firstArson:{min:5,max:20,cap:false},
+    secondArson:{min:3,max:10,cap:false},
+    bank:{min:2,max:15,cap:false},
+    insurance:{min:2,max:10,cap:false},
+    election:{min:5,max:20,cap:false},
+    genocide:{min:25,max:50,cap:false},
+    torture:{min:5,max:25,cap:false}
+  };
+  const countryMods = {
+    usa:{minMul:1.1,maxMul:1.2},
+    uk:{minMul:0.9,maxMul:0.95},
+    canada:{minMul:0.8,maxMul:0.9},
+    australia:{minMul:0.85,maxMul:0.95},
+    germany:{minMul:0.7,maxMul:0.8},
+    france:{minMul:0.8,maxMul:0.9}
+  };
 
-    // — Persistence —
-    function saveState(){
-      localStorage.crimeCalc = JSON.stringify({
-        category: catEl.value,
-        subtype:  subEl.value,
-        other:    otherEl.value,
-        country:  countryEl.value,
-        min:      minEl.value,
-        max:      maxEl.value,
-        cap:      capEl.checked
-      });
+  // — State & Persistence —
+  let stack = [];
+  function save(){ localStorage.crimeStack = JSON.stringify(stack); }
+  function load(){
+    try{ stack = JSON.parse(localStorage.crimeStack)||[]; }catch{ stack=[]; }
+    renderStack();
+  }
+
+  // — UI Refs —
+  const cat = document.getElementById('category'),
+        sub = document.getElementById('subtype'),
+        oth = document.getElementById('otherText'),
+        country = document.getElementById('country'),
+        minY = document.getElementById('minYears'),
+        maxY = document.getElementById('maxYears'),
+        cap = document.getElementById('capitalPun'),
+        qty = document.getElementById('qty'),
+        addB = document.getElementById('addCrime'),
+        stBody = document.getElementById('stackBody'),
+        calc = document.getElementById('calculate'),
+        res = document.getElementById('results'),
+        modal = document.getElementById('saModal'),
+        saOk = document.getElementById('saOk');
+
+  // — Helpers —
+  function applyCountry(key, range){
+    const cm = countryMods[key];
+    if(cm){
+      return {
+        min: Math.round(range.min*cm.minMul),
+        max: Math.round(range.max*cm.maxMul),
+        cap: range.cap
+      };
     }
-    function loadState(){
-      const raw = localStorage.crimeCalc;
-      if(!raw) return;
-      try {
-        const s = JSON.parse(raw);
-        catEl.value = s.category || '';
-        countryEl.value = s.country || '';
-        otherEl.value = s.other || '';
-        populateSubtype();
-        subEl.value = s.subtype || '';
-        minEl.value = s.min || '';
-        maxEl.value = s.max || '';
-        capEl.checked = s.cap;
-      } catch{}
-    }
+    return range;
+  }
 
-    // — Populate subtypes or other text —
-    function populateSubtype(){
-      const cat = catEl.value;
-      subEl.innerHTML = '';
-      otherEl.style.display = 'none';
-      if(cat === 'other'){
-        otherEl.style.display = 'block';
-        return;
-      }
-      if(cat === 'sa'){
-        // show trigger first
-        modal.style.display = 'flex';
-        return;
-      }
-      const list = subtypes[cat]||[];
-      subEl.innerHTML = '<option value="">— Select Subtype —</option>';
-      list.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = o.key; opt.textContent = o.label;
-        subEl.appendChild(opt);
-      });
+  // — Populate Subtypes —
+  cat.onchange = () => {
+    sub.innerHTML = '';
+    oth.style.display = 'none';
+    const c = cat.value;
+    if(!c) return;
+    if(c==='sa'){
+      modal.style.display = 'flex';
+      return;
     }
+    if(c==='other'){
+      oth.style.display = 'block';
+      return;
+    }
+    sub.disabled = false;
+    sub.innerHTML = '<option value="">— Select —</option>';
+    categories[c].forEach(k=>{
+      const opt = new Option(subtypeLabels[k], k);
+      sub.add(opt);
+    });
+  };
+  saOk.onclick = ()=>{
+    modal.style.display = 'none';
+    cat.onchange();
+  };
 
-    warnOk.onclick = ()=>{
-      modal.style.display = 'none';
-      populateSubtype();
+  // — When subtype or country changes, update overrides —
+  function fillOverrides(){
+    const key = sub.value;
+    if(!key) return;
+    let range = defaultRanges[key] || {min:0,max:0,cap:false};
+    const ctry = country.value;
+    range = applyCountry(ctry, range);
+    minY.value = range.min;
+    maxY.value = range.max;
+    cap.checked = range.cap;
+  }
+  sub.onchange = fillOverrides;
+  country.onchange = fillOverrides;
+
+  // — Add Crime to Stack —
+  addB.onclick = ()=>{
+    const c = cat.value;
+    if(!c) return alert('Select category');
+    let label, key;
+    if(c==='other'){
+      key = 'other_'+Date.now();
+      label = oth.value.trim()||'[Custom]';
+    } else {
+      key = sub.value;
+      if(!key) return alert('Select subtype');
+      label = subtypeLabels[key];
+    }
+    const entry = {
+      id: Date.now(),
+      category:c, subtype:key, label,
+      qty: +qty.value||1,
+      min: +minY.value||0,
+      max: +maxY.value||0,
+      cap: cap.checked
     };
+    stack.push(entry);
+    save(); renderStack();
+  };
 
-    // — When subtype or country changes, update overrides —
-    function updateOverrides(){
-      const key = subEl.value;
-      if(!key) return;
-      let range = defaultRanges[key] || {min:0,max:0,capital:false};
-      const country = countryEl.value;
-      if(country && countryMods[country]){
-        const m = countryMods[country];
-        range = {
-          min: Math.round(range.min * m.minMul),
-          max: Math.round(range.max * m.maxMul),
-          capital: range.capital
-        };
-      }
-      minEl.value = range.min;
-      maxEl.value = range.max;
-      capEl.checked = range.capital;
-    }
-
-    // — Calculation —
-    calcBtn.onclick = ()=>{
-      const cat = catEl.value;
-      let sub = subEl.value;
-      if(cat === 'other') sub = otherEl.value.trim()||'[Unnamed]';
-      if(!cat || (!sub && cat!=='other')){
-        return alert('Please select both category and subtype (or enter a custom crime).');
-      }
-      const min = parseInt(minEl.value)||0;
-      const max = parseInt(maxEl.value)||0;
-      const cap = capEl.checked;
-      saveState();
-      resEl.innerHTML = `
-        <p><strong>Crime:</strong> ${cat === 'other' ? sub : subEl.options[subEl.selectedIndex].text}</p>
-        <p><strong>Sentence:</strong> ${min}–${max} years${cap? ', capital punishment possible' : ''}.</p>
+  // — Render Stack Table —
+  function renderStack(){
+    stBody.innerHTML = '';
+    stack.forEach((e,i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${e.label}</td>
+        <td>${e.qty}</td>
+        <td>${e.min}–${e.max}</td>
+        <td>${e.cap? 'Yes':'No'}</td>
+        <td><small>${definitions[e.label]||''}</small></td>
+        <td><button data-idx="${i}">🗑️</button></td>
       `;
-    };
+      stBody.appendChild(tr);
+    });
+    // remove handler
+    stBody.querySelectorAll('button').forEach(btn=>{
+      btn.onclick = ()=>{
+        stack.splice(+btn.dataset.idx,1);
+        save(); renderStack();
+      };
+    });
+  }
 
-    // — Events —
-    catEl.addEventListener('change',()=>{
-      populateSubtype(); saveState();
+  // — Calculate —
+  calc.onclick = ()=>{
+    if(stack.length===0) return alert('Add at least one crime');
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    let totalMin=0, totalMax=0;
+    stack.forEach(e=>{
+      if(mode==='concurrent'){
+        totalMin = Math.max(totalMin, e.min*e.qty);
+        totalMax = Math.max(totalMax, e.max*e.qty);
+      } else {
+        totalMin += e.min*e.qty;
+        totalMax += e.max*e.qty;
+      }
     });
-    subEl.addEventListener('change',()=>{
-      updateOverrides(); saveState();
-    });
-    countryEl.addEventListener('change',()=>{
-      updateOverrides(); saveState();
-    });
-    [minEl,maxEl,capEl,otherEl].forEach(el=>{
-      el.addEventListener('input', saveState);
-    });
+    res.innerHTML = `<p><strong>Sentence (${mode}):</strong>
+      ${totalMin}–${totalMax} years
+      ${stack.some(e=>e.cap)? ' (capital possible)' : ''}.
+    </p>`;
+  };
 
-    // Init
-    loadState();
-    if(catEl.value) populateSubtype();
-  </script>
+  // — Init —
+  load();
+  if(cat.value) cat.onchange();
+  if(sub.value) fillOverrides();
+
+</script>
+
 </body>
 </html>

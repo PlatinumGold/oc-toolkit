@@ -15,7 +15,9 @@
       background:#fff; border-bottom:1px solid #ccc;
       padding:16px; display:flex; flex-wrap:wrap; align-items:center; gap:16px;
     }
-    #controls input[type="text"], #controls select {
+    #controls input[type="text"], 
+    #controls input[type="color"],
+    #controls select {
       font-size:1em; padding:8px; border:1px solid #ccc; border-radius:4px;
     }
     #controls input[type="file"] { font-size:0.9em; }
@@ -38,8 +40,12 @@
       background:var(--accent-color); color:#fff;
       padding:10px; text-align:center; font-weight:bold;
     }
-    .profile-image {
+    .profile-image, .profile-image.placeholder {
       width:100%; height:140px; object-fit:cover; background:#ddd;
+    }
+    .profile-image.placeholder {
+      display:flex; align-items:center; justify-content:center;
+      color:#777; font-size:0.9em;
     }
     .profile-content { padding:12px; flex:1; }
     .stat-list, .stat-sliders { display:grid; gap:8px; }
@@ -57,8 +63,7 @@
     }
     .profile-footer button {
       background:#c53; color:#fff; border:none;
-      padding:6px 10px; border-radius:4px; cursor:pointer;
-      margin-left:8px;
+      padding:6px 10px; border-radius:4px; cursor:pointer; margin-left:8px;
     }
   </style>
 </head>
@@ -69,6 +74,7 @@
 <div id="controls">
   <input id="statNamesBtn" type="button" value="⚙️ Edit Stat Names"/>
   <input id="nameInput" type="text" placeholder="OC Name…"/>
+  <input id="placeholderColor" type="color" value="#dddddd" title="Placeholder box color"/>
   <input id="imgInput" type="file" accept="image/*"/>
   <label for="styleSelect">Display:</label>
   <select id="styleSelect">
@@ -93,24 +99,21 @@
 <div id="profiles"></div>
 
 <script>
-  // Default stat names
   const defaultStatNames = [
     'Strength','Dexterity','Constitution',
     'Intelligence','Wisdom','Charisma'
   ];
   let statNames = [], profiles = [], nextId = 1;
-
-  // Elements
-  const profilesDiv  = document.getElementById('profiles'),
+  const profilesDiv = document.getElementById('profiles'),
         statNamesBtn = document.getElementById('statNamesBtn'),
         nameIn       = document.getElementById('nameInput'),
+        placeholderColor = document.getElementById('placeholderColor'),
         imgIn        = document.getElementById('imgInput'),
         styleSelect  = document.getElementById('styleSelect'),
         addBtn       = document.getElementById('addProfileBtn'),
         exportBtn    = document.getElementById('exportBtn'),
         descElems    = document.querySelectorAll('[data-key]');
 
-  // Load/Save
   function saveState(){
     localStorage.statBoard = JSON.stringify({statNames,profiles,nextId});
   }
@@ -119,18 +122,18 @@
       try{
         const s = JSON.parse(localStorage.statBoard);
         statNames = s.statNames;
-        profiles = s.profiles;
-        nextId   = s.nextId;
+        profiles  = s.profiles;
+        nextId    = s.nextId;
       }catch{}
     }
     if(!statNames || statNames.length!==6) statNames = defaultStatNames.slice();
     updateDescriptions();
   }
 
-  // Stat name editor
+  // Edit stat names
   statNamesBtn.onclick = () => {
-    statNames.forEach((n,i) => {
-      const v = prompt(`Stat #${i+1} name:`, n);
+    statNames.forEach((n,i)=>{
+      const v = prompt(`Stat #${i+1} name:`, statNames[i]);
       if(v && v.trim()) statNames[i] = v.trim();
     });
     updateDescriptions();
@@ -138,7 +141,7 @@
     renderProfiles();
   };
   function updateDescriptions(){
-    const desc = [
+    const desc=[
       'Physical power and force.',
       'Agility, reflexes, and coordination.',
       'Endurance and health.',
@@ -146,15 +149,21 @@
       'Perception and insight.',
       'Social influence and charm.'
     ];
-    descElems.forEach(el => {
-      const i = +el.dataset.key;
-      el.textContent = `${statNames[i]}: ${desc[i]}`;
+    descElems.forEach(el=>{
+      const i=+el.dataset.key;
+      el.textContent=`${statNames[i]}: ${desc[i]}`;
     });
   }
 
-  // Profile operations
+  // Profiles
   function createProfile(name,imgSrc){
-    profiles.push({id:nextId++,name,imgSrc,stats:[5,5,5,5,5,5]});
+    profiles.push({
+      id: nextId++,
+      name,
+      imgSrc,
+      stats: [5,5,5,5,5,5],
+      placeholderColor: placeholderColor.value
+    });
     saveState(); renderProfiles();
   }
   function deleteProfile(id){
@@ -162,43 +171,49 @@
     saveState(); renderProfiles();
   }
   function randomizeProfile(id){
-    const p = profiles.find(x=>x.id===id);
-    if(!p) return;
+    const p = profiles.find(p=>p.id===id);
     p.stats = p.stats.map(_=>Math.floor(Math.random()*11));
     saveState(); renderProfiles();
   }
   function exportJSON(){
-    const blob = new Blob([JSON.stringify({statNames,profiles},null,2)],{type:'application/json'});
+    const blob = new Blob(
+      [JSON.stringify({statNames,profiles},null,2)],
+      {type:'application/json'}
+    );
     const url = URL.createObjectURL(blob);
     const a   = document.createElement('a');
     a.href=url; a.download='stat_board.json'; a.click();
     URL.revokeObjectURL(url);
   }
 
-  // Render
   function renderProfiles(){
     profilesDiv.innerHTML = '';
-    profiles.forEach(p => {
-      const card = document.createElement('div');
+    profiles.forEach(p=>{
+      const card=document.createElement('div');
       card.className='profile-card';
       // header
-      const h = document.createElement('div');
-      h.className='profile-header';
-      h.textContent=p.name;
-      card.appendChild(h);
-      // image
+      const hdr=document.createElement('div');
+      hdr.className='profile-header';
+      hdr.textContent=p.name;
+      card.appendChild(hdr);
+      // image or placeholder
       if(p.imgSrc){
         const img=document.createElement('img');
-        img.className='profile-image';
-        img.src=p.imgSrc;
+        img.src=p.imgSrc; img.className='profile-image';
         card.appendChild(img);
+      } else {
+        const ph=document.createElement('div');
+        ph.className='profile-image placeholder';
+        ph.style.background=p.placeholderColor;
+        ph.textContent='No Image';
+        card.appendChild(ph);
       }
-      // content
+      // stats
       const content=document.createElement('div');
       content.className='profile-content';
       if(styleSelect.value==='numbers'){
-        const cont=document.createElement('div');
-        cont.className='stat-list';
+        const list=document.createElement('div');
+        list.className='stat-list';
         statNames.forEach((label,i)=>{
           const row=document.createElement('div');
           row.className='row';
@@ -211,12 +226,12 @@
             saveState();
           });
           row.append(span,inp);
-          cont.appendChild(row);
+          list.appendChild(row);
         });
-        content.appendChild(cont);
+        content.appendChild(list);
       } else {
-        const cont=document.createElement('div');
-        cont.className='stat-sliders';
+        const list=document.createElement('div');
+        list.className='stat-sliders';
         statNames.forEach((label,i)=>{
           const row=document.createElement('div');
           row.className='row';
@@ -232,27 +247,27 @@
             saveState();
           });
           row.append(span,rng,val);
-          cont.appendChild(row);
+          list.appendChild(row);
         });
-        content.appendChild(cont);
+        content.appendChild(list);
       }
       card.appendChild(content);
       // footer
       const footer=document.createElement('div');
       footer.className='profile-footer';
-      const rand=document.createElement('button');
-      rand.textContent='🎲 Randomize';
-      rand.onclick=()=>randomizeProfile(p.id);
-      const del=document.createElement('button');
-      del.textContent='🗑️ Delete';
-      del.onclick=()=>deleteProfile(p.id);
-      footer.append(rand,del);
+      const randBtn=document.createElement('button');
+      randBtn.textContent='🎲 Randomize';
+      randBtn.onclick=()=>randomizeProfile(p.id);
+      const delBtn=document.createElement('button');
+      delBtn.textContent='🗑️ Delete';
+      delBtn.onclick=()=>deleteProfile(p.id);
+      footer.append(randBtn,delBtn);
       card.appendChild(footer);
       profilesDiv.appendChild(card);
     });
   }
 
-  // Events
+  // init
   loadState();
   renderProfiles();
   styleSelect.onchange = renderProfiles;
@@ -261,7 +276,10 @@
     if(!n) return alert('Enter a name.');
     if(imgIn.files[0]){
       const fr=new FileReader();
-      fr.onload=e=>{createProfile(n,e.target.result);nameIn.value='';imgIn.value='';};
+      fr.onload=e=>{
+        createProfile(n,e.target.result);
+        nameIn.value=''; imgIn.value='';
+      };
       fr.readAsDataURL(imgIn.files[0]);
     } else {
       createProfile(n,null);

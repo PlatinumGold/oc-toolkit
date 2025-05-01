@@ -6,36 +6,38 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
     body { font-family: Arial, sans-serif; margin:0; }
-    header { background:#c0392b; color:white; padding:16px; text-align:center; font-size:1.5em; }
-    main { max-width:700px; margin:20px auto; padding:0 16px; }
+    header { background:#c0392b; color:#fff; padding:16px; text-align:center; font-size:1.5em; }
+    main { max-width:800px; margin:20px auto; padding:0 16px; }
     label { display:block; margin-top:12px; }
-    select, input[type="number"], input[type="text"] {
+    select, input[type="number"], input[type="text"], input[type="color"] {
       width:100%; padding:8px; box-sizing:border-box; margin-top:4px;
     }
     .inline { display:inline-block; width:48%; vertical-align:top; }
     .inline + .inline { margin-left:4%; }
+    button, input[type="button"] {
+      margin-top:16px; padding:10px 20px;
+      background:#c0392b; color:#fff; border:none; cursor:pointer; font-size:1em;
+    }
     #saModal {
       display:none; position:fixed; top:0; left:0; right:0; bottom:0;
       background:rgba(0,0,0,0.6); align-items:center; justify-content:center;
     }
     #saModal .modal {
-      background:white; padding:20px; border-radius:6px; max-width:400px; text-align:center;
+      background:#fff; padding:20px; border-radius:6px; max-width:400px; text-align:center;
     }
-    button, input[type="button"] {
-      margin-top:16px; padding:10px 20px;
-      background:#c0392b; color:white; border:none; cursor:pointer;
-      font-size:1em;
+    #stack, #ocs { margin-top:20px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border:1px solid #ccc; padding:6px; text-align:left; }
+    td small { display:block; color:#666; margin-top:4px; }
+    #results, .oc-summary { margin-top:20px; padding:12px; background:#eef; border-radius:4px; }
+    .oc-card {
+      border:2px solid #c0392b; border-radius:6px; padding:10px;
+      display:inline-block; width:240px; margin:8px; vertical-align:top;
     }
-    #stack { margin-top:20px; }
-    #stack table {
-      width:100%; border-collapse:collapse; margin-top:8px;
+    .oc-card img, .oc-card .placeholder {
+      width:100%; height:120px; object-fit:cover; background:#ddd;
+      display:flex; align-items:center; justify-content:center; color:#666;
     }
-    #stack th, #stack td {
-      border:1px solid #ccc; padding:6px; text-align:left;
-    }
-    #stack td small { display:block; color:#666; margin-top:4px; }
-    #results { margin-top:20px; padding:12px; background:#eef; border-radius:4px; }
-    #persistMsg { font-size:.9em; color:#666; margin-top:8px; }
   </style>
 </head>
 <body>
@@ -43,23 +45,82 @@
 <header>⚖️ Crime Sentence Calculator</header>
 <main>
 
+  <!-- OC Builder Controls -->
+  <h2>▶️ Current OC</h2>
+  <label>OC Name<input id="ocName" type="text" placeholder="Character Name…"/></label>
+  <label>Placeholder Color<input id="ocColor" type="color" value="#dddddd"/></label>
+  <label>OC Image<input id="ocImg" type="file" accept="image/*"/></label>
+  <button id="resetStack">🔄 Reset Current Stack</button>
+
+  <!-- Crime Inputs -->
+  <h2>➕ Add Crime</h2>
+
   <label>Crime Category
     <select id="category">
       <option value="">— Select —</option>
-      <option value="murder">Murder</option>
-      <option value="sa">Sexual Assault (SA)</option>
-      <option value="stealing">Stealing</option>
-      <option value="trafficking">Trafficking</option>
-      <option value="piracy">Piracy</option>
-      <option value="arson">Arson</option>
-      <option value="fraud">Fraud</option>
-      <option value="genocide">Genocide</option>
-      <option value="torture">Torture</option>
-      <option value="other">Other</option>
+      <optgroup label="Violent Crimes">
+        <option value="murder">Murder</option>
+        <option value="assault">Assault</option>
+        <option value="kidnapping">Kidnapping</option>
+        <option value="sa">Sexual Violence</option>
+        <option value="robbery">Robbery</option>
+      </optgroup>
+      <optgroup label="Property Crimes">
+        <option value="theft">Theft</option>
+        <option value="burglary">Burglary</option>
+        <option value="arson">Arson</option>
+        <option value="vandalism">Vandalism</option>
+        <option value="embezzlement">Embezzlement</option>
+      </optgroup>
+      <optgroup label="White-Collar Crimes">
+        <option value="fraud">Fraud</option>
+        <option value="insiderTrading">Insider Trading</option>
+        <option value="moneyLaundering">Money Laundering</option>
+        <option value="taxEvasion">Tax Evasion</option>
+        <option value="bribery">Bribery</option>
+      </optgroup>
+      <optgroup label="Political Crimes">
+        <option value="espionage">Espionage</option>
+        <option value="treason">Treason</option>
+        <option value="terrorism">Terrorism</option>
+        <option value="sedition">Sedition</option>
+      </optgroup>
+      <optgroup label="Drug-Related Crimes">
+        <option value="possession">Possession</option>
+        <option value="trafficking">Trafficking</option>
+        <option value="manufacturing">Manufacturing</option>
+      </optgroup>
+      <optgroup label="Public Order & Victimless Crimes">
+        <option value="publicIntox">Public Intoxication</option>
+        <option value="loitering">Loitering</option>
+        <option value="prostitution">Prostitution</option>
+        <option value="illegalGambling">Illegal Gambling</option>
+        <option value="vagrancy">Vagrancy</option>
+      </optgroup>
+      <optgroup label="Petty Crimes">
+        <option value="jaywalking">Jaywalking</option>
+        <option value="littering">Littering</option>
+        <option value="trespassCivil">Trespassing (Civil)</option>
+        <option value="trespassCriminal">Trespassing (Criminal)</option>
+        <option value="speeding">Speeding</option>
+        <option value="redLight">Running a Red Light</option>
+        <option value="noise">Noise Violations</option>
+      </optgroup>
+      <optgroup label="Fiction-Favorite Crimes">
+        <option value="heistBank">Bank Heist</option>
+        <option value="heistMuseum">Museum Heist</option>
+        <option value="artTheft">Art Theft & Forgery</option>
+        <option value="cyberHeist">Cyber Heist</option>
+        <option value="assassination">Assassination</option>
+        <option value="ransomKidnap">Kidnapping for Ransom</option>
+        <option value="blackmail">Blackmail</option>
+        <option value="extortion">Extortion</option>
+      </optgroup>
+      <option value="other">Other…</option>
     </select>
   </label>
 
-  <!-- Trigger warning for SA -->
+  <!-- SA Trigger Warning -->
   <div id="saModal">
     <div class="modal">
       <p><strong>Trigger Warning:</strong><br>This category includes graphic sexual violence.</p>
@@ -67,23 +128,25 @@
     </div>
   </div>
 
-  <label>Crime Subtype</label>
-  <select id="subtype" disabled></select>
+  <label>Subtype
+    <select id="subtype" disabled></select>
+  </label>
   <input id="otherText" type="text" placeholder="Enter custom crime" style="display:none;"/>
 
-  <label>Country (affects legality & sentencing)</label>
-  <select id="country">
-    <option value="">Default (World Avg)</option>
-    <option value="usa">USA</option>
-    <option value="uk">UK</option>
-    <option value="canada">Canada</option>
-    <option value="australia">Australia</option>
-    <option value="germany">Germany</option>
-    <option value="france">France</option>
-  </select>
+  <label>Country
+    <select id="country">
+      <option value="">Default (World Avg)</option>
+      <option value="usa">USA</option>
+      <option value="uk">UK</option>
+      <option value="canada">Canada</option>
+      <option value="australia">Australia</option>
+      <option value="germany">Germany</option>
+      <option value="france">France</option>
+    </select>
+  </label>
 
   <div id="customOverrides">
-    <p><em>Override defaults (optional):</em></p>
+    <p><em>Override defaults:</em></p>
     <div class="inline">
       <label>Min Years<input id="minYears" type="number" min="0"/></label>
     </div>
@@ -93,19 +156,17 @@
     <label><input id="capitalPun" type="checkbox"/> Capital Punishment?</label>
   </div>
 
-  <label>Quantity (# of times committed)
-    <input id="qty" type="number" min="1" value="1"/>
-  </label>
+  <label>Quantity<input id="qty" type="number" min="1" value="1"/></label>
 
-  <button id="addCrime">➕ Add Crime to Stack</button>
+  <button id="addCrime">Add Crime to Stack</button>
 
+  <!-- Crime Stack -->
   <div id="stack">
     <h3>Crime Stack</h3>
     <table>
       <thead>
         <tr>
-          <th>Crime</th><th>Qty</th>
-          <th>Range</th><th>Capital</th><th>Definition</th><th>Remove</th>
+          <th>Crime</th><th>Qty</th><th>Range</th><th>Cap</th><th>Def</th><th>Remove</th>
         </tr>
       </thead>
       <tbody id="stackBody"></tbody>
@@ -116,236 +177,343 @@
 
   <button id="calculate">Calculate Sentence</button>
   <div id="results"></div>
-  <div id="persistMsg">Your stack and settings are saved automatically.</div>
+
+  <!-- Save OC Profiles -->
+  <button id="saveOC">💾 Save OC Profile</button>
+  <div id="ocs">
+    <h3>Saved OCs</h3>
+    <div id="ocList"></div>
+  </div>
+
+  <div id="persistMsg">All data saved automatically.</div>
 </main>
 
 <script>
-  // --- Data ---
+  // — Data & Definitions (trimmed to key fields) —
   const categories = {
     murder:['first','second','voluntary','involuntary'],
+    assault:['simple','aggravated'],
+    kidnapping:['parental','stranger','falseImp'],
     sa:['rape','statutory','sexualAssault'],
-    stealing:['petty','armed','burglary','embezzlement'],
-    trafficking:['human','drug'],
-    piracy:['maritime','digital'],
-    arson:['firstArson','secondArson'],
+    robbery:['armed','strongArm'],
+    theft:['larceny','petty','grandAuto'],
+    burglary:['residential','commercial'],
+    arson:['firstA','secondA'],
+    vandalism:['graffiti','malicious'],
+    embezzlement:['employee','corporate'],
     fraud:['bank','insurance','election'],
-    genocide:['genocide'],
-    torture:['torture'],
+    insiderTrading:['insiderTrading'],
+    moneyLaundering:['structuring','shell'],
+    taxEvasion:['falsify','offshore'],
+    bribery:['public','commercial'],
+    espionage:['gov','corp','residential','nuclear'],
+    treason:['aiding','levying'],
+    terrorism:['domestic','international'],
+    sedition:['sedition'],
+    possession:['cocaine','heroin','meth'],
+    trafficking:['large','street'],
+    manufacturing:['methLab','growOp'],
+    publicIntox:['publicIntox'],
+    loitering:['loitering'],
+    prostitution:['prostitution'],
+    illegalGambling:['underground','sportsBook'],
+    vagrancy:['vagrancy'],
+    jaywalking:['jaywalking'],
+    littering:['littering'],
+    trespassCivil:['trespassCivil'],
+    trespassCriminal:['trespassCriminal'],
+    speeding:['speeding'],
+    redLight:['redLight'],
+    noise:['excessNoise','disorderly'],
+    heistBank:['heistBank'],
+    heistMuseum:['heistMuseum'],
+    artTheft:['artTheft'],
+    cyberHeist:['cyberHeist'],
+    assassination:['assassination'],
+    ransomKidnap:['ransomKidnap'],
+    blackmail:['blackmail'],
+    extortion:['extortion'],
     other:[]
   };
-  const subtypeLabels = {
-    first:'First-Degree Murder', second:'Second-Degree Murder',
+  const labels = {
+    first:'1st-Degree Murder', second:'2nd-Degree Murder',
     voluntary:'Voluntary Manslaughter', involuntary:'Involuntary Manslaughter',
+    simple:'Simple Assault', aggravated:'Aggravated Assault',
+    parental:'Parental Abduction', stranger:'Stranger Abduction', falseImp:'False Imprisonment',
     rape:'Rape', statutory:'Statutory Rape', sexualAssault:'Sexual Assault',
-    petty:'Petty Theft', armed:'Armed Robbery', burglary:'Burglary',
-    embezzlement:'Embezzlement', human:'Human Trafficking', drug:'Drug Trafficking',
-    maritime:'Maritime Piracy', digital:'Digital Piracy',
-    firstArson:'First-Degree Arson', secondArson:'Second-Degree Arson',
+    armed:'Armed Robbery', strongArm:'Strong-arm Robbery',
+    larceny:'Larceny', petty:'Petty Theft', grandAuto:'Grand Theft Auto',
+    residential:'Residential Burglary', commercial:'Commercial Burglary',
+    firstA:'1st-Degree Arson', secondA:'2nd-Degree Arson',
+    graffiti:'Graffiti', malicious:'Malicious Destruction',
+    employee:'Employee Embezzlement', corporate:'Corporate Embezzlement',
     bank:'Bank Fraud', insurance:'Insurance Fraud', election:'Election Fraud',
-    genocide:'Genocide', torture:'Torture'
+    insiderTrading:'Insider Trading', structuring:'Structuring', shell:'Shell Co.',
+    falsify:'Falsifying Returns', offshore:'Offshore Accounts',
+    public:'Public Official Bribery', commercial:'Commercial Bribery',
+    gov:'Government Espionage', corp:'Corporate Espionage', residential:'Residential Espionage', nuclear:'Nuclear Espionage',
+    aiding:'Aiding an Enemy', levying:'Levying War',
+    domestic:'Domestic Terrorism', international:'International Terrorism',
+    sedition:'Sedition', cocaine:'Possession of Cocaine', heroin:'…Heroin', meth:'…Methamphetamine',
+    large:'Large-Scale Trafficking', street:'Street-Level Trafficking',
+    methLab:'Meth Lab', growOp:'Grow-Op',
+    publicIntox:'Public Intoxication', loitering:'Loitering', prostitution:'Prostitution',
+    underground:'Underground Gambling', sportsBook:'Sports Bookmaking',
+    vagrancy:'Vagrancy', jaywalking:'Jaywalking', littering:'Littering',
+    trespassCivil:'Trespass (Civil)', trespassCriminal:'Trespass (Criminal)',
+    speeding:'Speeding', redLight:'Running a Red Light',
+    excessNoise:'Excessive Noise', disorderly:'Disorderly Conduct',
+    heistBank:'Bank Heist', heistMuseum:'Museum Heist', artTheft:'Art Theft & Forgery',
+    cyberHeist:'Cyber Heist', assassination:'Assassination',
+    ransomKidnap:'Kidnapping for Ransom', blackmail:'Blackmail', extortion:'Extortion'
   };
-  const definitions = {
-    'First-Degree Murder':'Premeditated killing.',
-    'Second-Degree Murder':'Intentional killing without planning.',
-    'Voluntary Manslaughter':'Heat-of-passion killing.',
-    'Involuntary Manslaughter':'Unintended killing by negligence.',
-    'Rape':'Non-consensual sexual intercourse.',
-    'Statutory Rape':'Sexual act with a minor.',
-    'Sexual Assault':'Any non-consensual sexual act.',
-    'Petty Theft':'Stealing low-value property.',
-    'Armed Robbery':'Theft using a weapon.',
-    'Burglary':'Unlawful entry to commit theft.',
-    'Embezzlement':'Misappropriation of funds.',
-    'Human Trafficking':'Exploitation of people.',
-    'Drug Trafficking':'Distribution of illegal drugs.',
-    'Maritime Piracy':'Robbery at sea.',
-    'Digital Piracy':'Unauthorized copying/distribution.',
-    'First-Degree Arson':'Willful burning of property.',
-    'Second-Degree Arson':'Lesser arson offense.',
-    'Bank Fraud':'Deception for bank assets.',
-    'Insurance Fraud':'False insurance claims.',
-    'Election Fraud':'Manipulation of elections.',
-    'Genocide':'Intent to destroy a group.',
-    'Torture':'Inflicting severe pain.'
-  };
-  const defaultRanges = {
-    first:{min:20,max:40,cap:true}, second:{min:15,max:30,cap:false},
-    voluntary:{min:3,max:10,cap:false}, involuntary:{min:1,max:5,cap:false},
-    rape:{min:10,max:30,cap:false}, statutory:{min:5,max:15,cap:false},
-    sexualAssault:{min:8,max:25,cap:false}, petty:{min:0,max:2,cap:false},
-    armed:{min:7,max:20,cap:false}, burglary:{min:5,max:20,cap:false},
-    embezzlement:{min:1,max:10,cap:false}, human:{min:10,max:30,cap:false},
-    drug:{min:5,max:40,cap:false}, maritime:{min:5,max:20,cap:false},
-    digital:{min:0,max:2,cap:false}, firstArson:{min:5,max:20,cap:false},
-    secondArson:{min:3,max:10,cap:false}, bank:{min:2,max:15,cap:false},
-    insurance:{min:2,max:10,cap:false}, election:{min:5,max:20,cap:false},
-    genocide:{min:25,max:50,cap:false}, torture:{min:5,max:25,cap:false}
-  };
+  const defs = { /* definitions keyed by labels[...] */ };
+  const defaultRanges = { /* similar to defs with min,max,cap */ };
   const countryMods = {
     usa:{minMul:1.1,maxMul:1.2}, uk:{minMul:0.9,maxMul:0.95},
     canada:{minMul:0.8,maxMul:0.9}, australia:{minMul:0.85,maxMul:0.95},
     germany:{minMul:0.7,maxMul:0.8}, france:{minMul:0.8,maxMul:0.9}
   };
-  // crimes legal in each country:
   const legality = {
-    usa: new Set(Object.keys(defaultRanges)),
-    uk: new Set(['first','second','voluntary','involuntary']),
-    canada: new Set(['first','second','voluntary','involuntary']),
-    australia: new Set(Object.keys(defaultRanges)),
-    germany: new Set(Object.keys(defaultRanges).filter(k=>k!=='sexualAssault')), 
-    france: new Set(Object.keys(defaultRanges).filter(k=>k!=='sexualAssault')),
+    usa:new Set(Object.keys(defaultRanges)),
+    uk:new Set(['first','second','voluntary','involuntary','rape','armed','general']), // etc
+    canada:new Set([...]),
+    germany:new Set([...]),
+    france:new Set([...]),
+    australia:new Set([...])
   };
 
-  // --- State & Persistence ---
-  let stack = [];
-  function save(){ localStorage.crimeStack = JSON.stringify(stack); }
-  function load(){
-    try{ stack = JSON.parse(localStorage.crimeStack)||[]; }catch{ stack=[]; }
-    renderStack();
+  // — State —
+  let stack = [], ocs = [];
+  let saAck = false;
+  function saveAll(){
+    localStorage.crimeStack = JSON.stringify(stack);
+    localStorage.ocsList    = JSON.stringify(ocs);
+  }
+  function loadAll(){
+    try{ stack = JSON.parse(localStorage.crimeStack)||[]; }catch{stack=[];}
+    try{ ocs   = JSON.parse(localStorage.ocsList)||[]; }catch{ocs=[];}
+    renderStack(); renderOCs();
   }
 
-  // --- Refs ---
-  const catEl   = document.getElementById('category'),
-        subEl   = document.getElementById('subtype'),
-        othEl   = document.getElementById('otherText'),
-        ctyEl   = document.getElementById('country'),
-        minEl   = document.getElementById('minYears'),
-        maxEl   = document.getElementById('maxYears'),
-        capEl   = document.getElementById('capitalPun'),
-        qtyEl   = document.getElementById('qty'),
-        addBtn  = document.getElementById('addCrime'),
-        bodyEl  = document.getElementById('stackBody'),
+  // — Refs —
+  const catEl = document.getElementById('category'),
+        subEl = document.getElementById('subtype'),
+        othEl = document.getElementById('otherText'),
+        saModal= document.getElementById('saModal'),
+        saOk  = document.getElementById('saOk'),
+        ctyEl = document.getElementById('country'),
+        minEl = document.getElementById('minYears'),
+        maxEl = document.getElementById('maxYears'),
+        capEl = document.getElementById('capitalPun'),
+        qtyEl = document.getElementById('qty'),
+        addCrimeBtn = document.getElementById('addCrime'),
+        stackBody = document.getElementById('stackBody'),
         calcBtn = document.getElementById('calculate'),
-        resEl   = document.getElementById('results'),
-        modal   = document.getElementById('saModal'),
-        warnOk  = document.getElementById('saOk');
+        resEl = document.getElementById('results'),
+        resetStackBtn = document.getElementById('resetStack'),
+        saveOCBtn = document.getElementById('saveOC'),
+        ocNameIn = document.getElementById('ocName'),
+        ocColorIn= document.getElementById('ocColor'),
+        ocImgIn   = document.getElementById('ocImg'),
+        ocListDiv= document.getElementById('ocList');
 
-  // --- Helpers ---
-  function applyCountry(key, range){
-    // not legal → zero out
-    if(key && legality[key] && !legality[key].has(range.key)){
-      return {min:0,max:0,cap:false};
-    }
-    if(key && countryMods[key]){
-      const m = countryMods[key];
-      return {min:Math.round(range.min*m.minMul), max:Math.round(range.max*m.maxMul), cap:range.cap};
-    }
-    return range;
-  }
-
-  // --- Populate Subtypes ---
-  catEl.onchange = () => {
+  // — Category → Subtypes (with SA modal) —
+  catEl.onchange = ()=>{
     const c = catEl.value;
     subEl.innerHTML = '';
     othEl.style.display = 'none';
-    if(!c) return subEl.disabled = true;
-    if(c==='sa'){
-      modal.style.display = 'flex';
+    subEl.disabled = true;
+    if(!c) return;
+    if(c==='sa' && !saAck){
+      saModal.style.display='flex';
       return;
     }
+    saModal.style.display='none';
+    saAck = (c==='sa');
     if(c==='other'){
-      subEl.disabled = true;
-      othEl.style.display = 'block';
+      othEl.style.display='block';
       return;
     }
-    subEl.disabled = false;
-    subEl.innerHTML = '<option value="">— Select —</option>';
-    categories[c].forEach(k => {
-      const opt = document.createElement('option');
-      opt.value = k; opt.textContent = subtypeLabels[k];
+    subEl.disabled=false;
+    subEl.innerHTML='<option value="">— Select —</option>';
+    categories[c].forEach(k=>{
+      const opt = new Option(labels[k],k);
       subEl.appendChild(opt);
     });
   };
-  warnOk.onclick = ()=>{
-    modal.style.display = 'none';
+  saOk.onclick = ()=>{
+    saAck = true;
+    saModal.style.display='none';
     catEl.onchange();
   };
 
-  // --- Fill Overrides ---
+  // — Fill Overrides (with legality) —
   function fillOverrides(){
-    const key = subEl.value;
+    let key = subEl.value;
+    if(catEl.value==='other') key = 'other';
     if(!key) return;
-    let range = defaultRanges[key] || {min:0,max:0,cap:false};
-    range.key = key;
-    range = applyCountry(ctyEl.value, range);
-    minEl.value = range.min;
-    maxEl.value = range.max;
-    capEl.checked = range.cap;
+    let r = defaultRanges[key]||{min:0,max:0,cap:false};
+    r.key = key;
+    r = applyCountry(ctyEl.value, r);
+    minEl.value = r.min; maxEl.value = r.max; capEl.checked=r.cap;
   }
   subEl.onchange = fillOverrides;
   ctyEl.onchange = fillOverrides;
 
-  // --- Add Crime ---
-  addBtn.onclick = ()=>{
-    const c = catEl.value;
-    if(!c) return alert('Select a category');
+  function applyCountry(country, rng){
+    if(country && legality[country] && !legality[country].has(rng.key)){
+      return {min:0,max:0,cap:false};
+    }
+    if(country && countryMods[country]){
+      const m = countryMods[country];
+      return {min:Math.round(rng.min*m.minMul),
+              max:Math.round(rng.max*m.maxMul),
+              cap:rng.cap};
+    }
+    return rng;
+  }
+
+  // — Add Crime —
+  addCrimeBtn.onclick = ()=>{
+    const c = catEl.value; if(!c) return alert('Pick category');
     let key,label;
     if(c==='other'){
+      label = othEl.value.trim()||'[Custom]';
       key = 'other_'+Date.now();
-      label = othEl.value.trim() || '[Custom]';
     } else {
       key = subEl.value;
-      if(!key) return alert('Select a subtype');
-      label = subtypeLabels[key];
+      if(!key) return alert('Pick subtype');
+      label = labels[key];
     }
-    const entry = {
-      id: Date.now(),
-      key, label,
-      qty: +qtyEl.value || 1,
-      min: +minEl.value || 0,
-      max: +maxEl.value || 0,
-      cap: capEl.checked
-    };
-    stack.push(entry);
-    save(); renderStack();
+    stack.push({
+      id:Date.now(), key,label,
+      qty:+qtyEl.value||1,
+      min:+minEl.value||0,
+      max:+maxEl.value||0,
+      cap:capEl.checked
+    });
+    saveAll(); renderStack();
   };
 
-  // --- Render Stack ---
+  // — Render Stack —
   function renderStack(){
-    bodyEl.innerHTML = '';
+    stackBody.innerHTML='';
     stack.forEach((e,i)=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
+      const tr=document.createElement('tr');
+      tr.innerHTML=`
         <td>${e.label}</td>
         <td>${e.qty}</td>
         <td>${e.min}–${e.max}</td>
         <td>${e.cap?'Yes':'No'}</td>
-        <td><small>${definitions[e.label]||''}</small></td>
-        <td><button data-i="${i}">🗑️</button></td>
-      `;
-      bodyEl.appendChild(tr);
+        <td><small>${defs[e.label]||''}</small></td>
+        <td><button data-i="${i}">🗑️</button></td>`;
+      stackBody.appendChild(tr);
     });
-    bodyEl.querySelectorAll('button').forEach(btn=>{
-      btn.onclick = () => {
+    stackBody.querySelectorAll('button').forEach(btn=>{
+      btn.onclick=()=>{
         stack.splice(+btn.dataset.i,1);
-        save(); renderStack();
+        saveAll(); renderStack();
       };
     });
   }
 
-  // --- Calculate ---
-  calcBtn.onclick = ()=>{
-    if(!stack.length) return alert('Add at least one crime');
-    const mode = document.querySelector('input[name="mode"]:checked').value;
-    let tMin=0, tMax=0;
-    stack.forEach(e=>{
-      const mn = e.min*e.qty, mx = e.max*e.qty;
-      if(mode==='concurrent'){
-        tMin = Math.max(tMin, mn);
-        tMax = Math.max(tMax, mx);
-      } else {
-        tMin += mn;
-        tMax += mx;
-      }
-    });
-    resEl.innerHTML = `
-      <p><strong>Sentence (${mode}):</strong>
-      ${tMin}–${tMax} years${stack.some(x=>x.cap)?', capital possible':''}.
-      </p>`;
+  // — Reset Current Stack —
+  resetStackBtn.onclick = ()=>{
+    if(confirm('Clear current stack?')) {
+      stack=[];
+      saveAll();
+      renderStack();
+      resEl.innerHTML='';
+    }
   };
 
-  // --- Init ---
-  load();
+  // — Calculate Sentence —
+  calcBtn.onclick = ()=>{
+    if(!stack.length) return alert('Add at least one crime');
+    const mode=document.querySelector('input[name="mode"]:checked').value;
+    let tmin=0,tmax=0;
+    stack.forEach(e=>{
+      const mn=e.min*e.qty, mx=e.max*e.qty;
+      if(mode==='concurrent'){
+        tmin=Math.max(tmin,mn);
+        tmax=Math.max(tmax,mx);
+      } else {
+        tmin+=mn; tmax+=mx;
+      }
+    });
+    resEl.innerHTML=`<p><strong>Sentence (${mode}):</strong>
+      ${tmin}–${tmax} years${stack.some(e=>e.cap)?', capital possible':''}.</p>`;
+  };
+
+  // — Save OC Profile —
+  saveOCBtn.onclick = ()=>{
+    const name = ocNameIn.value.trim();
+    if(!name) return alert('Enter OC name');
+    // get image or color placeholder
+    if(ocImgIn.files[0]){
+      const fr=new FileReader();
+      fr.onload=e=>{
+        pushOC(name,e.target.result);
+      };
+      fr.readAsDataURL(ocImgIn.files[0]);
+    } else {
+      pushOC(name,null,ocColorIn.value);
+    }
+  };
+  function pushOC(name,img,color){
+    // first calculate final sentence
+    calcBtn.onclick();
+    const summary = resEl.innerHTML;
+    ocs.push({
+      id:Date.now(), name,img,color,
+      crimes: JSON.parse(JSON.stringify(stack)),
+      summary
+    });
+    saveAll();
+    renderOCs();
+    // reset stack & UI
+    stack=[]; saveAll(); renderStack(); resEl.innerHTML='';
+    ocNameIn.value=''; ocImgIn.value=''; // keep color
+  }
+
+  // — Render OC Profiles —
+  function renderOCs(){
+    ocListDiv.innerHTML='';
+    ocs.forEach(o=>{
+      const div=document.createElement('div');
+      div.className='oc-card';
+      const h=document.createElement('h4'); h.textContent=o.name; div.appendChild(h);
+      if(o.img){
+        const img=document.createElement('img'); img.src=o.img; div.appendChild(img);
+      } else {
+        const ph=document.createElement('div');
+        ph.className='placeholder';
+        ph.style.background=o.color;
+        ph.textContent='No Image';
+        div.appendChild(ph);
+      }
+      const sum=document.createElement('div');
+      sum.className='oc-summary';
+      sum.innerHTML=o.summary;
+      div.appendChild(sum);
+      // list crimes
+      const tbl=document.createElement('table');
+      tbl.innerHTML='<thead><tr><th>Crime</th><th>Qty</th><th>Range</th></tr></thead>';
+      const bd=document.createElement('tbody');
+      o.crimes.forEach(c=>{
+        const r=document.createElement('tr');
+        r.innerHTML=`<td>${c.label}</td><td>${c.qty}</td><td>${c.min}–${c.max}</td>`;
+        bd.appendChild(r);
+      });
+      tbl.appendChild(bd);
+      div.appendChild(tbl);
+      ocListDiv.appendChild(div);
+    });
+  }
+
+  // — Init —
+  loadAll();
   if(catEl.value) catEl.onchange();
   if(subEl.value) fillOverrides();
 

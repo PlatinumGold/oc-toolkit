@@ -14,7 +14,6 @@
     }
     .inline { display:inline-block; width:48%; vertical-align:top; }
     .inline + .inline { margin-left:4%; }
-    #subtype, #otherText { margin-top:4px; }
     #saModal {
       display:none; position:fixed; top:0; left:0; right:0; bottom:0;
       background:rgba(0,0,0,0.6); align-items:center; justify-content:center;
@@ -60,11 +59,10 @@
     </select>
   </label>
 
-  <!-- Trigger warning modal -->
+  <!-- Trigger warning for SA -->
   <div id="saModal">
     <div class="modal">
-      <p><strong>Trigger Warning:</strong><br>
-      This category includes graphic sexual violence.</p>
+      <p><strong>Trigger Warning:</strong><br>This category includes graphic sexual violence.</p>
       <button id="saOk">I Understand</button>
     </div>
   </div>
@@ -73,7 +71,7 @@
   <select id="subtype" disabled></select>
   <input id="otherText" type="text" placeholder="Enter custom crime" style="display:none;"/>
 
-  <label>Country (affects sentencing)</label>
+  <label>Country (affects legality & sentencing)</label>
   <select id="country">
     <option value="">Default (World Avg)</option>
     <option value="usa">USA</option>
@@ -95,11 +93,9 @@
     <label><input id="capitalPun" type="checkbox"/> Capital Punishment?</label>
   </div>
 
-  <div>
-    <label>Quantity (# of times committed)
-      <input id="qty" type="number" min="1" value="1"/>
-    </label>
-  </div>
+  <label>Quantity (# of times committed)
+    <input id="qty" type="number" min="1" value="1"/>
+  </label>
 
   <button id="addCrime">➕ Add Crime to Stack</button>
 
@@ -114,12 +110,8 @@
       </thead>
       <tbody id="stackBody"></tbody>
     </table>
-    <label>
-      <input type="radio" name="mode" value="concurrent" checked/> Concurrent
-    </label>
-    <label>
-      <input type="radio" name="mode" value="consecutive"/> Consecutive
-    </label>
+    <label><input type="radio" name="mode" value="concurrent" checked/> Concurrent</label>
+    <label><input type="radio" name="mode" value="consecutive"/> Consecutive</label>
   </div>
 
   <button id="calculate">Calculate Sentence</button>
@@ -128,101 +120,83 @@
 </main>
 
 <script>
-  // — Data definitions — 
+  // --- Data ---
   const categories = {
-    murder:     ['first','second','voluntary','involuntary'],
-    sa:         ['rape','statutory','sexualAssault'],
-    stealing:   ['petty','armed','burglary','embezzlement'],
+    murder:['first','second','voluntary','involuntary'],
+    sa:['rape','statutory','sexualAssault'],
+    stealing:['petty','armed','burglary','embezzlement'],
     trafficking:['human','drug'],
-    piracy:     ['maritime','digital'],
-    arson:      ['firstArson','secondArson'],
-    fraud:      ['bank','insurance','election'],
-    genocide:   ['genocide'],
-    torture:    ['torture'],
-    other:      []  // free-text
+    piracy:['maritime','digital'],
+    arson:['firstArson','secondArson'],
+    fraud:['bank','insurance','election'],
+    genocide:['genocide'],
+    torture:['torture'],
+    other:[]
   };
   const subtypeLabels = {
-    first:  'First-Degree Murder',
-    second: 'Second-Degree Murder',
-    voluntary:'Voluntary Manslaughter',
-    involuntary:'Involuntary Manslaughter',
-    rape:   'Rape',
-    statutory:'Statutory Rape',
-    sexualAssault:'Sexual Assault',
-    petty:  'Petty Theft (Larceny)',
-    armed:  'Armed Robbery',
-    burglary:'Burglary',
-    embezzlement:'Embezzlement',
-    human:  'Human Trafficking',
-    drug:   'Drug Trafficking',
-    maritime:'Maritime Piracy',
-    digital:'Digital Piracy',
-    firstArson:'First-Degree Arson',
-    secondArson:'Second-Degree Arson',
-    bank:   'Bank Fraud',
-    insurance:'Insurance Fraud',
-    election:'Election Fraud',
-    genocide:'Genocide',
-    torture:'Torture'
+    first:'First-Degree Murder', second:'Second-Degree Murder',
+    voluntary:'Voluntary Manslaughter', involuntary:'Involuntary Manslaughter',
+    rape:'Rape', statutory:'Statutory Rape', sexualAssault:'Sexual Assault',
+    petty:'Petty Theft', armed:'Armed Robbery', burglary:'Burglary',
+    embezzlement:'Embezzlement', human:'Human Trafficking', drug:'Drug Trafficking',
+    maritime:'Maritime Piracy', digital:'Digital Piracy',
+    firstArson:'First-Degree Arson', secondArson:'Second-Degree Arson',
+    bank:'Bank Fraud', insurance:'Insurance Fraud', election:'Election Fraud',
+    genocide:'Genocide', torture:'Torture'
   };
   const definitions = {
-    'First-Degree Murder':'Intentional killing with premeditation.',
-    'Second-Degree Murder':'Intentional killing without premeditation.',
+    'First-Degree Murder':'Premeditated killing.',
+    'Second-Degree Murder':'Intentional killing without planning.',
     'Voluntary Manslaughter':'Heat-of-passion killing.',
-    'Involuntary Manslaughter':'Unintentional killing by negligence.',
+    'Involuntary Manslaughter':'Unintended killing by negligence.',
     'Rape':'Non-consensual sexual intercourse.',
-    'Statutory Rape':'Sexual act with minor.',
+    'Statutory Rape':'Sexual act with a minor.',
     'Sexual Assault':'Any non-consensual sexual act.',
-    'Petty Theft (Larceny)':'Stealing low-value property.',
+    'Petty Theft':'Stealing low-value property.',
     'Armed Robbery':'Theft using a weapon.',
     'Burglary':'Unlawful entry to commit theft.',
     'Embezzlement':'Misappropriation of funds.',
-    'Human Trafficking':'Exploitation of persons.',
+    'Human Trafficking':'Exploitation of people.',
     'Drug Trafficking':'Distribution of illegal drugs.',
     'Maritime Piracy':'Robbery at sea.',
     'Digital Piracy':'Unauthorized copying/distribution.',
     'First-Degree Arson':'Willful burning of property.',
-    'Second-Degree Arson':'Less severe arson.',
-    'Bank Fraud':'Deception to obtain bank assets.',
+    'Second-Degree Arson':'Lesser arson offense.',
+    'Bank Fraud':'Deception for bank assets.',
     'Insurance Fraud':'False insurance claims.',
-    'Election Fraud':'Illicit manipulation of elections.',
+    'Election Fraud':'Manipulation of elections.',
     'Genocide':'Intent to destroy a group.',
     'Torture':'Inflicting severe pain.'
   };
   const defaultRanges = {
-    first: {min:20,max:40,cap:true},
-    second:{min:15,max:30,cap:false},
-    voluntary:{min:3,max:10,cap:false},
-    involuntary:{min:1,max:5,cap:false},
-    rape:{min:10,max:30,cap:false},
-    statutory:{min:5,max:15,cap:false},
-    sexualAssault:{min:8,max:25,cap:false},
-    petty:{min:0,max:2,cap:false},
-    armed:{min:7,max:20,cap:false},
-    burglary:{min:5,max:20,cap:false},
-    embezzlement:{min:1,max:10,cap:false},
-    human:{min:10,max:30,cap:false},
-    drug:{min:5,max:40,cap:false},
-    maritime:{min:5,max:20,cap:false},
-    digital:{min:0,max:2,cap:false},
-    firstArson:{min:5,max:20,cap:false},
-    secondArson:{min:3,max:10,cap:false},
-    bank:{min:2,max:15,cap:false},
-    insurance:{min:2,max:10,cap:false},
-    election:{min:5,max:20,cap:false},
-    genocide:{min:25,max:50,cap:false},
-    torture:{min:5,max:25,cap:false}
+    first:{min:20,max:40,cap:true}, second:{min:15,max:30,cap:false},
+    voluntary:{min:3,max:10,cap:false}, involuntary:{min:1,max:5,cap:false},
+    rape:{min:10,max:30,cap:false}, statutory:{min:5,max:15,cap:false},
+    sexualAssault:{min:8,max:25,cap:false}, petty:{min:0,max:2,cap:false},
+    armed:{min:7,max:20,cap:false}, burglary:{min:5,max:20,cap:false},
+    embezzlement:{min:1,max:10,cap:false}, human:{min:10,max:30,cap:false},
+    drug:{min:5,max:40,cap:false}, maritime:{min:5,max:20,cap:false},
+    digital:{min:0,max:2,cap:false}, firstArson:{min:5,max:20,cap:false},
+    secondArson:{min:3,max:10,cap:false}, bank:{min:2,max:15,cap:false},
+    insurance:{min:2,max:10,cap:false}, election:{min:5,max:20,cap:false},
+    genocide:{min:25,max:50,cap:false}, torture:{min:5,max:25,cap:false}
   };
   const countryMods = {
-    usa:{minMul:1.1,maxMul:1.2},
-    uk:{minMul:0.9,maxMul:0.95},
-    canada:{minMul:0.8,maxMul:0.9},
-    australia:{minMul:0.85,maxMul:0.95},
-    germany:{minMul:0.7,maxMul:0.8},
-    france:{minMul:0.8,maxMul:0.9}
+    usa:{minMul:1.1,maxMul:1.2}, uk:{minMul:0.9,maxMul:0.95},
+    canada:{minMul:0.8,maxMul:0.9}, australia:{minMul:0.85,maxMul:0.95},
+    germany:{minMul:0.7,maxMul:0.8}, france:{minMul:0.8,maxMul:0.9}
+  };
+  // crimes legal in each country:
+  const legality = {
+    usa: new Set(Object.keys(defaultRanges)),
+    uk: new Set(['first','second','voluntary','involuntary']),
+    canada: new Set(['first','second','voluntary','involuntary']),
+    australia: new Set(Object.keys(defaultRanges)),
+    germany: new Set(Object.keys(defaultRanges).filter(k=>k!=='sexualAssault')), 
+    france: new Set(Object.keys(defaultRanges).filter(k=>k!=='sexualAssault')),
   };
 
-  // — State & Persistence —
+  // --- State & Persistence ---
   let stack = [];
   function save(){ localStorage.crimeStack = JSON.stringify(stack); }
   function load(){
@@ -230,150 +204,151 @@
     renderStack();
   }
 
-  // — UI Refs —
-  const cat = document.getElementById('category'),
-        sub = document.getElementById('subtype'),
-        oth = document.getElementById('otherText'),
-        country = document.getElementById('country'),
-        minY = document.getElementById('minYears'),
-        maxY = document.getElementById('maxYears'),
-        cap = document.getElementById('capitalPun'),
-        qty = document.getElementById('qty'),
-        addB = document.getElementById('addCrime'),
-        stBody = document.getElementById('stackBody'),
-        calc = document.getElementById('calculate'),
-        res = document.getElementById('results'),
-        modal = document.getElementById('saModal'),
-        saOk = document.getElementById('saOk');
+  // --- Refs ---
+  const catEl   = document.getElementById('category'),
+        subEl   = document.getElementById('subtype'),
+        othEl   = document.getElementById('otherText'),
+        ctyEl   = document.getElementById('country'),
+        minEl   = document.getElementById('minYears'),
+        maxEl   = document.getElementById('maxYears'),
+        capEl   = document.getElementById('capitalPun'),
+        qtyEl   = document.getElementById('qty'),
+        addBtn  = document.getElementById('addCrime'),
+        bodyEl  = document.getElementById('stackBody'),
+        calcBtn = document.getElementById('calculate'),
+        resEl   = document.getElementById('results'),
+        modal   = document.getElementById('saModal'),
+        warnOk  = document.getElementById('saOk');
 
-  // — Helpers —
+  // --- Helpers ---
   function applyCountry(key, range){
-    const cm = countryMods[key];
-    if(cm){
-      return {
-        min: Math.round(range.min*cm.minMul),
-        max: Math.round(range.max*cm.maxMul),
-        cap: range.cap
-      };
+    // not legal → zero out
+    if(key && legality[key] && !legality[key].has(range.key)){
+      return {min:0,max:0,cap:false};
+    }
+    if(key && countryMods[key]){
+      const m = countryMods[key];
+      return {min:Math.round(range.min*m.minMul), max:Math.round(range.max*m.maxMul), cap:range.cap};
     }
     return range;
   }
 
-  // — Populate Subtypes —
-  cat.onchange = () => {
-    sub.innerHTML = '';
-    oth.style.display = 'none';
-    const c = cat.value;
-    if(!c) return;
+  // --- Populate Subtypes ---
+  catEl.onchange = () => {
+    const c = catEl.value;
+    subEl.innerHTML = '';
+    othEl.style.display = 'none';
+    if(!c) return subEl.disabled = true;
     if(c==='sa'){
       modal.style.display = 'flex';
       return;
     }
     if(c==='other'){
-      oth.style.display = 'block';
+      subEl.disabled = true;
+      othEl.style.display = 'block';
       return;
     }
-    sub.disabled = false;
-    sub.innerHTML = '<option value="">— Select —</option>';
-    categories[c].forEach(k=>{
-      const opt = new Option(subtypeLabels[k], k);
-      sub.add(opt);
+    subEl.disabled = false;
+    subEl.innerHTML = '<option value="">— Select —</option>';
+    categories[c].forEach(k => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = subtypeLabels[k];
+      subEl.appendChild(opt);
     });
   };
-  saOk.onclick = ()=>{
+  warnOk.onclick = ()=>{
     modal.style.display = 'none';
-    cat.onchange();
+    catEl.onchange();
   };
 
-  // — When subtype or country changes, update overrides —
+  // --- Fill Overrides ---
   function fillOverrides(){
-    const key = sub.value;
+    const key = subEl.value;
     if(!key) return;
     let range = defaultRanges[key] || {min:0,max:0,cap:false};
-    const ctry = country.value;
-    range = applyCountry(ctry, range);
-    minY.value = range.min;
-    maxY.value = range.max;
-    cap.checked = range.cap;
+    range.key = key;
+    range = applyCountry(ctyEl.value, range);
+    minEl.value = range.min;
+    maxEl.value = range.max;
+    capEl.checked = range.cap;
   }
-  sub.onchange = fillOverrides;
-  country.onchange = fillOverrides;
+  subEl.onchange = fillOverrides;
+  ctyEl.onchange = fillOverrides;
 
-  // — Add Crime to Stack —
-  addB.onclick = ()=>{
-    const c = cat.value;
-    if(!c) return alert('Select category');
-    let label, key;
+  // --- Add Crime ---
+  addBtn.onclick = ()=>{
+    const c = catEl.value;
+    if(!c) return alert('Select a category');
+    let key,label;
     if(c==='other'){
       key = 'other_'+Date.now();
-      label = oth.value.trim()||'[Custom]';
+      label = othEl.value.trim() || '[Custom]';
     } else {
-      key = sub.value;
-      if(!key) return alert('Select subtype');
+      key = subEl.value;
+      if(!key) return alert('Select a subtype');
       label = subtypeLabels[key];
     }
     const entry = {
       id: Date.now(),
-      category:c, subtype:key, label,
-      qty: +qty.value||1,
-      min: +minY.value||0,
-      max: +maxY.value||0,
-      cap: cap.checked
+      key, label,
+      qty: +qtyEl.value || 1,
+      min: +minEl.value || 0,
+      max: +maxEl.value || 0,
+      cap: capEl.checked
     };
     stack.push(entry);
     save(); renderStack();
   };
 
-  // — Render Stack Table —
+  // --- Render Stack ---
   function renderStack(){
-    stBody.innerHTML = '';
+    bodyEl.innerHTML = '';
     stack.forEach((e,i)=>{
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${e.label}</td>
         <td>${e.qty}</td>
         <td>${e.min}–${e.max}</td>
-        <td>${e.cap? 'Yes':'No'}</td>
+        <td>${e.cap?'Yes':'No'}</td>
         <td><small>${definitions[e.label]||''}</small></td>
-        <td><button data-idx="${i}">🗑️</button></td>
+        <td><button data-i="${i}">🗑️</button></td>
       `;
-      stBody.appendChild(tr);
+      bodyEl.appendChild(tr);
     });
-    // remove handler
-    stBody.querySelectorAll('button').forEach(btn=>{
-      btn.onclick = ()=>{
-        stack.splice(+btn.dataset.idx,1);
+    bodyEl.querySelectorAll('button').forEach(btn=>{
+      btn.onclick = () => {
+        stack.splice(+btn.dataset.i,1);
         save(); renderStack();
       };
     });
   }
 
-  // — Calculate —
-  calc.onclick = ()=>{
-    if(stack.length===0) return alert('Add at least one crime');
+  // --- Calculate ---
+  calcBtn.onclick = ()=>{
+    if(!stack.length) return alert('Add at least one crime');
     const mode = document.querySelector('input[name="mode"]:checked').value;
-    let totalMin=0, totalMax=0;
+    let tMin=0, tMax=0;
     stack.forEach(e=>{
+      const mn = e.min*e.qty, mx = e.max*e.qty;
       if(mode==='concurrent'){
-        totalMin = Math.max(totalMin, e.min*e.qty);
-        totalMax = Math.max(totalMax, e.max*e.qty);
+        tMin = Math.max(tMin, mn);
+        tMax = Math.max(tMax, mx);
       } else {
-        totalMin += e.min*e.qty;
-        totalMax += e.max*e.qty;
+        tMin += mn;
+        tMax += mx;
       }
     });
-    res.innerHTML = `<p><strong>Sentence (${mode}):</strong>
-      ${totalMin}–${totalMax} years
-      ${stack.some(e=>e.cap)? ' (capital possible)' : ''}.
-    </p>`;
+    resEl.innerHTML = `
+      <p><strong>Sentence (${mode}):</strong>
+      ${tMin}–${tMax} years${stack.some(x=>x.cap)?', capital possible':''}.
+      </p>`;
   };
 
-  // — Init —
+  // --- Init ---
   load();
-  if(cat.value) cat.onchange();
-  if(sub.value) fillOverrides();
+  if(catEl.value) catEl.onchange();
+  if(subEl.value) fillOverrides();
 
 </script>
-
 </body>
 </html>

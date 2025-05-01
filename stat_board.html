@@ -4,7 +4,6 @@
   <meta charset="UTF-8"/>
   <title>OC Stat Board</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root { --accent-color: #4CAF50; }
     body { margin:0; font-family:Arial,sans-serif; background:#f0f4f8; }
@@ -16,27 +15,24 @@
       background:#fff; border-bottom:1px solid #ccc;
       padding:16px; display:flex; flex-wrap:wrap; align-items:center; gap:16px;
     }
-    #controls input[type="text"],
-    #controls select {
-      font-size:1em; padding:8px;
-      border:1px solid #ccc; border-radius:4px;
+    #controls input[type="text"], #controls select {
+      font-size:1em; padding:8px; border:1px solid #ccc; border-radius:4px;
     }
+    #controls input[type="file"] { font-size:0.9em; }
     #controls button {
-      background:var(--accent-color); color:#fff;
-      border:none; padding:10px 16px;
-      border-radius:4px; cursor:pointer; font-size:1em;
+      background:var(--accent-color); color:#fff; border:none;
+      padding:10px 16px; border-radius:4px; cursor:pointer; font-size:1em;
     }
     #controls details { margin-left:auto; font-size:0.9em; }
     #profiles {
-      display:flex; flex-wrap:wrap;
-      gap:20px; padding:20px; justify-content:center;
+      display:flex; flex-wrap:wrap; gap:20px;
+      padding:20px; justify-content:center;
     }
     .profile-card {
       background:#fff; border:2px solid var(--accent-color);
       border-radius:8px; width:300px;
       box-shadow:0 2px 6px rgba(0,0,0,0.1);
-      display:flex; flex-direction:column;
-      overflow:hidden;
+      display:flex; flex-direction:column; overflow:hidden;
     }
     .profile-header {
       background:var(--accent-color); color:#fff;
@@ -47,25 +43,22 @@
     }
     .profile-content { padding:12px; flex:1; }
     .stat-list, .stat-sliders { display:grid; gap:8px; }
-    .stat-list .row {
+    .stat-list .row, .stat-sliders .row {
       display:flex; justify-content:space-between; align-items:center;
     }
-    .stat-list input[type="number"] {
-      width:50px; padding:4px;
-    }
-    .stat-sliders .row {
-      display:flex; align-items:center; gap:8px;
+    .stat-list input[type="number"], .stat-sliders span.value {
+      width:50px; padding:4px; text-align:center;
     }
     .stat-sliders input[type="range"] {
-      flex:1; cursor:pointer;
+      flex:1; margin:0 8px; cursor:pointer;
     }
     .profile-footer {
       padding:10px; text-align:right;
     }
     .profile-footer button {
-      background:#c53; color:#fff;
-      border:none; padding:6px 10px;
-      border-radius:4px; cursor:pointer; margin-left:8px;
+      background:#c53; color:#fff; border:none;
+      padding:6px 10px; border-radius:4px; cursor:pointer;
+      margin-left:8px;
     }
   </style>
 </head>
@@ -75,14 +68,12 @@
 
 <div id="controls">
   <input id="statNamesBtn" type="button" value="⚙️ Edit Stat Names"/>
-  <input id="nameInput" type="text" placeholder="OC Name…" />
-  <input id="imgInput" type="file" accept="image/*" />
+  <input id="nameInput" type="text" placeholder="OC Name…"/>
+  <input id="imgInput" type="file" accept="image/*"/>
   <label for="styleSelect">Display:</label>
   <select id="styleSelect">
     <option value="numbers">Numbers</option>
     <option value="sliders">Sliders</option>
-    <option value="radar">Radar Chart</option>
-    <option value="bar">Bar Chart</option>
   </select>
   <button id="addProfileBtn">➕ Add OC</button>
   <button id="exportBtn">📥 Export JSON</button>
@@ -102,17 +93,14 @@
 <div id="profiles"></div>
 
 <script>
-  // — Core Data & Defaults —
+  // Default stat names
   const defaultStatNames = [
     'Strength','Dexterity','Constitution',
     'Intelligence','Wisdom','Charisma'
   ];
-  let statNames = [];     // will load from localStorage
-  let profiles = [];      // array of {id,name,imgSrc,statValues}
-  let nextId = 1;
-  const chartInstances = {}; // keep Chart.js refs
+  let statNames = [], profiles = [], nextId = 1;
 
-  // — UI Refs —
+  // Elements
   const profilesDiv  = document.getElementById('profiles'),
         statNamesBtn = document.getElementById('statNamesBtn'),
         nameIn       = document.getElementById('nameInput'),
@@ -120,243 +108,167 @@
         styleSelect  = document.getElementById('styleSelect'),
         addBtn       = document.getElementById('addProfileBtn'),
         exportBtn    = document.getElementById('exportBtn'),
-        summaries    = document.querySelectorAll('#controls details ul li strong[data-key]');
+        descElems    = document.querySelectorAll('[data-key]');
 
-  // — Load/Save State —
-  function saveState() {
-    localStorage.setItem('statBoardState', JSON.stringify({
-      statNames, profiles, nextId
-    }));
+  // Load/Save
+  function saveState(){
+    localStorage.statBoard = JSON.stringify({statNames,profiles,nextId});
   }
-  function loadState() {
-    const raw = localStorage.getItem('statBoardState');
-    if (raw) {
-      try {
-        const s = JSON.parse(raw);
+  function loadState(){
+    if(localStorage.statBoard){
+      try{
+        const s = JSON.parse(localStorage.statBoard);
         statNames = s.statNames;
         profiles = s.profiles;
         nextId   = s.nextId;
-      } catch {}
+      }catch{}
     }
-    if (!statNames || statNames.length !== 6) statNames = defaultStatNames.slice();
+    if(!statNames || statNames.length!==6) statNames = defaultStatNames.slice();
     updateDescriptions();
   }
 
-  // — Stat Names Editor —
-  statNamesBtn.onclick = ()=>{
-    const inputs = statNames.map((n,i)=>
-      prompt(`Stat #${i+1} name:`, statNames[i])
-    );
-    inputs.forEach((val,i)=> {
-      if (val && val.trim()) statNames[i] = val.trim();
+  // Stat name editor
+  statNamesBtn.onclick = () => {
+    statNames.forEach((n,i) => {
+      const v = prompt(`Stat #${i+1} name:`, n);
+      if(v && v.trim()) statNames[i] = v.trim();
     });
     updateDescriptions();
     saveState();
     renderProfiles();
   };
-  function updateDescriptions() {
-    summaries.forEach(el=>{
-      const idx = +el.dataset.key;
-      el.textContent = statNames[idx] + ': ' + ([
-        'Physical power and force.',
-        'Agility, reflexes, and coordination.',
-        'Endurance and health.',
-        'Problem-solving and knowledge.',
-        'Perception and insight.',
-        'Social influence and charm.'
-      ][idx]);
+  function updateDescriptions(){
+    const desc = [
+      'Physical power and force.',
+      'Agility, reflexes, and coordination.',
+      'Endurance and health.',
+      'Problem-solving and knowledge.',
+      'Perception and insight.',
+      'Social influence and charm.'
+    ];
+    descElems.forEach(el => {
+      const i = +el.dataset.key;
+      el.textContent = `${statNames[i]}: ${desc[i]}`;
     });
   }
 
-  // — Profile CRUD & Randomize —
-  function createProfile(name, imgSrc) {
-    const id = nextId++;
-    const statValues = Array(6).fill(5);
-    profiles.push({id,name,imgSrc,statValues});
+  // Profile operations
+  function createProfile(name,imgSrc){
+    profiles.push({id:nextId++,name,imgSrc,stats:[5,5,5,5,5,5]});
     saveState(); renderProfiles();
   }
-  function deleteProfile(id) {
+  function deleteProfile(id){
     profiles = profiles.filter(p=>p.id!==id);
-    delete chartInstances['radar-'+id];
-    delete chartInstances['bar-'+id];
     saveState(); renderProfiles();
   }
-  function randomizeProfile(id) {
+  function randomizeProfile(id){
     const p = profiles.find(x=>x.id===id);
-    if (!p) return;
-    p.statValues = Array(6).fill().map(_=>Math.floor(Math.random()*11));
+    if(!p) return;
+    p.stats = p.stats.map(_=>Math.floor(Math.random()*11));
     saveState(); renderProfiles();
   }
-
-  // — Export JSON —
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify({statNames,profiles},null,2)],
-                          {type:'application/json'});
+  function exportJSON(){
+    const blob = new Blob([JSON.stringify({statNames,profiles},null,2)],{type:'application/json'});
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a   = document.createElement('a');
     a.href=url; a.download='stat_board.json'; a.click();
     URL.revokeObjectURL(url);
   }
 
-  // — Render All Profiles —
-  function renderProfiles() {
+  // Render
+  function renderProfiles(){
     profilesDiv.innerHTML = '';
     profiles.forEach(p => {
       const card = document.createElement('div');
-      card.className = 'profile-card';
-      // Header
-      const hdr = document.createElement('div');
-      hdr.className = 'profile-header';
-      hdr.textContent = p.name;
-      card.appendChild(hdr);
-      // Image
-      if (p.imgSrc) {
-        const img = document.createElement('img');
-        img.src = p.imgSrc;
-        img.className = 'profile-image';
+      card.className='profile-card';
+      // header
+      const h = document.createElement('div');
+      h.className='profile-header';
+      h.textContent=p.name;
+      card.appendChild(h);
+      // image
+      if(p.imgSrc){
+        const img=document.createElement('img');
+        img.className='profile-image';
+        img.src=p.imgSrc;
         card.appendChild(img);
       }
-      // Content
-      const content = document.createElement('div');
-      content.className = 'profile-content';
-
-      const mode = styleSelect.value;
-
-      if (mode === 'numbers') {
-        // Editable numbers
-        const container = document.createElement('div');
-        container.className = 'stat-list';
+      // content
+      const content=document.createElement('div');
+      content.className='profile-content';
+      if(styleSelect.value==='numbers'){
+        const cont=document.createElement('div');
+        cont.className='stat-list';
         statNames.forEach((label,i)=>{
-          const row = document.createElement('div');
-          row.className = 'row';
-          const span = document.createElement('span');
-          span.textContent = label;
-          const inp = document.createElement('input');
-          inp.type = 'number'; inp.min=0; inp.max=10;
-          inp.value = p.statValues[i];
-          inp.addEventListener('input', ()=>{
-            p.statValues[i] = Math.min(10,Math.max(0,+inp.value));
-            saveState(); updateChart(p.id, 'radar'); updateChart(p.id, 'bar');
+          const row=document.createElement('div');
+          row.className='row';
+          const span=document.createElement('span');
+          span.textContent=label;
+          const inp=document.createElement('input');
+          inp.type='number'; inp.min=0; inp.max=10; inp.value=p.stats[i];
+          inp.addEventListener('input',()=>{
+            p.stats[i]=Math.max(0,Math.min(10,+inp.value));
+            saveState();
           });
-          row.append(span, inp);
-          container.appendChild(row);
+          row.append(span,inp);
+          cont.appendChild(row);
         });
-        content.appendChild(container);
-
-      } else if (mode === 'sliders') {
-        // Range sliders
-        const container = document.createElement('div');
-        container.className = 'stat-sliders';
-        statNames.forEach((label,i)=>{
-          const row = document.createElement('div');
-          row.className = 'row';
-          const span = document.createElement('span');
-          span.textContent = label;
-          const rng = document.createElement('input');
-          rng.type='range'; rng.min=0; rng.max=10; rng.value=p.statValues[i];
-          const val = document.createElement('span');
-          val.textContent = rng.value;
-          rng.addEventListener('input', ()=>{
-            p.statValues[i] = +rng.value;
-            val.textContent = rng.value;
-            saveState(); updateChart(p.id, 'radar'); updateChart(p.id, 'bar');
-          });
-          row.append(span, rng, val);
-          container.appendChild(row);
-        });
-        content.appendChild(container);
-
+        content.appendChild(cont);
       } else {
-        // Radar or Bar: we create two canvases and show only the chosen one
-        ['radar','bar'].forEach(type=>{
-          const canvas = document.createElement('canvas');
-          canvas.id = `${type}-${p.id}`;
-          canvas.style.display = (mode===type) ? 'block' : 'none';
-          canvas.style.maxWidth = '260px';
-          content.appendChild(canvas);
-          renderChart(p.id, type);
+        const cont=document.createElement('div');
+        cont.className='stat-sliders';
+        statNames.forEach((label,i)=>{
+          const row=document.createElement('div');
+          row.className='row';
+          const span=document.createElement('span');
+          span.textContent=label;
+          const rng=document.createElement('input');
+          rng.type='range'; rng.min=0; rng.max=10; rng.value=p.stats[i];
+          const val=document.createElement('span');
+          val.className='value'; val.textContent=p.stats[i];
+          rng.addEventListener('input',()=>{
+            p.stats[i]=+rng.value;
+            val.textContent=rng.value;
+            saveState();
+          });
+          row.append(span,rng,val);
+          cont.appendChild(row);
         });
+        content.appendChild(cont);
       }
-
       card.appendChild(content);
-
-      // Footer buttons
-      const footer = document.createElement('div');
-      footer.className = 'profile-footer';
-      const rand = document.createElement('button');
-      rand.textContent = '🎲 Randomize';
-      rand.onclick = ()=> randomizeProfile(p.id);
-      const del = document.createElement('button');
-      del.textContent = '🗑️ Delete';
-      del.onclick = ()=> deleteProfile(p.id);
-      footer.append(rand, del);
+      // footer
+      const footer=document.createElement('div');
+      footer.className='profile-footer';
+      const rand=document.createElement('button');
+      rand.textContent='🎲 Randomize';
+      rand.onclick=()=>randomizeProfile(p.id);
+      const del=document.createElement('button');
+      del.textContent='🗑️ Delete';
+      del.onclick=()=>deleteProfile(p.id);
+      footer.append(rand,del);
       card.appendChild(footer);
-
       profilesDiv.appendChild(card);
     });
   }
 
-  // — Chart Rendering & Updating —
-  function renderChart(id, type) {
-    const key = `${type}-${id}`;
-    const exists = chartInstances[key];
-    const canvas = document.getElementById(key);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const labels = type==='radar' ? statNames : statNames;
-    const cfg = {
-      type: type,
-      data: {
-        labels,
-        datasets: [{
-          label: profiles.find(p=>p.id===id).name,
-          data: profiles.find(p=>p.id===id).statValues,
-          backgroundColor: 'rgba(76,175,80,0.2)',
-          borderColor: 'var(--accent-color)',
-          pointBackgroundColor: 'var(--accent-color)'
-        }]
-      },
-      options: {
-        scales: type==='radar'
-          ? { r:{min:0,max:10,ticks:{stepSize:1}}}
-          : { y:{beginAtZero:true, min:0, max:10, ticks:{stepSize:1}} },
-        plugins:{ legend:{display:false} }
-      }
-    };
-    if (exists) {
-      exists.data.labels = cfg.data.labels;
-      exists.data.datasets[0].data = cfg.data.datasets[0].data;
-      exists.options.scales = cfg.options.scales;
-      exists.update();
-    } else {
-      chartInstances[key] = new Chart(ctx, cfg);
-    }
-  }
-  function updateChart(id, type) {
-    const key = `${type}-${id}`;
-    if (chartInstances[key]) {
-      chartInstances[key].data.datasets[0].data = profiles.find(p=>p.id===id).statValues;
-      chartInstances[key].update();
-    }
-  }
-
-  // — Initialization & Event Hooks —
+  // Events
   loadState();
   renderProfiles();
   styleSelect.onchange = renderProfiles;
-  addBtn.onclick      = ()=> {
-    const name = nameIn.value.trim();
-    if(!name) return alert('Enter a name.');
-    if(imgIn.files[0]) {
-      const fr = new FileReader();
-      fr.onload = e => { createProfile(name,e.target.result); nameIn.value=''; imgIn.value=''; };
+  addBtn.onclick = ()=>{
+    const n=nameIn.value.trim();
+    if(!n) return alert('Enter a name.');
+    if(imgIn.files[0]){
+      const fr=new FileReader();
+      fr.onload=e=>{createProfile(n,e.target.result);nameIn.value='';imgIn.value='';};
       fr.readAsDataURL(imgIn.files[0]);
     } else {
-      createProfile(name,null);
+      createProfile(n,null);
       nameIn.value='';
     }
   };
-  exportBtn.onclick   = exportJSON;
+  exportBtn.onclick=exportJSON;
 </script>
 
 </body>

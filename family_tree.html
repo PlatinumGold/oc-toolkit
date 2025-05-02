@@ -70,6 +70,10 @@
     <label>DOD</label>
     <input id="nDOD" type="date"/>
 
+    <!-- NEW: Image upload -->
+    <label>Image</label>
+    <input id="nImg" type="file" accept="image/*"/>
+
     <label>Notes</label>
     <textarea id="nNotes" rows="3"></textarea>
 
@@ -110,7 +114,8 @@
     id: newId(),
     label: 'Main OC',
     name:'Main OC', age:'', gender:'', dob:'', dod:'', notes:'',
-    color:{ border:'#4a90e2', background:'#ccc' }
+    color:{ border:'#4a90e2', background:'#ccc' },
+    shape:'box'
   });
 
   // — Network Setup —
@@ -118,6 +123,7 @@
   const network = new vis.Network(container,
     { nodes, edges },
     {
+      layout:{ hierarchical:false },
       interaction:{ dragNodes:true, dragView:true, zoomView:true },
       physics:false,
       manipulation:{
@@ -132,37 +138,12 @@
           data.dob   = '';
           data.dod   = '';
           data.notes = '';
-          // default grey background
           data.color = { border:'#4a90e2', background:'#ccc' };
+          data.shape = 'box';
           cb(data);
         },
         editNode: (data, cb) => {
-          const lines = data.label.split('\n');
-          const name = prompt('Name:', lines[0]);
-          if(name===null) return;
-          const age = prompt('Age (blank to skip):', (lines.find(l=>l.startsWith('Age: '))||'').slice(5));
-          const dob = prompt('DOB YYYY-MM-DD:', (lines.find(l=>l.startsWith('b. '))||'').slice(3));
-          const dod = prompt('DOD YYYY-MM-DD:', (lines.find(l=>l.startsWith('d. '))||'').slice(3));
-          const notes = prompt('Notes:', lines.slice(4).join(' '));
-
-          let lbl = name;
-          if(age)   lbl+='\nAge: '+age;
-          if(dob)   lbl+='\nb. '+dob;
-          if(dod)   lbl+='\nd. '+dod;
-          if(notes) lbl+='\n'+notes;
-          data.label  = lbl;
-          data.name   = name;
-          data.age    = age||'';
-          data.dob    = dob||'';
-          data.dod    = dod||'';
-          data.notes  = notes||'';
-          data.gender = data.gender||''; // keep existing
-
-          // now overwrite background by gender
-          if(data.gender==='male')    data.color.background = '#6495ED';
-          else if(data.gender==='female') data.color.background = '#FF69B4';
-          else                          data.color.background = '#ccc';
-
+          // user can still right-click to edit quick
           cb(data);
         },
         addEdge: (data, cb) => {
@@ -181,7 +162,13 @@
         deleteNode:true,
         deleteEdge:true
       },
-      nodes:{ shape:'box', margin:10, color:{ border:'#4a90e2', background:'#fff' }, font:{ align:'left'} },
+      nodes:{
+        shape:'box',
+        margin:10,
+        color:{ border:'#4a90e2', background:'#fff' },
+        font:{ align:'left' },
+        shapeProperties:{ useImageSize:true }
+      },
       edges:{ arrows:{ to:{enabled:true,type:'arrow'}}, smooth:false }
     }
   );
@@ -194,7 +181,8 @@
     gender: document.getElementById('nGender'),
     dob:    document.getElementById('nDOB'),
     dod:    document.getElementById('nDOD'),
-    notes:  document.getElementById('nNotes')
+    notes:  document.getElementById('nNotes'),
+    img:    document.getElementById('nImg')
   };
   const relButtons    = document.getElementById('relButtons');
   const saveBtn       = document.getElementById('saveBtn');
@@ -203,6 +191,7 @@
   const linkTypeSel   = document.getElementById('linkType');
   const linkTargetSel = document.getElementById('linkTarget');
   const linkBtn       = document.getElementById('linkBtn');
+  const addNodeBtn    = document.getElementById('addNodeBtn');
   let selectedId = null;
 
   function buildRelButtons() {
@@ -216,8 +205,10 @@
         nodes.add({
           id:nid, label:rt.label, name:rt.label,
           age:'', gender:'', dob:'', dod:'', notes:'',
-          color:{ border:'#4a90e2', background:'#ccc' }
+          color:{ border:'#4a90e2', background:'#ccc' },
+          shape:'box'
         });
+        // connect edges...
         if(rt.key==='parent')   edges.add({ from:nid,to:selectedId,   dashes:rt.style.dashes,color:{color:rt.style.color} });
         if(rt.key==='child')    edges.add({ from:selectedId,to:nid,   dashes:rt.style.dashes,color:{color:rt.style.color} });
         if(rt.key==='sibling'){
@@ -259,12 +250,14 @@
   network.on('selectNode',params=>{
     selectedId=params.nodes[0];
     const data=nodes.get(selectedId);
+    // populate fields
     fld.name.value   = data.name;
     fld.age.value    = data.age;
     fld.gender.value = data.gender;
     fld.dob.value    = data.dob;
     fld.dod.value    = data.dod;
     fld.notes.value  = data.notes;
+    fld.img.value    = '';  // clear file input
     buildRelButtons();
     refreshLinkControls();
     sidebar.classList.remove('hidden');
@@ -277,26 +270,43 @@
 
   saveBtn.onclick=()=>{
     if(!selectedId) return;
-    const lines=[ fld.name.value ];
-    if(fld.age.value)  lines.push('Age: '+fld.age.value);
-    if(fld.dob.value)  lines.push('b. '+fld.dob.value);
-    if(fld.dod.value)  lines.push('d. '+fld.dod.value);
-    if(fld.notes.value)lines.push(fld.notes.value);
-    const upd={ id:selectedId,
-      label:lines.join('\n'),
-      name:fld.name.value,
-      age:fld.age.value,
-      dob:fld.dob.value,
-      dod:fld.dod.value,
-      notes:fld.notes.value,
-      gender:fld.gender.value,
-      color:{ border:'#4a90e2' }
-    };
-    // background by gender
+    const upd = { id:selectedId };
+    upd.name   = fld.name.value;
+    upd.age    = fld.age.value;
+    upd.gender = fld.gender.value;
+    upd.dob    = fld.dob.value;
+    upd.dod    = fld.dod.value;
+    upd.notes  = fld.notes.value;
+
+    // rebuild label
+    let lines = [upd.name];
+    if(upd.age) lines.push('Age: '+upd.age);
+    if(upd.dob) lines.push('b. '+upd.dob);
+    if(upd.dod) lines.push('d. '+upd.dod);
+    if(upd.notes) lines.push(upd.notes);
+    upd.label = lines.join('\n');
+
+    // default color & shape
+    upd.color = { border:'#4a90e2', background:'#ccc' };
+    upd.shape = 'box';
+
+    // gender‐based fallback color
     if(upd.gender==='male')    upd.color.background = '#6495ED';
     else if(upd.gender==='female') upd.color.background = '#FF69B4';
-    else                          upd.color.background = '#ccc';
-    nodes.update(upd);
+
+    // if a new image is picked, load it and switch to circularImage
+    if(fld.img.files && fld.img.files[0]) {
+      const fr = new FileReader();
+      fr.onload = e=>{
+        upd.image = e.target.result;
+        upd.shape = 'circularImage';
+        nodes.update(upd);
+      };
+      fr.readAsDataURL(fld.img.files[0]);
+    } else {
+      // no new image → just update box
+      nodes.update(upd);
+    }
   };
 
   deleteBtn.onclick=()=>{
@@ -308,9 +318,9 @@
 
   linkBtn.onclick=()=>{
     if(!selectedId) return alert('Select target!');
-    const type=linkTypeSel.value, tgt=+linkTargetSel.value;
+    const type = linkTypeSel.value, tgt = +linkTargetSel.value;
     if(!type||!tgt) return;
-    const rt=relTypes.find(r=>r.key===type);
+    const rt = relTypes.find(r=>r.key===type);
     if(type==='parent')   edges.add({ from:tgt,to:selectedId,   dashes:rt.style.dashes,color:{color:rt.style.color} });
     if(type==='child')    edges.add({ from:selectedId,to:tgt,   dashes:rt.style.dashes,color:{color:rt.style.color} });
     if(type==='sibling'){
@@ -325,20 +335,21 @@
   };
 
   addRelTypeBtn.onclick=()=>{
-    const lbl=prompt('New relationship label?');
+    const lbl = prompt('New relationship label?');
     if(!lbl) return;
-    const key=lbl.toLowerCase().replace(/\s+/g,'');
+    const key = lbl.toLowerCase().replace(/\s+/g,'');
     relTypes.push({ key,label:lbl, style:{ dashes:false, color:'#555'} });
     if(selectedId){ buildRelButtons(); refreshLinkControls(); }
   };
 
   addNodeBtn.onclick=()=>{
-    const name=prompt('New OC name:','');
+    const name = prompt('New OC name:','');
     if(!name) return;
-    const nid=newId();
+    const nid = newId();
     nodes.add({
       id:nid, label:name, name:name, age:'', gender:'', dob:'', dod:'', notes:'',
-      color:{ border:'#4a90e2', background:'#ccc' }
+      color:{ border:'#4a90e2', background:'#ccc' },
+      shape:'box'
     });
     network.selectNodes([nid]);
   };

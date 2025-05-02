@@ -17,9 +17,7 @@
       background:#fff; border-bottom:1px solid #ccc;
       padding:6px; text-align:center;
     }
-    #controls button {
-      margin:0 4px; padding:6px 10px; cursor:pointer;
-    }
+    #controls button { margin:0 4px; padding:6px 10px; cursor:pointer; }
     #sidebar {
       width:300px; background:#fff; border-left:1px solid #ccc;
       display:flex; flex-direction:column; overflow-y:auto;
@@ -88,18 +86,21 @@
   function newId(){ return ++idCount; }
 
   function saveAll(){
+    // first, capture current positions so they get saved
+    const pos = network.getPositions();
+    Object.entries(pos).forEach(([id,{x,y}])=>{
+      nodes.update({ id: Number(id), x, y, fixed:{x:true,y:true} });
+    });
     localStorage.setItem('ft_nodes', JSON.stringify(nodes.get()));
     localStorage.setItem('ft_edges', JSON.stringify(edges.get()));
-    localStorage.setItem('ft_rels', JSON.stringify(relTypes));
+    localStorage.setItem('ft_rels',  JSON.stringify(relTypes));
     localStorage.setItem('ft_idCount', idCount);
   }
 
   function loadAll(){
-    // relTypes
+    // relationship types
     const rs = localStorage.getItem('ft_rels');
-    if(rs){ 
-      relTypes = JSON.parse(rs);
-    }
+    if(rs) relTypes = JSON.parse(rs);
 
     // nodes
     const ns = localStorage.getItem('ft_nodes');
@@ -107,9 +108,8 @@
       const arr = JSON.parse(ns);
       nodes.clear();
       arr.forEach(n=>nodes.add(n));
-      // restore idCount
-      const savedCount = parseInt(localStorage.getItem('ft_idCount'));
-      if(!isNaN(savedCount)) idCount = savedCount;
+      const saved = parseInt(localStorage.getItem('ft_idCount'));
+      if(!isNaN(saved)) idCount = saved;
     }
 
     // edges
@@ -140,6 +140,7 @@
   const network = new vis.Network(container,
     { nodes, edges },
     {
+      layout:{ hierarchical:false },
       interaction:{ dragNodes:true, dragView:true, zoomView:true },
       physics:false,
       manipulation:{
@@ -178,7 +179,12 @@
     }
   );
 
-  // — SIDEBAR & CONTROLS —
+  // — SAVE POSITIONS AFTER DRAG — 
+  network.on('dragEnd', params=>{
+    if(params.nodes.length) saveAll();
+  });
+
+  // — SIDEBAR LOGIC —
   const sidebar    = document.getElementById('sidebar');
   const fld        = {
     name:   document.getElementById('nName'),
@@ -211,9 +217,10 @@
           age:'',gender:'',dob:'',dod:'',notes:'',
           color:{border:'#4a90e2',background:'#ccc'}
         });
-        // connect edges:
-        if(rt.key==='parent')   edges.add({from:nid,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color}});
-        if(rt.key==='child')    edges.add({from:selectedId,to:nid,dashes:rt.style.dashes,color:{color:rt.style.color}});
+        if(rt.key==='parent')
+          edges.add({from:nid,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color}});
+        if(rt.key==='child')
+          edges.add({from:selectedId,to:nid,dashes:rt.style.dashes,color:{color:rt.style.color}});
         if(rt.key==='sibling'){
           edges.get({filter:e2=>e2.to===selectedId&&!e2.dashes})
             .forEach(e2=>edges.add({from:e2.from,to:nid,dashes:false,color:{color:'#0066cc'}}));
@@ -276,8 +283,7 @@
     if(fld.dob.value)   lines.push('b. '+fld.dob.value);
     if(fld.dod.value)   lines.push('d. '+fld.dod.value);
     if(fld.notes.value) lines.push(fld.notes.value);
-    const upd = {
-      id:selectedId,
+    const upd = { id:selectedId,
       label:lines.join('\n'),
       name:fld.name.value,
       age:fld.age.value,
@@ -297,7 +303,9 @@
   deleteBtn.onclick=()=>{
     if(!selectedId) return;
     nodes.remove(selectedId);
-    edges.get().forEach(e=>{ if(e.from===selectedId||e.to===selectedId) edges.remove(e.id); });
+    edges.get().forEach(e=>{
+      if(e.from===selectedId||e.to===selectedId) edges.remove(e.id);
+    });
     sidebar.classList.add('hidden');
     saveAll();
   };
@@ -307,8 +315,10 @@
     const type=linkTypeSel.value, tgt=+linkTargetSel.value;
     if(!type||!tgt) return;
     const rt=relTypes.find(r=>r.key===type);
-    if(type==='parent')   edges.add({from:tgt,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color}});
-    if(type==='child')    edges.add({from:selectedId,to:tgt,dashes:rt.style.dashes,color:{color:rt.style.color}});
+    if(type==='parent')
+      edges.add({from:tgt,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color}});
+    if(type==='child')
+      edges.add({from:selectedId,to:tgt,dashes:rt.style.dashes,color:{color:rt.style.color}});
     if(type==='sibling'){
       edges.get({filter:e2=>e2.to===selectedId&&!e2.dashes})
         .forEach(e2=>edges.add({from:e2.from,to:tgt,dashes:false,color:{color:'#0066cc'}}));
@@ -342,8 +352,8 @@
 
   // — INITIALIZE —
   loadAll();
-  // if empty, ensure at least Main OC exists
-  if(nodes.length===0){
+  // if nothing was stored, ensure a single Main OC
+  if(nodes.length === 0){
     const m=newId();
     nodes.add({ id:m,label:'Main OC',name:'Main OC',age:'',gender:'',dob:'',dod:'',notes:'',
       color:{border:'#4a90e2',background:'#ccc'} });

@@ -86,10 +86,10 @@
   function newId(){ return ++idCount; }
 
   function saveAll(){
-    // first, capture current positions so they get saved
+    // record current positions (but don't lock them)
     const pos = network.getPositions();
     Object.entries(pos).forEach(([id,{x,y}])=>{
-      nodes.update({ id: Number(id), x, y, fixed:{x:true,y:true} });
+      nodes.update({ id: Number(id), x, y });
     });
     localStorage.setItem('ft_nodes', JSON.stringify(nodes.get()));
     localStorage.setItem('ft_edges', JSON.stringify(edges.get()));
@@ -179,12 +179,13 @@
     }
   );
 
-  // — SAVE POSITIONS AFTER DRAG — 
+  // whenever you finish dragging, save positions
   network.on('dragEnd', params=>{
     if(params.nodes.length) saveAll();
   });
 
-  // — SIDEBAR LOGIC —
+
+  // — SIDEBAR & CONTROLS —
   const sidebar    = document.getElementById('sidebar');
   const fld        = {
     name:   document.getElementById('nName'),
@@ -212,15 +213,27 @@
       b.onclick=e=>{
         e.stopPropagation();
         const nid=newId();
+        // get selected's position
+        const pos = network.getPositions([selectedId])[selectedId];
+        // default offset
+        let dx=0, dy=0;
+        if(rt.key==='parent')   dy = -150;
+        if(rt.key==='child')    dy = +150;
+        if(rt.key==='sibling')  dx = +150;
+        if(rt.key==='partner')  dx = -150;
+        // add the new node at offset
         nodes.add({
-          id:nid,label:rt.label,name:rt.label,
+          id:nid,
+          label:rt.label,
+          name:rt.label,
           age:'',gender:'',dob:'',dod:'',notes:'',
-          color:{border:'#4a90e2',background:'#ccc'}
+          color:{border:'#4a90e2',background:'#ccc'},
+          x:pos.x+dx,
+          y:pos.y+dy
         });
-        if(rt.key==='parent')
-          edges.add({from:nid,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color}});
-        if(rt.key==='child')
-          edges.add({from:selectedId,to:nid,dashes:rt.style.dashes,color:{color:rt.style.color}});
+        // connect edges
+        if(rt.key==='parent')   edges.add({from:nid,to:selectedId,dashes:rt.style.dashes,color:{color:rt.style.color}});
+        if(rt.key==='child')    edges.add({from:selectedId,to:nid,dashes:rt.style.dashes,color:{color:rt.style.color}});
         if(rt.key==='sibling'){
           edges.get({filter:e2=>e2.to===selectedId&&!e2.dashes})
             .forEach(e2=>edges.add({from:e2.from,to:nid,dashes:false,color:{color:'#0066cc'}}));
@@ -342,9 +355,12 @@
     const name=prompt('New OC name:','');
     if(!name) return;
     const nid=newId();
+    // place new standalone at center of viewport
+    const view = network.getViewPosition();
     nodes.add({
-      id:nid,label:name,name:name,age:'',gender:'',dob:'',dod:'',notes:'',
-      color:{border:'#4a90e2',background:'#ccc'}
+      id:nid, label:name, name:name, age:'',gender:'',dob:'',dod:'',notes:'',
+      color:{border:'#4a90e2',background:'#ccc'},
+      x: view.x, y: view.y
     });
     network.selectNodes([nid]);
     saveAll();
@@ -352,7 +368,6 @@
 
   // — INITIALIZE —
   loadAll();
-  // if nothing was stored, ensure a single Main OC
   if(nodes.length === 0){
     const m=newId();
     nodes.add({ id:m,label:'Main OC',name:'Main OC',age:'',gender:'',dob:'',dod:'',notes:'',

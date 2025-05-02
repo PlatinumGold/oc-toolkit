@@ -38,10 +38,15 @@
     .oc-card {
       border:2px solid #c0392b; border-radius:6px; padding:10px;
       display:inline-block; width:240px; margin:8px; vertical-align:top;
+      position: relative;
     }
     .oc-card img, .oc-card .placeholder {
       width:100%; height:120px; object-fit:cover; background:#ddd;
       display:flex; align-items:center; justify-content:center; color:#666;
+    }
+    .oc-card button.deleteOC {
+      position: absolute; top:8px; right:8px; background:#c0392b; color:#fff;
+      border:none; padding:4px 8px; cursor:pointer;
     }
     #persistMsg { font-size:.9em; color:#666; margin-top:8px; }
   </style>
@@ -100,6 +105,8 @@
         <option value="moneyLaundering">Money Laundering</option>
         <option value="taxEvasion">Tax Evasion</option>
         <option value="bribery">Bribery</option>
+        <option value="blackmail">Blackmail</option>
+        <option value="extortion">Extortion</option>
       </optgroup>
       <optgroup label="Political Crimes">
         <option value="espionage">Espionage</option>
@@ -209,6 +216,8 @@
     moneyLaundering:['structuring','shell'],
     taxEvasion:['falsify','offshore'],
     bribery:['public','commercial'],
+    blackmail:['blackmail'],
+    extortion:['extortion'],
     espionage:['gov','corp','residential','nuclear'],
     treason:['aiding','levying'],
     terrorism:['domestic','international'],
@@ -231,7 +240,6 @@
     cyberHeist:['cyberHeist'],
     assassination:['assassination'],
     ransomKidnap:['ransomKidnap'],
-    blackmail:['blackmail'],
     other:[]
   };
 
@@ -252,6 +260,7 @@
     insiderTrading:'Insider Trading', structuring:'Structuring', shell:'Shell Company',
     falsify:'Falsifying Returns', offshore:'Offshore Accounts',
     public:'Public Official Bribery', commercial:'Commercial Bribery',
+    blackmail:'Blackmail', extortion:'Extortion',
     gov:'Government Espionage', corp:'Corporate Espionage',
     residential:'Residential Espionage', nuclear:'Nuclear Espionage',
     aiding:'Aiding an Enemy State', levying:'Levying War',
@@ -268,8 +277,7 @@
     speeding:'Speeding', redLight:'Running a Red Light',
     excessNoise:'Excessive Noise', disorderly:'Disorderly Conduct',
     cyberHeist:'Cyber Heist', assassination:'Assassination',
-    ransomKidnap:'Kidnapping for Ransom', blackmail:'Blackmail',
-    other:'Custom Crime'
+    ransomKidnap:'Kidnapping for Ransom', other:'Custom Crime'
   };
 
   const defs = {
@@ -311,6 +319,8 @@
     'Offshore Accounts':'Hiding money abroad.',
     'Public Official Bribery':'Bribe of government official.',
     'Commercial Bribery':'Bribe in business dealings.',
+    'Blackmail':'Threatening to reveal secrets for gain.',
+    'Extortion':'Using threats or force to obtain money or favors.',
     'Government Espionage':'Spying for another state.',
     'Corporate Espionage':'Theft of trade secrets.',
     'Residential Espionage':'Bugging a private home.',
@@ -341,10 +351,10 @@
     'Running a Red Light':'Ignoring traffic signal.',
     'Excessive Noise':'Creating loud disturbance.',
     'Disorderly Conduct':'Public disturbance offense.',
+
     'Cyber Heist':'Digital infiltration of banks.',
     'Assassination':'Contract killing.',
     'Kidnapping for Ransom':'Taking hostage for money.',
-    'Blackmail':'Threatening to reveal secrets.',
     'Other':'Custom crime not listed.'
   };
 
@@ -387,9 +397,11 @@
     offshore:{min:1,max:5,cap:false},
     public:{min:1,max:10,cap:false},
     commercialBribery:{min:1,max:5,cap:false},
+    blackmail:{min:1,max:10,cap:false},
+    extortion:{min:1,max:10,cap:false},
     gov:{min:10,max:30,cap:false},
     corp:{min:5,max:20,cap:false},
-    residentialEspionage:{min:1,max:5,cap:false},
+    residential:{min:1,max:5,cap:false},
     nuclear:{min:15,max:40,cap:false},
     aiding:{min:10,max:25,cap:false},
     levying:{min:15,max:30,cap:false},
@@ -420,7 +432,6 @@
     cyberHeist:{min:5,max:25,cap:false},
     assassination:{min:15,max:35,cap:false},
     ransomKidnap:{min:5,max:15,cap:false},
-    blackmail:{min:1,max:10,cap:false},
     other:{min:0,max:0,cap:false}
   };
 
@@ -433,10 +444,9 @@
     france:{minMul:0.8,maxMul:0.9}
   };
 
-  // legality: which subtype-keys exist in each country
   const legality = {
-    usa:       new Set(Object.keys(defaultRanges)),
-    uk:        new Set(Object.keys(defaultRanges).filter(k=>!['jaywalking','littering'].includes(k))),
+    usa: new Set(Object.keys(defaultRanges)),
+    uk:  new Set(Object.keys(defaultRanges).filter(k=>!['jaywalking','littering'].includes(k))),
     canada:    new Set(Object.keys(defaultRanges)),
     australia: new Set(Object.keys(defaultRanges)),
     germany:   new Set(Object.keys(defaultRanges)),
@@ -456,8 +466,7 @@
   }
 
   // === ELEMENT REFS ===
-  const globalModal = document.getElementById('globalModal'),
-        globalOk    = document.getElementById('globalOk'),
+  const globalOk    = document.getElementById('globalOk'),
         catEl       = document.getElementById('category'),
         subEl       = document.getElementById('subtype'),
         othEl       = document.getElementById('otherText'),
@@ -475,68 +484,59 @@
         ocNameIn     = document.getElementById('ocName'),
         ocColorIn    = document.getElementById('ocColor'),
         ocImgIn      = document.getElementById('ocImg'),
-        ocListDiv    = document.getElementById('ocList');
+        ocListDiv    = document.getElementById('ocList'),
+        globalModal  = document.getElementById('globalModal');
 
-  // === GLOBAL MODAL LOGIC ===
+  // === GLOBAL MODAL ===
   window.onload = ()=> globalModal.style.display='flex';
   globalOk.onclick = ()=> globalModal.style.display='none';
 
-  // === CATEGORY → SUBTYPE POPULATION ===
+  // === CATEGORY → SUBTYPE ===
   catEl.onchange = ()=>{
     const c = catEl.value;
     subEl.innerHTML=''; othEl.style.display='none'; subEl.disabled=true;
     if(!c) return;
-    if(c==='other'){
-      othEl.style.display='block';
-      return;
-    }
+    if(c==='other'){ othEl.style.display='block'; return; }
     subEl.disabled=false;
     subEl.innerHTML='<option value="">— Select subtype —</option>';
     (categories[c]||[]).forEach(key=>{
-      const o = document.createElement('option');
-      o.value = key; o.textContent = labels[key];
+      const o=document.createElement('option');
+      o.value=key; o.textContent=labels[key];
       subEl.appendChild(o);
     });
   };
 
-  // === FILL OVERRIDES (with country legality) ===
+  // === OVERRIDES ===
   function fillOverrides(){
-    let key = subEl.value||'other';
+    let key=subEl.value||'other';
     if(catEl.value==='other') key='other';
     if(!key) return;
-    let r = defaultRanges[key] || {min:0,max:0,cap:false};
-    r.key = key;
-    // legality check
+    let r=defaultRanges[key]||{min:0,max:0,cap:false}; r.key=key;
     if(ctyEl.value && legality[ctyEl.value] && !legality[ctyEl.value].has(key)){
       r={min:0,max:0,cap:false};
     } else if(ctyEl.value && countryMods[ctyEl.value]){
-      const m = countryMods[ctyEl.value];
+      const m=countryMods[ctyEl.value];
       r={min:Math.round(r.min*m.minMul),max:Math.round(r.max*m.maxMul),cap:r.cap};
     }
     minEl.value=r.min; maxEl.value=r.max; capEl.checked=r.cap;
   }
-  subEl.onchange=fillOverrides;
-  ctyEl.onchange=fillOverrides;
+  subEl.onchange=fillOverrides; ctyEl.onchange=fillOverrides;
 
-  // === ADD CRIME TO STACK ===
-  addCrimeBtn.onclick = ()=>{
-    const c = catEl.value; if(!c) return alert('Please select a category');
+  // === ADD CRIME ===
+  addCrimeBtn.onclick=()=>{
+    const c=catEl.value; if(!c) return alert('Select a category');
     let key,label;
     if(c==='other'){
-      label = othEl.value.trim()||'[Custom]';
-      key   = 'other_'+Date.now();
+      label=othEl.value.trim()||'[Custom]'; key='other_'+Date.now();
     } else {
-      key   = subEl.value;
-      if(!key) return alert('Please select a subtype');
-      label = labels[key];
+      key=subEl.value; if(!key) return alert('Select subtype');
+      label=labels[key];
     }
-    stack.push({
-      id:Date.now(), key,label,
+    stack.push({id:Date.now(),key,label,
       qty:+qtyEl.value||1,
       min:+minEl.value||0,
       max:+maxEl.value||0,
-      cap:capEl.checked
-    });
+      cap:capEl.checked});
     saveAll(); renderStack();
   };
 
@@ -562,23 +562,22 @@
     });
   }
 
-  // === RESET CURRENT STACK ===
-  resetStackBtn.onclick = ()=>{
+  // === RESET STACK ===
+  resetStackBtn.onclick=()=>{
     if(confirm('Clear current stack?')){
       stack=[]; saveAll(); renderStack(); resEl.innerHTML='';
     }
   };
 
-  // === CALCULATE SENTENCE ===
-  calcBtn.onclick = ()=>{
+  // === CALCULATE ===
+  calcBtn.onclick=()=>{
     if(!stack.length) return alert('Add at least one crime');
     const mode=document.querySelector('input[name="mode"]:checked').value;
     let tmin=0,tmax=0;
     stack.forEach(e=>{
       const mn=e.min*e.qty, mx=e.max*e.qty;
       if(mode==='concurrent'){
-        tmin=Math.max(tmin,mn);
-        tmax=Math.max(tmax,mx);
+        tmin=Math.max(tmin,mn); tmax=Math.max(tmax,mx);
       } else {
         tmin+=mn; tmax+=mx;
       }
@@ -589,18 +588,14 @@
   };
 
   // === SAVE OC PROFILE ===
-  saveOCBtn.onclick = ()=>{
+  saveOCBtn.onclick=()=>{
     const name=ocNameIn.value.trim();
     if(!name) return alert('Enter an OC name');
     function pushOC(imgData){
-      calcBtn.onclick();  // ensure summary
-      ocs.push({
-        id:Date.now(), name, img:imgData, color:ocColorIn.value,
-        crimes: JSON.parse(JSON.stringify(stack)),
-        summary: resEl.innerHTML
-      });
+      calcBtn.onclick();
+      ocs.push({id:Date.now(),name,img:imgData,color:ocColorIn.value,
+        crimes:JSON.parse(JSON.stringify(stack)),summary:resEl.innerHTML});
       saveAll(); renderOCs();
-      // reset stack & UI
       stack=[]; saveAll(); renderStack(); resEl.innerHTML='';
       ocNameIn.value=''; ocImgIn.value='';
     }
@@ -625,6 +620,14 @@
         const ph=document.createElement('div'); ph.className='placeholder';
         ph.style.background=o.color; ph.textContent='No Image'; div.appendChild(ph);
       }
+      const delBtn=document.createElement('button');
+      delBtn.textContent='🗑️ Delete';
+      delBtn.className='deleteOC';
+      delBtn.onclick=()=>{
+        ocs=ocs.filter(x=>x.id!==o.id);
+        saveAll(); renderOCs();
+      };
+      div.appendChild(delBtn);
       const sum=document.createElement('div'); sum.className='oc-summary';
       sum.innerHTML=o.summary; div.appendChild(sum);
       const tbl=document.createElement('table');
@@ -646,6 +649,5 @@
   if(subEl.value) fillOverrides();
 
 </script>
-
 </body>
 </html>

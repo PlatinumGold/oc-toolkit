@@ -70,9 +70,11 @@
     <label>DOD</label>
     <input id="nDOD" type="date"/>
 
-    <!-- NEW: Image upload -->
     <label>Image</label>
     <input id="nImg" type="file" accept="image/*"/>
+
+    <label>Box Color</label>
+    <input id="nColor" type="color" value="#cccccc"/>
 
     <label>Notes</label>
     <textarea id="nNotes" rows="3"></textarea>
@@ -94,7 +96,8 @@
 <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <script>
   // — Utilities —
-  let idCount=0; function newId(){ return ++idCount; }
+  let idCount = 0;
+  function newId() { return ++idCount; }
 
   // — Relationship definitions —
   const relTypes = [
@@ -109,7 +112,7 @@
   const nodes = new vis.DataSet();
   const edges = new vis.DataSet();
 
-  // add initial node with grey background
+  // add initial node
   nodes.add({
     id: newId(),
     label: 'Main OC',
@@ -131,32 +134,10 @@
         addNode: (data, cb) => {
           const name = prompt('New OC name:','');
           if(!name) return;
-          data.label = name;
-          data.name  = name;
-          data.age   = '';
-          data.gender= '';
-          data.dob   = '';
-          data.dod   = '';
-          data.notes = '';
-          data.color = { border:'#4a90e2', background:'#ccc' };
-          data.shape = 'box';
-          cb(data);
-        },
-        editNode: (data, cb) => {
-          // user can still right-click to edit quick
-          cb(data);
-        },
-        addEdge: (data, cb) => {
-          const type = prompt(
-            'Rel type? Enter one of:\n'+
-            relTypes.map(r=>r.key).join(', '),
-            'child'
-          );
-          const rt = relTypes.find(r=>r.key===type);
-          if(!rt) return;
-          data.dashes = rt.style.dashes;
-          data.color  = { color: rt.style.color };
-          data.label  = type;
+          Object.assign(data, {
+            label:name, name, age:'', gender:'', dob:'', dod:'', notes:'',
+            color:{ border:'#4a90e2', background:'#ccc' }, shape:'box'
+          });
           cb(data);
         },
         deleteNode:true,
@@ -165,9 +146,11 @@
       nodes:{
         shape:'box',
         margin:10,
+        widthConstraint:{ minimum:120 },
+        heightConstraint:{ minimum:120 },
         color:{ border:'#4a90e2', background:'#fff' },
         font:{ align:'left' },
-        shapeProperties:{ useImageSize:true }
+        shapeProperties:{ useImageSize:false }
       },
       edges:{ arrows:{ to:{enabled:true,type:'arrow'}}, smooth:false }
     }
@@ -181,8 +164,9 @@
     gender: document.getElementById('nGender'),
     dob:    document.getElementById('nDOB'),
     dod:    document.getElementById('nDOD'),
-    notes:  document.getElementById('nNotes'),
-    img:    document.getElementById('nImg')
+    img:    document.getElementById('nImg'),
+    color:  document.getElementById('nColor'),
+    notes:  document.getElementById('nNotes')
   };
   const relButtons    = document.getElementById('relButtons');
   const saveBtn       = document.getElementById('saveBtn');
@@ -208,7 +192,6 @@
           color:{ border:'#4a90e2', background:'#ccc' },
           shape:'box'
         });
-        // connect edges...
         if(rt.key==='parent')   edges.add({ from:nid,to:selectedId,   dashes:rt.style.dashes,color:{color:rt.style.color} });
         if(rt.key==='child')    edges.add({ from:selectedId,to:nid,   dashes:rt.style.dashes,color:{color:rt.style.color} });
         if(rt.key==='sibling'){
@@ -250,14 +233,14 @@
   network.on('selectNode',params=>{
     selectedId=params.nodes[0];
     const data=nodes.get(selectedId);
-    // populate fields
     fld.name.value   = data.name;
     fld.age.value    = data.age;
     fld.gender.value = data.gender;
     fld.dob.value    = data.dob;
     fld.dod.value    = data.dod;
     fld.notes.value  = data.notes;
-    fld.img.value    = '';  // clear file input
+    fld.img.value    = ''; 
+    fld.color.value  = data.color?.background || '#cccccc';
     buildRelButtons();
     refreshLinkControls();
     sidebar.classList.remove('hidden');
@@ -270,7 +253,7 @@
 
   saveBtn.onclick=()=>{
     if(!selectedId) return;
-    const upd = { id:selectedId };
+    const upd = { id: selectedId };
     upd.name   = fld.name.value;
     upd.age    = fld.age.value;
     upd.gender = fld.gender.value;
@@ -278,7 +261,6 @@
     upd.dod    = fld.dod.value;
     upd.notes  = fld.notes.value;
 
-    // rebuild label
     let lines = [upd.name];
     if(upd.age) lines.push('Age: '+upd.age);
     if(upd.dob) lines.push('b. '+upd.dob);
@@ -286,25 +268,20 @@
     if(upd.notes) lines.push(upd.notes);
     upd.label = lines.join('\n');
 
-    // default color & shape
-    upd.color = { border:'#4a90e2', background:'#ccc' };
+    // default fallback: box + chosen color
+    upd.color = { border:'#4a90e2', background: fld.color.value };
     upd.shape = 'box';
 
-    // gender‐based fallback color
-    if(upd.gender==='male')    upd.color.background = '#6495ED';
-    else if(upd.gender==='female') upd.color.background = '#FF69B4';
-
-    // if a new image is picked, load it and switch to circularImage
-    if(fld.img.files && fld.img.files[0]) {
+    // if image selected → use image shape
+    if(fld.img.files[0]){
       const fr = new FileReader();
       fr.onload = e=>{
         upd.image = e.target.result;
-        upd.shape = 'circularImage';
+        upd.shape = 'image';
         nodes.update(upd);
       };
       fr.readAsDataURL(fld.img.files[0]);
     } else {
-      // no new image → just update box
       nodes.update(upd);
     }
   };
@@ -347,9 +324,8 @@
     if(!name) return;
     const nid = newId();
     nodes.add({
-      id:nid, label:name, name:name, age:'', gender:'', dob:'', dod:'', notes:'',
-      color:{ border:'#4a90e2', background:'#ccc' },
-      shape:'box'
+      id:nid, label:name, name, age:'', gender:'', dob:'', dod:'', notes:'',
+      color:{ border:'#4a90e2', background:'#ccc' }, shape:'box'
     });
     network.selectNodes([nid]);
   };

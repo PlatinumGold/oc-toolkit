@@ -5,119 +5,22 @@
   <title>OC Height Comparison</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #eef2f5;
-    }
-    header {
-      background: #4a90e2;
-      color: #fff;
-      padding: 12px;
-      text-align: center;
-      font-size: 1.3em;
-    }
-    #toolbar {
-      background: #fff;
-      border-bottom: 1px solid #ccc;
-      padding: 10px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-    #toolbar input,
-    #toolbar select,
-    #toolbar button {
-      padding: 6px;
-      font-size: 0.9em;
-    }
-
-    /* display area without CSS backdrop */
-    #display {
-      position: relative;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      height: calc(100vh - 120px);
-      overflow-x: auto;
-      padding: 20px;
-      background: #fafafa;
-    }
-
-    /* dynamic grid lines */
-    .grid-line {
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: #ccc;
-      z-index: 0;
-    }
-
-    /* Axis containers */
-    .axis {
-      position: absolute;
-      bottom: 20px;
-      top: 20px;
-      pointer-events: none;
-      width: 50px;
-      font-size: 0.8em;
-      color: #555;
-      z-index: 1;
-      display: flex;
-      flex-direction: column-reverse; /* bottom-up */
-      justify-content: space-between;
-    }
-    #axis-left { left: 0; }
-    #axis-right { right: 0; text-align: right; }
-
-    /* baseline under characters */
-    #display::after {
-      content: '';
-      position: absolute;
-      bottom: 20px;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: #333;
-      z-index: 1;
-    }
-
-    .char {
-      position: relative;
-      margin: 0 12px;
-      text-align: center;
-      border: 3px solid #4a90e2;
-      border-radius: 6px;
-      padding: 6px;
-      background: #fff;
-      z-index: 2;
-    }
-    .char img,
-    .char .placeholder {
-      display: block;
-      margin: 0 auto;
-      max-width: 80px;
-    }
-    .char .placeholder {
-      background: #ccc;
-      width: 80px;
-    }
-    .label {
-      margin-bottom: 8px;
-      font-size: 0.9em;
-      line-height: 1.2;
-    }
-    .char-controls {
-      margin-top: 6px;
-    }
-    .char-controls button {
-      margin: 0 4px;
-      padding: 2px 6px;
-      font-size: 0.8em;
-      cursor: pointer;
-    }
+    /* (same as before) */
+    body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
+    header { background:#4a90e2; color:#fff; padding:12px; text-align:center; font-size:1.3em; }
+    #toolbar { background:#fff; border-bottom:1px solid #ccc; padding:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    #toolbar input,#toolbar select,#toolbar button { padding:6px; font-size:0.9em; }
+    #display { position:relative; display:flex; align-items:flex-end; justify-content:center; height:calc(100vh - 120px); overflow-x:auto; padding:20px; background:#fafafa; }
+    .grid-line { position:absolute; left:0; right:0; height:1px; background:#ccc; z-index:0; }
+    .axis { position:absolute; bottom:20px; top:20px; pointer-events:none; width:50px; font-size:0.8em; color:#555; z-index:1; display:flex; flex-direction:column-reverse; justify-content:space-between; }
+    #axis-left{left:0;} #axis-right{right:0;text-align:right;}
+    #display::after { content:''; position:absolute; bottom:20px; left:0; right:0; height:2px; background:#333; z-index:1; }
+    .char { position:relative; margin:0 12px; text-align:center; border:3px solid #4a90e2; border-radius:6px; padding:6px; background:#fff; z-index:2; }
+    .char img,.char .placeholder { display:block; margin:0 auto; max-width:80px; }
+    .placeholder { background:#ccc; width:80px; }
+    .label { margin-bottom:8px; font-size:0.9em; line-height:1.2; }
+    .char-controls { margin-top:6px; }
+    .char-controls button { margin:0 4px; padding:2px 6px; font-size:0.8em; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -148,8 +51,29 @@
   </div>
 
   <script>
+    // — STATE & PERSISTENCE —
     let chars = [], counter = 0;
+    function saveHeights() {
+      localStorage.setItem('heightChars', JSON.stringify(chars));
+      localStorage.setItem('heightCounter', counter);
+    }
+    function loadHeights() {
+      const raw = localStorage.getItem('heightChars');
+      if (raw) {
+        try {
+          chars = JSON.parse(raw);
+          const ctr = parseInt(localStorage.getItem('heightCounter'), 10);
+          if (!isNaN(ctr)) counter = ctr;
+        } catch(e) {
+          console.error('Failed to parse saved heights:', e);
+        }
+      }
+      render();
+    }
+    // **IMMEDIATE LOAD** (no DOMContentLoaded)
+    loadHeights();
 
+    // — ELEMENTS —
     const nameEl   = document.getElementById('nameInput'),
           unitEl   = document.getElementById('unitSelect'),
           cmGroup  = document.getElementById('cmGroup'),
@@ -189,16 +113,17 @@
       }
 
       const id = ++counter;
+      function pushChar(img) {
+        chars.push({id,name,cm,inches,img,color});
+        saveHeights();
+        render();
+      }
       if (file) {
         const reader = new FileReader();
-        reader.onload = e => {
-          chars.push({id,name,cm,inches,img:e.target.result,color});
-          render();
-        };
+        reader.onload = e => pushChar(e.target.result);
         reader.readAsDataURL(file);
       } else {
-        chars.push({id,name,cm,inches,img:null,color});
-        render();
+        pushChar(null);
       }
 
       nameEl.value = cmEl.value = ftEl.value = inEl.value = '';
@@ -206,114 +131,79 @@
     };
 
     function render() {
-      // Clear old
-      display.querySelectorAll('.char').forEach(n=>n.remove());
-      display.querySelectorAll('.grid-line').forEach(n=>n.remove());
+      // Clear
+      display.querySelectorAll('.char, .grid-line').forEach(n=>n.remove());
       axisL.innerHTML = axisR.innerHTML = '';
       if (!chars.length) return;
 
-      // Determine scale with 20% headroom
+      // scale
       const maxCm     = Math.max(...chars.map(c=>c.cm)),
             axisMaxCm = maxCm * 1.2,
-            axisHeight= display.clientHeight - 40,
-            maxInches = axisMaxCm * 0.3937008,
-            maxFeet   = Math.ceil(maxInches / 12);
+            axisH     = display.clientHeight - 40,
+            maxFeet   = Math.ceil((axisMaxCm * 0.3937008) / 12);
 
-      // Draw grid lines & axis ticks every 10 cm
-      const cmStep = Math.ceil(axisMaxCm/10/10)*10;
-      for (let v = 0; v <= axisMaxCm; v += cmStep) {
-        const ratio  = v / axisMaxCm,
-              bottom = ratio * axisHeight + 20;
-
-        // grid line
+      // grid & left axis
+      const cmStep = Math.ceil(axisMaxCm/100)*10;
+      for (let v=0; v<=axisMaxCm; v+=cmStep) {
+        const bottom = (v/axisMaxCm)*axisH + 20;
         const gl = document.createElement('div');
-        gl.className = 'grid-line';
-        gl.style.bottom = bottom + 'px';
+        gl.className='grid-line'; gl.style.bottom=bottom+'px';
         display.appendChild(gl);
-
-        // left label
         const l = document.createElement('div');
-        l.textContent = Math.round(v) + ' cm';
-        l.style.position = 'absolute';
-        l.style.bottom = bottom + 'px';
-        axisL.appendChild(l);
+        l.textContent=Math.round(v)+' cm'; l.style.position='absolute';
+        l.style.bottom=bottom+'px'; axisL.appendChild(l);
       }
 
-      // Right axis: every 1 ft
-      for (let ft = 0; ft <= maxFeet; ft++) {
-        const inchesVal= ft*12,
-              cmVal    = inchesVal*2.54;
-        if (cmVal > axisMaxCm) break;
-
-        const bottom = (cmVal/axisMaxCm)*axisHeight + 20;
+      // right axis
+      for (let ft=0; ft<=maxFeet; ft++) {
+        const cmVal = ft*12*2.54;
+        if (cmVal>axisMaxCm) break;
+        const bottom=(cmVal/axisMaxCm)*axisH+20;
         const r = document.createElement('div');
-        r.textContent = ft + '′ 0″';
-        r.style.position = 'absolute';
-        r.style.bottom = bottom + 'px';
-        axisR.appendChild(r);
+        r.textContent=ft+"′ 0″"; r.style.position='absolute';
+        r.style.bottom=bottom+'px'; axisR.appendChild(r);
       }
 
-      // Render characters
-      chars.forEach(c => {
-        const d = document.createElement('div');
-        d.className = 'char';
-        d.style.borderColor = c.color;
-
-        // Label
-        const ft   = Math.floor(c.inches/12),
-              inch = Math.round(c.inches%12),
-              lbl  = document.createElement('div');
-        lbl.className = 'label';
-        lbl.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
+      // characters
+      chars.forEach(c=>{
+        const d=document.createElement('div'); d.className='char';
+        d.style.borderColor=c.color;
+        const lbl=document.createElement('div'); lbl.className='label';
+        const ft  = Math.floor(c.inches/12),
+              inch= Math.round(c.inches%12);
+        lbl.innerHTML=`${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
         d.appendChild(lbl);
-
-        // Scaled height
-        const hPx = (c.cm / axisMaxCm) * axisHeight;
+        const hPx=(c.cm/axisMaxCm)*axisH;
         if (c.img) {
-          const img = document.createElement('img');
-          img.src = c.img;
-          img.style.height = hPx + 'px';
+          const img=document.createElement('img');
+          img.src=c.img; img.style.height=hPx+'px';
           d.appendChild(img);
         } else {
-          const ph = document.createElement('div');
-          ph.className = 'placeholder';
-          ph.style.height = hPx + 'px';
+          const ph=document.createElement('div');
+          ph.className='placeholder'; ph.style.height=hPx+'px';
           d.appendChild(ph);
         }
-
-        // Delete/Edit controls
-        const ctr = document.createElement('div');
-        ctr.className = 'char-controls';
-        const del = document.createElement('button');
-        del.textContent = '🗑️';
-        del.onclick = () => { chars = chars.filter(x=>x.id!==c.id); render(); };
-        ctr.appendChild(del);
-        const edt = document.createElement('button');
-        edt.textContent = '✏️';
-        edt.onclick = () => editChar(c.id);
-        ctr.appendChild(edt);
-
+        const ctr=document.createElement('div'); ctr.className='char-controls';
+        const del=document.createElement('button'); del.textContent='🗑️';
+        del.onclick=()=>{
+          chars=chars.filter(x=>x.id!==c.id);
+          saveHeights(); render();
+        };
+        const edt=document.createElement('button'); edt.textContent='✏️';
+        edt.onclick=()=>{
+          const name=prompt('Name:',c.name);
+          if (name!==null) c.name=name;
+          const cmRaw=prompt('Height (cm):',c.cm),
+                cmv  =parseFloat(cmRaw);
+          if (!isNaN(cmv)) { c.cm=cmv; c.inches=cmv*0.3937008; }
+          const col=prompt('Border color (hex):',c.color);
+          if(/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color=col.startsWith('#')?col:'#'+col;
+          saveHeights(); render();
+        };
+        ctr.appendChild(del); ctr.appendChild(edt);
         d.appendChild(ctr);
         display.appendChild(d);
       });
-    }
-
-    function editChar(id) {
-      const c = chars.find(x=>x.id===id);
-      if (!c) return;
-      const name  = prompt('Name:', c.name);
-      if (name  !== null) c.name  = name;
-      const cmRaw = prompt('Height (cm):', c.cm);
-      const cm    = parseFloat(cmRaw);
-      if (!isNaN(cm)) {
-        c.cm     = cm;
-        c.inches = cm * 0.3937008;
-      }
-      const col   = prompt('Border color (hex):', c.color);
-      if (/^#?[0-9A-Fa-f]{6}$/.test(col)) {
-        c.color = col.startsWith('#') ? col : '#' + col;
-      }
-      render();
     }
   </script>
 </body>

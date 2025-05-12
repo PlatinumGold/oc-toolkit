@@ -7,10 +7,7 @@
   <style>
     /* ─── GLOBAL ─── */
     body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
-    header {
-      background:#2C3E50; color:#fff;
-      padding:12px; text-align:center; font-size:1.3em;
-    }
+    header { background:#2C3E50; color:#fff; padding:12px; text-align:center; font-size:1.3em; }
     /* ─── TOOLBAR ─── */
     #toolbar {
       background:#fff; border-bottom:1px solid #ccc;
@@ -20,43 +17,33 @@
     #toolbar input, #toolbar select, #toolbar button {
       padding:6px; font-size:0.9em; border:1px solid #ccc; border-radius:4px;
     }
-    #toolbar button#addBtn {
-      background:#2C3E50; color:#fff; border:none;
-    }
-    /* ─── DISPLAY PANEL ─── */
+    #addBtn { background:#2C3E50; color:#fff; border:none; }
+    /* ─── DISPLAY ─── */
     #display {
       position:relative; display:flex; align-items:flex-end;
       justify-content:center; height:calc(100vh - 120px);
       overflow-x:auto; padding:20px; background:#fafafa;
     }
-    .grid-line {
-      position:absolute; left:0; right:0; height:1px; background:#ccc; z-index:0;
-    }
+    .grid-line { position:absolute; left:0; right:0; height:1px; background:#ccc; z-index:0; }
     /* ─── AXES ─── */
     .axis {
       position:absolute; bottom:20px; top:20px; pointer-events:none;
       width:50px; font-size:0.8em; color:#555; z-index:1;
-      display:flex; flex-direction:column-reverse;
-      justify-content:space-between;
+      display:flex; flex-direction:column-reverse; justify-content:space-between;
     }
-    #axis-left { left:0; }
-    #axis-right { right:0; text-align:right; }
-    /* baseline */
+    #axis-left{ left:0; } #axis-right{ right:0; text-align:right; }
     #display::after {
-      content:''; position:absolute;
-      bottom:20px; left:0; right:0;
+      content:''; position:absolute; bottom:20px; left:0; right:0;
       height:2px; background:#2C3E50; z-index:1;
     }
-    /* ─── CHARACTER CARDS ─── */
+    /* ─── CHAR CARD ─── */
     .char {
       position:relative; margin:0 12px; text-align:center;
       border:3px solid #2C3E50; border-radius:6px;
       padding:6px; background:#fff; z-index:2;
     }
-    .char img, .char .placeholder {
-      display:block; margin:0 auto; max-width:80px;
-    }
-    .char .placeholder { background:#e0e0e0; width:80px; }
+    .char img, .placeholder { display:block; margin:0 auto; max-width:80px; }
+    .placeholder { width:80px; background:#e0e0e0; }
     .label { margin-bottom:8px; font-size:0.9em; line-height:1.2; }
     .char-controls { margin-top:6px; }
     .char-controls button {
@@ -95,25 +82,31 @@
   <script>
     // ─── STATE & PERSISTENCE ───
     let chars = [], counter = 0;
+    const STORAGE_KEY = 'hc_chars',
+          STORAGE_CTR = 'hc_counter';
+
     function saveHeights() {
-      localStorage.setItem('hc_chars', JSON.stringify(chars));
-      localStorage.setItem('hc_counter', counter);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chars));
+      localStorage.setItem(STORAGE_CTR, counter);
     }
+
     function loadHeights() {
-      const raw = localStorage.getItem('hc_chars');
-      if (raw) {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
         try {
-          chars = JSON.parse(raw);
-          const ctr = parseInt(localStorage.getItem('hc_counter'), 10);
-          if (!isNaN(ctr)) counter = ctr;
-        } catch(e){ console.error(e) }
+          chars = JSON.parse(saved);
+          const c = parseInt(localStorage.getItem(STORAGE_CTR),10);
+          if (!isNaN(c)) counter = c;
+        } catch(e) {
+          console.error('Broken data:', e);
+          chars = [];
+          counter = 0;
+        }
       }
       render();
     }
-    // load immediately
-    loadHeights();
 
-    // ─── ELEMENT REFERENCES ───
+    // ─── ELEMENTS ───
     const nameEl   = document.getElementById('nameInput'),
           unitEl   = document.getElementById('unitSelect'),
           cmGroup  = document.getElementById('cmGroup'),
@@ -128,115 +121,157 @@
           axisL    = document.getElementById('axis-left'),
           axisR    = document.getElementById('axis-right');
 
+    // ─── INIT ───
+    loadHeights();
+
     // ─── UNIT SWITCH ───
-    unitEl.onchange = () => {
-      cmGroup.style.display = unitEl.value==='cm' ? '' : 'none';
-      ftGroup.style.display = unitEl.value==='ft' ? '' : 'none';
-    };
+    unitEl.addEventListener('change', ()=>{
+      if (unitEl.value === 'cm') {
+        cmGroup.style.display = '';
+        ftGroup.style.display = 'none';
+      } else {
+        cmGroup.style.display = 'none';
+        ftGroup.style.display = '';
+      }
+    });
 
     // ─── ADD CHARACTER ───
-    addBtn.onclick = () => {
-      const name  = nameEl.value.trim(), color = colorEl.value, file = fileEl.files[0];
-      let cm, inches;
+    addBtn.addEventListener('click', ()=>{
+      const name  = nameEl.value.trim(),
+            color = colorEl.value,
+            file  = fileEl.files[0];
       if (!name) return alert('Name is required.');
+
+      let cm, inches;
       if (unitEl.value === 'cm') {
         cm = parseFloat(cmEl.value);
         if (isNaN(cm)) return alert('Enter height in cm.');
         inches = cm * 0.3937008;
       } else {
-        const ft = parseFloat(ftEl.value), inch = parseFloat(inEl.value);
-        if (isNaN(ft)||isNaN(inch)) return alert('Enter both feet & inches.');
-        inches = ft*12 + inch; cm = inches*2.54;
+        const ft = parseFloat(ftEl.value),
+              inch = parseFloat(inEl.value);
+        if (isNaN(ft) || isNaN(inch)) return alert('Enter feet & inches.');
+        inches = ft*12 + inch;
+        cm      = inches * 2.54;
       }
+
       const id = ++counter;
-      function push(img) {
-        chars.push({id,name,cm,inches,img,color});
-        saveHeights(); render();
+      function finalize(imgData) {
+        chars.push({id,name,cm,inches,img:imgData,color});
+        saveHeights();
+        render();
       }
+
       if (file) {
-        const r = new FileReader();
-        r.onload = e => push(e.target.result);
-        r.readAsDataURL(file);
+        const reader = new FileReader();
+        reader.onload = e => finalize(e.target.result);
+        reader.readAsDataURL(file);
       } else {
-        push(null);
+        finalize(null);
       }
+
       // clear inputs
-      nameEl.value=cmEl.value=ftEl.value=inEl.value=''; fileEl.value='';
-    };
+      nameEl.value = cmEl.value = ftEl.value = inEl.value = '';
+      fileEl.value = '';
+    });
 
     // ─── RENDER ───
     function render() {
-      // clear old
+      // clear existing
       display.querySelectorAll('.char, .grid-line').forEach(n=>n.remove());
       axisL.innerHTML = axisR.innerHTML = '';
       if (!chars.length) return;
-      // calculate scale
+
+      // scaling
       const maxCm     = Math.max(...chars.map(c=>c.cm)),
-            axisMaxCm = maxCm*1.2,
-            axisH     = display.clientHeight-40,
-            maxFeet   = Math.ceil((axisMaxCm*0.3937008)/12);
-      // grid + cm axis every 10cm
+            axisMaxCm = maxCm * 1.2,
+            axisH     = display.clientHeight - 40,
+            maxFeet   = Math.ceil((axisMaxCm * 0.3937008) / 12);
+
+      // CM grid + axis
       const cmStep = Math.ceil(axisMaxCm/100)*10;
       for (let v=0; v<=axisMaxCm; v+=cmStep) {
-        const bottom=(v/axisMaxCm)*axisH +20;
-        const gl=document.createElement('div');
-        gl.className='grid-line'; gl.style.bottom=bottom+'px';
+        const bottom = (v/axisMaxCm)*axisH + 20;
+        const gl = document.createElement('div');
+        gl.className='grid-line';
+        gl.style.bottom = bottom+'px';
         display.appendChild(gl);
-        const l=document.createElement('div');
-        l.textContent=Math.round(v)+' cm';
-        l.style.position='absolute'; l.style.bottom=bottom+'px';
-        axisL.appendChild(l);
+
+        const lbl = document.createElement('div');
+        lbl.textContent = Math.round(v)+' cm';
+        lbl.style.position = 'absolute';
+        lbl.style.bottom = bottom+'px';
+        axisL.appendChild(lbl);
       }
-      // ft axis
-      for (let ft=0; ft<=maxFeet; ft++){
-        const cmVal=ft*12*2.54;
-        if (cmVal>axisMaxCm) break;
-        const bottom=(cmVal/axisMaxCm)*axisH+20;
-        const r=document.createElement('div');
-        r.textContent=ft+"′ 0″";
-        r.style.position='absolute'; r.style.bottom=bottom+'px';
-        axisR.appendChild(r);
+
+      // FT axis
+      for (let ft=0; ft<=maxFeet; ft++) {
+        const cmVal = ft*12*2.54;
+        if (cmVal > axisMaxCm) break;
+        const bottom = (cmVal/axisMaxCm)*axisH + 20;
+        const lbl = document.createElement('div');
+        lbl.textContent = ft+"′ 0″";
+        lbl.style.position = 'absolute';
+        lbl.style.bottom = bottom+'px';
+        axisR.appendChild(lbl);
       }
-      // draw chars
-      chars.forEach(c=>{
-        const d=document.createElement('div'); d.className='char';
-        d.style.borderColor=c.color;
+
+      // draw characters
+      chars.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'char';
+        card.style.borderColor = c.color;
+
         // label
-        const lbl=document.createElement('div'); lbl.className='label';
-        const ft=Math.floor(c.inches/12), inch=Math.round(c.inches%12);
-        lbl.innerHTML=`${c.name}<br>${Math.round(c.cm)} cm<br>${ft}′ ${inch}″`;
-        d.appendChild(lbl);
-        // bar or image
-        const hPx=(c.cm/axisMaxCm)*axisH;
-        if (c.img){
-          const img=document.createElement('img');
-          img.src=c.img; img.style.height=hPx+'px';
-          d.appendChild(img);
+        const text = document.createElement('div');
+        text.className = 'label';
+        const fts = Math.floor(c.inches/12), ins = Math.round(c.inches % 12);
+        text.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${fts}′ ${ins}″`;
+        card.appendChild(text);
+
+        // visual
+        const heightPx = (c.cm/axisMaxCm)*axisH;
+        if (c.img) {
+          const img = document.createElement('img');
+          img.src = c.img;
+          img.style.height = heightPx+'px';
+          card.appendChild(img);
         } else {
-          const ph=document.createElement('div');
-          ph.className='placeholder'; ph.style.height=hPx+'px';
-          d.appendChild(ph);
+          const ph = document.createElement('div');
+          ph.className = 'placeholder';
+          ph.style.height = heightPx+'px';
+          card.appendChild(ph);
         }
+
         // controls
-        const ctr=document.createElement('div'); ctr.className='char-controls';
-        const del=document.createElement('button'); del.textContent='🗑️';
-        del.onclick=()=>{
-          chars=chars.filter(x=>x.id!==c.id);
-          saveHeights(); render();
-        };
-        const edt=document.createElement('button'); edt.textContent='✏️';
-        edt.onclick=()=>{
-          const name=prompt('Name:',c.name);
-          if (name!==null) c.name=name;
-          const cmRaw=prompt('Height (cm):',c.cm), cmv=parseFloat(cmRaw);
-          if (!isNaN(cmv)){ c.cm=cmv; c.inches=cmv*0.3937008; }
-          const col=prompt('Border color (hex):',c.color);
-          if(/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color=col.startsWith('#')?col:'#'+col;
-          saveHeights(); render();
-        };
-        ctr.appendChild(del); ctr.appendChild(edt);
-        d.appendChild(ctr);
-        display.appendChild(d);
+        const ctr = document.createElement('div');
+        ctr.className = 'char-controls';
+
+        const del = document.createElement('button');
+        del.textContent = '🗑️';
+        del.addEventListener('click', ()=>{
+          chars = chars.filter(x=>x.id!==c.id);
+          saveHeights();
+          render();
+        });
+        ctr.appendChild(del);
+
+        const edt = document.createElement('button');
+        edt.textContent = '✏️';
+        edt.addEventListener('click', ()=>{
+          const nm = prompt('Name:', c.name);
+          if (nm !== null) c.name = nm;
+          const cmRaw = prompt('Height (cm):', c.cm), cmv = parseFloat(cmRaw);
+          if (!isNaN(cmv)) { c.cm = cmv; c.inches = cmv*0.3937008; }
+          const col = prompt('Border color (hex):', c.color);
+          if (/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color = col.startsWith('#')?col:'#'+col;
+          saveHeights();
+          render();
+        });
+        ctr.appendChild(edt);
+
+        card.appendChild(ctr);
+        display.appendChild(card);
       });
     }
   </script>

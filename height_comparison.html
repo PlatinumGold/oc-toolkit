@@ -69,6 +69,12 @@
       <input id="heightFt" type="number" placeholder="Feet" style="width:60px;" />
       <input id="heightIn" type="number" placeholder="Inches" style="width:60px;" />
     </div>
+    <select id="silhouetteSelect">
+      <option value="">None</option>
+      <option value="male">Adult Male</option>
+      <option value="female">Adult Female</option>
+      <option value="child">Child</option>
+    </select>
     <input id="colorInput" type="color" value="#2C3E50" title="Border color" />
     <input id="fileInput" type="file" accept="image/*" />
     <button id="addBtn">Add Character</button>
@@ -80,75 +86,74 @@
   </div>
 
   <script>
+    // ─── SILHOUETTE ASSETS ───
+    const SILHOUETTES = {
+      male:   'https://upload.wikimedia.org/wikipedia/commons/8/8a/Stick_figure_male.svg',
+      female: 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Stick_figure_female.svg',
+      child:  'https://upload.wikimedia.org/wikipedia/commons/3/3e/Stick_figure_child.svg'
+    };
+
     // ─── STATE & PERSISTENCE ───
     let chars = [], counter = 0;
-    const STORAGE_KEY = 'hc_chars',
-          STORAGE_CTR = 'hc_counter';
+    const KEY_CHARS = 'hc_chars', KEY_CTR = 'hc_counter';
 
     function saveHeights() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(chars));
-      localStorage.setItem(STORAGE_CTR, counter);
+      localStorage.setItem(KEY_CHARS, JSON.stringify(chars));
+      localStorage.setItem(KEY_CTR, counter);
     }
 
     function loadHeights() {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
+      const raw = localStorage.getItem(KEY_CHARS);
+      if (raw) {
         try {
-          chars = JSON.parse(saved);
-          const c = parseInt(localStorage.getItem(STORAGE_CTR),10);
+          chars = JSON.parse(raw);
+          const c = parseInt(localStorage.getItem(KEY_CTR),10);
           if (!isNaN(c)) counter = c;
-        } catch(e) {
-          console.error('Broken data:', e);
-          chars = [];
-          counter = 0;
-        }
+        } catch(e) { console.error('Load error', e); }
       }
       render();
     }
 
     // ─── ELEMENTS ───
-    const nameEl   = document.getElementById('nameInput'),
-          unitEl   = document.getElementById('unitSelect'),
-          cmGroup  = document.getElementById('cmGroup'),
-          ftGroup  = document.getElementById('ftGroup'),
-          cmEl     = document.getElementById('heightCm'),
-          ftEl     = document.getElementById('heightFt'),
-          inEl     = document.getElementById('heightIn'),
-          colorEl  = document.getElementById('colorInput'),
-          fileEl   = document.getElementById('fileInput'),
-          addBtn   = document.getElementById('addBtn'),
-          display  = document.getElementById('display'),
-          axisL    = document.getElementById('axis-left'),
-          axisR    = document.getElementById('axis-right');
+    const nameEl    = document.getElementById('nameInput'),
+          unitEl    = document.getElementById('unitSelect'),
+          cmGroup   = document.getElementById('cmGroup'),
+          ftGroup   = document.getElementById('ftGroup'),
+          cmEl      = document.getElementById('heightCm'),
+          ftEl      = document.getElementById('heightFt'),
+          inEl      = document.getElementById('heightIn'),
+          silEl     = document.getElementById('silhouetteSelect'),
+          colorEl   = document.getElementById('colorInput'),
+          fileEl    = document.getElementById('fileInput'),
+          addBtn    = document.getElementById('addBtn'),
+          display   = document.getElementById('display'),
+          axisLeft  = document.getElementById('axis-left'),
+          axisRight = document.getElementById('axis-right');
 
-    // ─── INIT ───
+    // ─── INITIALIZE ───
     loadHeights();
 
-    // ─── UNIT SWITCH ───
+    // ─── UNIT TOGGLE ───
     unitEl.addEventListener('change', ()=>{
-      if (unitEl.value === 'cm') {
-        cmGroup.style.display = '';
-        ftGroup.style.display = 'none';
-      } else {
-        cmGroup.style.display = 'none';
-        ftGroup.style.display = '';
-      }
+      cmGroup.style.display = unitEl.value==='cm' ? '' : 'none';
+      ftGroup.style.display = unitEl.value==='ft' ? '' : 'none';
     });
 
     // ─── ADD CHARACTER ───
     addBtn.addEventListener('click', ()=>{
-      const name  = nameEl.value.trim(),
-            color = colorEl.value,
-            file  = fileEl.files[0];
+      const name       = nameEl.value.trim();
+      const silhouette = silEl.value;
+      const color      = colorEl.value;
+      const file       = fileEl.files[0];
       if (!name) return alert('Name is required.');
 
       let cm, inches;
-      if (unitEl.value === 'cm') {
+      if (unitEl.value==='cm') {
         cm = parseFloat(cmEl.value);
         if (isNaN(cm)) return alert('Enter height in cm.');
         inches = cm * 0.3937008;
       } else {
-        const ft = parseFloat(ftEl.value),
+        const ft   = parseFloat(ftEl.value),
               inch = parseFloat(inEl.value);
         if (isNaN(ft) || isNaN(inch)) return alert('Enter feet & inches.');
         inches = ft*12 + inch;
@@ -157,7 +162,7 @@
 
       const id = ++counter;
       function finalize(imgData) {
-        chars.push({id,name,cm,inches,img:imgData,color});
+        chars.push({ id, name, cm, inches, img:imgData, silhouette, color });
         saveHeights();
         render();
       }
@@ -172,51 +177,52 @@
 
       // clear inputs
       nameEl.value = cmEl.value = ftEl.value = inEl.value = '';
+      silEl.value = '';
       fileEl.value = '';
     });
 
-    // ─── RENDER ───
+    // ─── RENDER FUNCTION ───
     function render() {
-      // clear existing
+      // clear old
       display.querySelectorAll('.char, .grid-line').forEach(n=>n.remove());
-      axisL.innerHTML = axisR.innerHTML = '';
+      axisLeft.innerHTML = axisRight.innerHTML = '';
       if (!chars.length) return;
 
-      // scaling
+      // compute scale
       const maxCm     = Math.max(...chars.map(c=>c.cm)),
             axisMaxCm = maxCm * 1.2,
             axisH     = display.clientHeight - 40,
-            maxFeet   = Math.ceil((axisMaxCm * 0.3937008) / 12);
+            maxFeet   = Math.ceil((axisMaxCm*0.3937008)/12);
 
-      // CM grid + axis
+      // CM grid + left axis
       const cmStep = Math.ceil(axisMaxCm/100)*10;
       for (let v=0; v<=axisMaxCm; v+=cmStep) {
         const bottom = (v/axisMaxCm)*axisH + 20;
-        const gl = document.createElement('div');
-        gl.className='grid-line';
-        gl.style.bottom = bottom+'px';
-        display.appendChild(gl);
+        const line = document.createElement('div');
+        line.className = 'grid-line';
+        line.style.bottom = bottom+'px';
+        display.appendChild(line);
 
         const lbl = document.createElement('div');
         lbl.textContent = Math.round(v)+' cm';
         lbl.style.position = 'absolute';
         lbl.style.bottom = bottom+'px';
-        axisL.appendChild(lbl);
+        axisLeft.appendChild(lbl);
       }
 
       // FT axis
       for (let ft=0; ft<=maxFeet; ft++) {
         const cmVal = ft*12*2.54;
-        if (cmVal > axisMaxCm) break;
+        if (cmVal>axisMaxCm) break;
         const bottom = (cmVal/axisMaxCm)*axisH + 20;
         const lbl = document.createElement('div');
         lbl.textContent = ft+"′ 0″";
         lbl.style.position = 'absolute';
         lbl.style.bottom = bottom+'px';
-        axisR.appendChild(lbl);
+        axisRight.appendChild(lbl);
       }
 
-      // draw characters
+      // draw each character
       chars.forEach(c => {
         const card = document.createElement('div');
         card.className = 'char';
@@ -225,25 +231,31 @@
         // label
         const text = document.createElement('div');
         text.className = 'label';
-        const fts = Math.floor(c.inches/12), ins = Math.round(c.inches % 12);
+        const fts = Math.floor(c.inches/12),
+              ins = Math.round(c.inches % 12);
         text.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${fts}′ ${ins}″`;
         card.appendChild(text);
 
-        // visual
-        const heightPx = (c.cm/axisMaxCm)*axisH;
+        // silhouette / image / placeholder
+        const hPx = (c.cm/axisMaxCm)*axisH;
         if (c.img) {
           const img = document.createElement('img');
           img.src = c.img;
-          img.style.height = heightPx+'px';
+          img.style.height = hPx+'px';
+          card.appendChild(img);
+        } else if (c.silhouette && SILHOUETTES[c.silhouette]) {
+          const img = document.createElement('img');
+          img.src = SILHOUETTES[c.silhouette];
+          img.style.height = hPx+'px';
           card.appendChild(img);
         } else {
           const ph = document.createElement('div');
           ph.className = 'placeholder';
-          ph.style.height = heightPx+'px';
+          ph.style.height = hPx+'px';
           card.appendChild(ph);
         }
 
-        // controls
+        // edit/delete
         const ctr = document.createElement('div');
         ctr.className = 'char-controls';
 
@@ -260,9 +272,11 @@
         edt.textContent = '✏️';
         edt.addEventListener('click', ()=>{
           const nm = prompt('Name:', c.name);
-          if (nm !== null) c.name = nm;
-          const cmRaw = prompt('Height (cm):', c.cm), cmv = parseFloat(cmRaw);
+          if (nm!==null) c.name = nm;
+          const cmRaw = prompt('Height (cm):', c.cm), cmv=parseFloat(cmRaw);
           if (!isNaN(cmv)) { c.cm = cmv; c.inches = cmv*0.3937008; }
+          const sil = prompt('Silhouette (male,female,child or blank):', c.silhouette);
+          if (['male','female','child',''].includes(sil)) c.silhouette = sil;
           const col = prompt('Border color (hex):', c.color);
           if (/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color = col.startsWith('#')?col:'#'+col;
           saveHeights();

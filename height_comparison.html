@@ -5,10 +5,10 @@
   <title>OC Height Comparison</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
-    /* ─── GLOBAL ─── */
+    /* ── Global ── */
     body { margin:0; font-family:Arial,sans-serif; background:#eef2f5; }
     header { background:#2C3E50; color:#fff; padding:12px; text-align:center; font-size:1.3em; }
-    /* ─── TOOLBAR ─── */
+    /* ── Toolbar ── */
     #toolbar {
       background:#fff; border-bottom:1px solid #ccc;
       padding:10px; display:flex; flex-wrap:wrap;
@@ -18,14 +18,14 @@
       padding:6px; font-size:0.9em; border:1px solid #ccc; border-radius:4px;
     }
     #addBtn { background:#2C3E50; color:#fff; border:none; }
-    /* ─── DISPLAY ─── */
+    /* ── Display ── */
     #display {
       position:relative; display:flex; align-items:flex-end;
       justify-content:center; height:calc(100vh - 120px);
       overflow-x:auto; padding:20px; background:#fafafa;
     }
     .grid-line { position:absolute; left:0; right:0; height:1px; background:#ccc; z-index:0; }
-    /* ─── AXES ─── */
+    /* ── Axes ── */
     .axis {
       position:absolute; bottom:20px; top:20px; pointer-events:none;
       width:50px; font-size:0.8em; color:#555; z-index:1;
@@ -36,19 +36,32 @@
       content:''; position:absolute; bottom:20px; left:0; right:0;
       height:2px; background:#2C3E50; z-index:1;
     }
-    /* ─── CHAR CARD ─── */
+    /* ── Character Card ── */
     .char {
       position:relative; margin:0 12px; text-align:center;
       border:3px solid #2C3E50; border-radius:6px;
       padding:6px; background:#fff; z-index:2;
+      width: 100px;
     }
-    .char img, .placeholder { display:block; margin:0 auto; max-width:80px; }
-    .placeholder { width:80px; background:#e0e0e0; }
-    .label { margin-bottom:8px; font-size:0.9em; line-height:1.2; }
+    .char svg {
+      display:block; margin:0 auto; width:80px; height:auto;
+    }
+    .placeholder {
+      width:80px; height:200px; background:#e0e0e0; margin:0 auto;
+    }
+    .label { margin:8px 0; font-size:0.9em; line-height:1.2; }
     .char-controls { margin-top:6px; }
     .char-controls button {
       margin:0 4px; padding:2px 6px; font-size:0.8em; cursor:pointer;
       background:transparent; border:1px solid #ccc; border-radius:4px;
+    }
+    /* ── Tint overlay to color silhouette fill ── */
+    .silhouette-container {
+      position:relative;
+    }
+    .silhouette-overlay {
+      position:absolute; top:0; left:0; width:100%; height:100%;
+      background:currentColor; opacity:0.3; pointer-events:none;
     }
   </style>
 </head>
@@ -75,8 +88,7 @@
       <option value="female">Adult Female</option>
       <option value="child">Child</option>
     </select>
-    <input id="colorInput" type="color" value="#2C3E50" title="Border color" />
-    <input id="fileInput" type="file" accept="image/*" />
+    <input id="colorInput" type="color" value="#2C3E50" title="Border & fill color" />
     <button id="addBtn">Add Character</button>
   </div>
 
@@ -86,35 +98,50 @@
   </div>
 
   <script>
-    // ─── SILHOUETTE ASSETS ───
+    // ── Silhouette SVGs ──
     const SILHOUETTES = {
-      male:   'https://upload.wikimedia.org/wikipedia/commons/8/8a/Stick_figure_male.svg',
-      female: 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Stick_figure_female.svg',
-      child:  'https://upload.wikimedia.org/wikipedia/commons/3/3e/Stick_figure_child.svg'
+      male: `<svg viewBox="0 0 64 160" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="16" r="16" fill="currentColor"/>
+        <rect x="24" y="32" width="16" height="64" fill="currentColor"/>
+        <rect x="24" y="96" width="6" height="64" fill="currentColor"/>
+        <rect x="34" y="96" width="6" height="64" fill="currentColor"/>
+      </svg>`,
+      female: `<svg viewBox="0 0 64 160" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="16" r="16" fill="currentColor"/>
+        <polygon points="32,32 16,96 48,96" fill="currentColor"/>
+        <rect x="24" y="96" width="6" height="64" fill="currentColor"/>
+        <rect x="34" y="96" width="6" height="64" fill="currentColor"/>
+      </svg>`,
+      child: `<svg viewBox="0 0 64 140" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="32" cy="14" r="14" fill="currentColor"/>
+        <rect x="26" y="28" width="12" height="50" fill="currentColor"/>
+        <rect x="26" y="78" width="5" height="50" fill="currentColor"/>
+        <rect x="33" y="78" width="5" height="50" fill="currentColor"/>
+      </svg>`
     };
 
-    // ─── STATE & PERSISTENCE ───
+    // ── State & Persistence ──
     let chars = [], counter = 0;
     const KEY_CHARS = 'hc_chars', KEY_CTR = 'hc_counter';
 
-    function saveHeights() {
+    function saveHeights(){
       localStorage.setItem(KEY_CHARS, JSON.stringify(chars));
       localStorage.setItem(KEY_CTR, counter);
     }
 
-    function loadHeights() {
+    function loadHeights(){
       const raw = localStorage.getItem(KEY_CHARS);
-      if (raw) {
-        try {
+      if(raw){
+        try{
           chars = JSON.parse(raw);
           const c = parseInt(localStorage.getItem(KEY_CTR),10);
-          if (!isNaN(c)) counter = c;
-        } catch(e) { console.error('Load error', e); }
+          if(!isNaN(c)) counter = c;
+        }catch{}
       }
       render();
     }
 
-    // ─── ELEMENTS ───
+    // ── Elements ──
     const nameEl    = document.getElementById('nameInput'),
           unitEl    = document.getElementById('unitSelect'),
           cmGroup   = document.getElementById('cmGroup'),
@@ -124,163 +151,148 @@
           inEl      = document.getElementById('heightIn'),
           silEl     = document.getElementById('silhouetteSelect'),
           colorEl   = document.getElementById('colorInput'),
-          fileEl    = document.getElementById('fileInput'),
           addBtn    = document.getElementById('addBtn'),
           display   = document.getElementById('display'),
-          axisLeft  = document.getElementById('axis-left'),
-          axisRight = document.getElementById('axis-right');
+          axisL     = document.getElementById('axis-left'),
+          axisR     = document.getElementById('axis-right');
 
-    // ─── INITIALIZE ───
+    // ── Init ──
     loadHeights();
 
-    // ─── UNIT TOGGLE ───
+    // ── Unit Toggle ──
     unitEl.addEventListener('change', ()=>{
       cmGroup.style.display = unitEl.value==='cm' ? '' : 'none';
       ftGroup.style.display = unitEl.value==='ft' ? '' : 'none';
     });
 
-    // ─── ADD CHARACTER ───
+    // ── Add Character ──
     addBtn.addEventListener('click', ()=>{
       const name       = nameEl.value.trim();
       const silhouette = silEl.value;
       const color      = colorEl.value;
-      const file       = fileEl.files[0];
-      if (!name) return alert('Name is required.');
+      if(!name) return alert('Name is required.');
 
       let cm, inches;
-      if (unitEl.value==='cm') {
+      if(unitEl.value==='cm'){
         cm = parseFloat(cmEl.value);
-        if (isNaN(cm)) return alert('Enter height in cm.');
+        if(isNaN(cm)) return alert('Enter height in cm.');
         inches = cm * 0.3937008;
       } else {
-        const ft   = parseFloat(ftEl.value),
-              inch = parseFloat(inEl.value);
-        if (isNaN(ft) || isNaN(inch)) return alert('Enter feet & inches.');
-        inches = ft*12 + inch;
-        cm      = inches * 2.54;
+        const ft = parseFloat(ftEl.value),
+              inc = parseFloat(inEl.value);
+        if(isNaN(ft)||isNaN(inc)) return alert('Enter feet & inches.');
+        inches = ft*12 + inc;
+        cm = inches * 2.54;
       }
 
       const id = ++counter;
-      function finalize(imgData) {
-        chars.push({ id, name, cm, inches, img:imgData, silhouette, color });
-        saveHeights();
-        render();
-      }
-
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = e => finalize(e.target.result);
-        reader.readAsDataURL(file);
-      } else {
-        finalize(null);
-      }
+      chars.push({id,name,cm,inches,silhouette,color});
+      saveHeights();
+      render();
 
       // clear inputs
-      nameEl.value = cmEl.value = ftEl.value = inEl.value = '';
-      silEl.value = '';
-      fileEl.value = '';
+      nameEl.value=cmEl.value=ftEl.value=inEl.value='';
+      silEl.value='';
     });
 
-    // ─── RENDER FUNCTION ───
-    function render() {
-      // clear old
+    // ── Render ──
+    function render(){
+      // clear previous
       display.querySelectorAll('.char, .grid-line').forEach(n=>n.remove());
-      axisLeft.innerHTML = axisRight.innerHTML = '';
-      if (!chars.length) return;
+      axisL.innerHTML = axisR.innerHTML = '';
+      if(!chars.length) return;
 
-      // compute scale
+      // scale math
       const maxCm     = Math.max(...chars.map(c=>c.cm)),
             axisMaxCm = maxCm * 1.2,
             axisH     = display.clientHeight - 40,
             maxFeet   = Math.ceil((axisMaxCm*0.3937008)/12);
 
-      // CM grid + left axis
+      // grid & cm axis
       const cmStep = Math.ceil(axisMaxCm/100)*10;
-      for (let v=0; v<=axisMaxCm; v+=cmStep) {
-        const bottom = (v/axisMaxCm)*axisH + 20;
-        const line = document.createElement('div');
-        line.className = 'grid-line';
-        line.style.bottom = bottom+'px';
-        display.appendChild(line);
+      for(let v=0; v<=axisMaxCm; v+=cmStep){
+        const bottom = (v/axisMaxCm)*axisH +20;
+        const gl = document.createElement('div');
+        gl.className='grid-line'; gl.style.bottom=bottom+'px';
+        display.appendChild(gl);
 
         const lbl = document.createElement('div');
-        lbl.textContent = Math.round(v)+' cm';
-        lbl.style.position = 'absolute';
-        lbl.style.bottom = bottom+'px';
-        axisLeft.appendChild(lbl);
+        lbl.textContent=v.toFixed(0)+' cm';
+        lbl.style.position='absolute';
+        lbl.style.bottom=bottom+'px';
+        axisL.appendChild(lbl);
       }
 
-      // FT axis
-      for (let ft=0; ft<=maxFeet; ft++) {
+      // ft axis
+      for(let ft=0; ft<=maxFeet; ft++){
         const cmVal = ft*12*2.54;
-        if (cmVal>axisMaxCm) break;
-        const bottom = (cmVal/axisMaxCm)*axisH + 20;
-        const lbl = document.createElement('div');
-        lbl.textContent = ft+"′ 0″";
-        lbl.style.position = 'absolute';
-        lbl.style.bottom = bottom+'px';
-        axisRight.appendChild(lbl);
+        if(cmVal>axisMaxCm) break;
+        const bottom=(cmVal/axisMaxCm)*axisH+20;
+        const lbl=document.createElement('div');
+        lbl.textContent=ft+"′ 0″";
+        lbl.style.position='absolute';
+        lbl.style.bottom=bottom+'px';
+        axisR.appendChild(lbl);
       }
 
-      // draw each character
-      chars.forEach(c => {
+      // draw chars
+      chars.forEach(c=>{
         const card = document.createElement('div');
-        card.className = 'char';
-        card.style.borderColor = c.color;
+        card.className='char';
+        card.style.borderColor=c.color;
+        card.style.color=c.color; // for silhouette fill overlay
 
         // label
-        const text = document.createElement('div');
-        text.className = 'label';
-        const fts = Math.floor(c.inches/12),
-              ins = Math.round(c.inches % 12);
-        text.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${fts}′ ${ins}″`;
-        card.appendChild(text);
+        const t = document.createElement('div');
+        t.className='label';
+        const fts=Math.floor(c.inches/12),
+              ins=Math.round(c.inches%12);
+        t.innerHTML=`${c.name}<br>${Math.round(c.cm)} cm<br>${fts}′ ${ins}″`;
+        card.appendChild(t);
 
-        // silhouette / image / placeholder
-        const hPx = (c.cm/axisMaxCm)*axisH;
-        if (c.img) {
-          const img = document.createElement('img');
-          img.src = c.img;
-          img.style.height = hPx+'px';
-          card.appendChild(img);
-        } else if (c.silhouette && SILHOUETTES[c.silhouette]) {
-          const img = document.createElement('img');
-          img.src = SILHOUETTES[c.silhouette];
-          img.style.height = hPx+'px';
-          card.appendChild(img);
+        // visual
+        const hPx=(c.cm/axisMaxCm)*axisH;
+        if(c.silhouette && SILHOUETTES[c.silhouette]){
+          const cont = document.createElement('div');
+          cont.className='silhouette-container';
+          cont.innerHTML = SILHOUETTES[c.silhouette];
+          cont.querySelector('svg').style.height = hPx+'px';
+          // overlay for fill tint:
+          const ov = document.createElement('div');
+          ov.className='silhouette-overlay';
+          cont.appendChild(ov);
+          card.appendChild(cont);
+
         } else {
           const ph = document.createElement('div');
-          ph.className = 'placeholder';
-          ph.style.height = hPx+'px';
+          ph.className='placeholder';
+          ph.style.height=hPx+'px';
           card.appendChild(ph);
         }
 
-        // edit/delete
+        // controls
         const ctr = document.createElement('div');
-        ctr.className = 'char-controls';
-
+        ctr.className='char-controls';
         const del = document.createElement('button');
-        del.textContent = '🗑️';
+        del.textContent='🗑️';
         del.addEventListener('click', ()=>{
-          chars = chars.filter(x=>x.id!==c.id);
-          saveHeights();
-          render();
+          chars=chars.filter(x=>x.id!==c.id);
+          saveHeights(); render();
         });
         ctr.appendChild(del);
 
         const edt = document.createElement('button');
-        edt.textContent = '✏️';
+        edt.textContent='✏️';
         edt.addEventListener('click', ()=>{
-          const nm = prompt('Name:', c.name);
-          if (nm!==null) c.name = nm;
-          const cmRaw = prompt('Height (cm):', c.cm), cmv=parseFloat(cmRaw);
-          if (!isNaN(cmv)) { c.cm = cmv; c.inches = cmv*0.3937008; }
-          const sil = prompt('Silhouette (male,female,child or blank):', c.silhouette);
-          if (['male','female','child',''].includes(sil)) c.silhouette = sil;
-          const col = prompt('Border color (hex):', c.color);
-          if (/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color = col.startsWith('#')?col:'#'+col;
-          saveHeights();
-          render();
+          const nm = prompt('Name:',c.name);
+          if(nm!==null) c.name=nm;
+          const cmr=prompt('Height (cm):',c.cm), cmv=parseFloat(cmr);
+          if(!isNaN(cmv)){ c.cm=cmv; c.inches=cmv*0.3937008; }
+          const sil=prompt('Silhouette (male,female,child or blank):',c.silhouette);
+          if(['male','female','child',''].includes(sil)) c.silhouette=sil;
+          const col=prompt('Color (hex):',c.color);
+          if(/^#?[0-9A-F]{6}$/i.test(col)) c.color=col.startsWith('#')?col:'#'+col;
+          saveHeights(); render();
         });
         ctr.appendChild(edt);
 

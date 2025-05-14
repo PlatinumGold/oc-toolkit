@@ -83,13 +83,12 @@
   </div>
 
   <script>
-    // — Your two SVG silhouettes —
+    // Use Wikimedia stick-figure SVGs
     const SILHOUETTES = {
-      male:   'assets/silhouettes/man.svg',
-      female: 'assets/silhouettes/woman.svg'
+      male:   'https://upload.wikimedia.org/wikipedia/commons/8/8a/Stick_figure_male.svg',
+      female: 'https://upload.wikimedia.org/wikipedia/commons/5/5d/Stick_figure_female.svg'
     };
 
-    // — State & LocalStorage keys —
     let chars = [], counter = 0;
     const KEY_CHARS = 'hc_chars', KEY_CTR = 'hc_counter';
 
@@ -109,7 +108,6 @@
       render();
     }
 
-    // — DOM refs —
     const nameEl  = document.getElementById('nameInput'),
           unitEl  = document.getElementById('unitSelect'),
           cmGroup = document.getElementById('cmGroup'),
@@ -124,16 +122,13 @@
           axisL   = document.getElementById('axis-left'),
           axisR   = document.getElementById('axis-right');
 
-    // — Initialize —
     loadHeights();
 
-    // — Unit toggle —
     unitEl.addEventListener('change', ()=>{
       cmGroup.style.display = unitEl.value==='cm' ? '' : 'none';
       ftGroup.style.display = unitEl.value==='ft' ? '' : 'none';
     });
 
-    // — Add character —
     addBtn.addEventListener('click', ()=>{
       const name       = nameEl.value.trim();
       const silhouette = silEl.value;
@@ -146,8 +141,7 @@
         if (isNaN(cm)) return alert('Enter height in cm.');
         inches = cm * 0.3937008;
       } else {
-        const ft  = parseFloat(ftEl.value),
-              inc = parseFloat(inEl.value);
+        const ft = parseFloat(ftEl.value), inc = parseFloat(inEl.value);
         if (isNaN(ft)||isNaN(inc)) return alert('Enter feet & inches.');
         inches = ft*12 + inc;
         cm      = inches * 2.54;
@@ -157,26 +151,20 @@
       chars.push({ id, name, cm, inches, silhouette, color });
       saveHeights();
       render();
-
-      // clear inputs
       nameEl.value = cmEl.value = ftEl.value = inEl.value = '';
       silEl.value = '';
     });
 
-    // — Render UI —
     function render() {
-      // wipe existing
       display.querySelectorAll('.char, .grid-line').forEach(n=>n.remove());
       axisL.innerHTML = axisR.innerHTML = '';
       if (!chars.length) return;
 
-      // scale math
       const maxCm     = Math.max(...chars.map(c=>c.cm)),
             axisMaxCm = maxCm * 1.2,
             axisH     = display.clientHeight - 40,
             maxFeet   = Math.ceil((axisMaxCm*0.3937008)/12);
 
-      // grid + cm axis
       const cmStep = Math.ceil(axisMaxCm/100)*10;
       for (let v=0; v<=axisMaxCm; v+=cmStep) {
         const bottom = (v/axisMaxCm)*axisH + 20;
@@ -191,69 +179,62 @@
         axisL.appendChild(lbl);
       }
 
-      // ft axis
       for (let ft=0; ft<=maxFeet; ft++) {
         const cmVal = ft*12*2.54;
         if (cmVal>axisMaxCm) break;
         const bottom=(cmVal/axisMaxCm)*axisH+20;
-        const lbl = document.createElement('div');
+        const lbl=document.createElement('div');
         lbl.textContent=ft+"′ 0″";
         lbl.style.position='absolute';
         lbl.style.bottom=bottom+'px';
         axisR.appendChild(lbl);
       }
 
-      // draw each
-      chars.forEach(c => {
-        const card = document.createElement('div');
-        card.className = 'char';
-        card.style.borderColor = c.color;
-
-        // label
-        const t = document.createElement('div');
-        t.className = 'label';
-        const fts = Math.floor(c.inches/12),
-              ins = Math.round(c.inches%12);
-        t.innerHTML = `${c.name}<br>${Math.round(c.cm)} cm<br>${fts}′ ${ins}″`;
+      chars.forEach(c=>{
+        const card=document.createElement('div');
+        card.className='char';
+        card.style.borderColor=c.color;
+        const t=document.createElement('div');
+        t.className='label';
+        const fts=Math.floor(c.inches/12), ins=Math.round(c.inches%12);
+        t.innerHTML=`${c.name}<br>${Math.round(c.cm)} cm<br>${fts}′ ${ins}″`;
         card.appendChild(t);
 
-        // silhouette or placeholder
-        const hPx = (c.cm/axisMaxCm)*axisH;
+        const hPx=(c.cm/axisMaxCm)*axisH;
         if (c.silhouette && SILHOUETTES[c.silhouette]) {
-          const img = document.createElement('img');
-          img.src = SILHOUETTES[c.silhouette];
-          img.style.height = hPx+'px';
-          img.style.objectFit = 'contain';
+          const img=document.createElement('img');
+          img.src=SILHOUETTES[c.silhouette];
+          img.style.height=hPx+'px';
+          img.style.objectFit='contain';
           card.appendChild(img);
         } else {
-          const ph = document.createElement('div');
+          const ph=document.createElement('div');
           ph.className='placeholder';
           ph.style.height=hPx+'px';
           card.appendChild(ph);
         }
 
-        // controls
-        const ctr = document.createElement('div');
+        const ctr=document.createElement('div');
         ctr.className='char-controls';
-        const del = document.createElement('button');
+        const del=document.createElement('button');
         del.textContent='🗑️';
-        del.addEventListener('click', ()=>{
-          chars = chars.filter(x=>x.id!==c.id);
+        del.addEventListener('click',()=>{
+          chars=chars.filter(x=>x.id!==c.id);
           saveHeights(); render();
         });
         ctr.appendChild(del);
 
-        const edt = document.createElement('button');
+        const edt=document.createElement('button');
         edt.textContent='✏️';
-        edt.addEventListener('click', ()=>{
-          const nm = prompt('Name:',c.name);
-          if (nm!==null) c.name=nm;
+        edt.addEventListener('click',()=>{
+          const nm=prompt('Name:',c.name);
+          if(nm!==null) c.name=nm;
           const cmr=prompt('Height (cm):',c.cm), cmv=parseFloat(cmr);
-          if (!isNaN(cmv)){ c.cm=cmv; c.inches=cmv*0.3937008; }
+          if(!isNaN(cmv)){c.cm=cmv; c.inches=cmv*0.3937008;}
           const sil=prompt('Silhouette (male,female or blank):',c.silhouette);
-          if (['male','female',''].includes(sil)) c.silhouette=sil;
+          if(['male','female',''].includes(sil)) c.silhouette=sil;
           const col=prompt('Color (hex):',c.color);
-          if (/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color=col.startsWith('#')?col:'#'+col;
+          if(/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color=col.startsWith('#')?col:'#'+col;
           saveHeights(); render();
         });
         ctr.appendChild(edt);

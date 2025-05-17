@@ -4,219 +4,191 @@
   <meta charset="UTF-8">
   <title>OC Timeline Manager</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <!-- vis-timeline styles -->
+  <link 
+    href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" 
+    rel="stylesheet" />
   <style>
     body { margin:0; display:flex; height:100vh; font-family:Arial,sans-serif; }
     #sidebar {
-      width:300px; background:#fff; border-right:1px solid #ccc;
-      box-sizing:border-box; padding:16px; overflow-y:auto;
+      width:300px; padding:16px; box-sizing:border-box;
+      border-right:1px solid #ccc; background:#fff; overflow-y:auto;
     }
     #sidebar h2 { margin-top:0; color:#4a90e2; }
     #sidebar label { display:block; margin-top:12px; font-weight:bold; }
-    #sidebar input, #sidebar select, #sidebar textarea, #sidebar button {
+    #sidebar input, #sidebar select, #sidebar button {
       width:100%; margin-top:4px; padding:6px; box-sizing:border-box;
     }
-    #sidebar button { margin-top:8px; background:#4a90e2; color:#fff; border:none; cursor:pointer; }
+    #sidebar button { background:#4a90e2; color:#fff; border:none; cursor:pointer; }
     #main {
       flex:1; display:flex; flex-direction:column;
     }
     #controls {
-      background:#f4f4f4; padding:8px; border-bottom:1px solid #ccc;
+      padding:8px; background:#f4f4f4; border-bottom:1px solid #ccc;
       display:flex; align-items:center; gap:12px;
     }
-    #controls label { margin:0; font-weight:normal; }
-    #timelineContainer {
-      flex:1; overflow-x:auto; position:relative; background:#fafafa;
-    }
-    #timeline {
-      position:relative; height:200px;
-      /* width will be set dynamically */
-    }
-    .axis-line {
-      position:absolute; top:50%; left:0; right:0; height:2px;
-      background:#333; transform:translateY(-50%);
-    }
-    .tick {
-      position:absolute; top:calc(50% - 6px); width:1px; height:12px;
-      background:#333;
-    }
-    .tick-label {
-      position:absolute; top:calc(50% + 8px); font-size:0.75em; color:#333;
-      transform:translateX(-50%);
-    }
-    .event-dot {
-      position:absolute; top:50%; width:12px; height:12px;
-      border-radius:50%; transform:translate(-50%,-50%);
-      cursor:pointer;
-    }
-    .event-label {
-      position:absolute; top:calc(50% - 20px); white-space:nowrap;
-      transform:translateX(-50%); font-size:0.75em;
-    }
-    #zoomSlider { width:150px; }
+    #controls label { margin:0; }
+    #timeline { flex:1; }
   </style>
 </head>
 <body>
 
   <div id="sidebar">
-    <h2>OCs & Events</h2>
-
-    <label>➕ Add New OC</label>
-    <input id="ocName"   placeholder="Character Name…" />
-    <input id="ocColor" type="color" value="#e74c3c" />
-    <button id="addOcBtn">Add OC</button>
+    <h2>OCs</h2>
+    <label>Name</label>
+    <input id="ocName" placeholder="Character name…" />
+    <label>Color</label>
+    <input id="ocColor" type="color" value="#e74c3c"/>
+    <button id="addOc">Add OC</button>
 
     <hr/>
 
-    <label>➕ Add Event</label>
-    <select id="eventOc">
-      <option value="">— select OC —</option>
-    </select>
-    <input id="eventYear" type="number" placeholder="Year (e.g. 2025 or -300)" />
-    <input id="eventTitle" placeholder="Title…" />
-    <textarea id="eventDesc" rows="3" placeholder="Description…"></textarea>
-    <button id="addEventBtn">Add Event</button>
+    <h2>Events</h2>
+    <p>Double-click on the timeline to add or edit events.</p>
+    <small>No need to pre-tag an OC—tags are optional in the editor.</small>
   </div>
 
   <div id="main">
     <div id="controls">
-      <label for="zoomSlider">Zoom:</label>
-      <input id="zoomSlider" type="range" min="1" max="50" value="10"/>
-      <span id="zoomValue">10 px/yr</span>
+      <label for="zoom">Zoom:</label>
+      <input type="range" id="zoom" min="1" max="50" value="10"/>
+      <span id="zoomVal">10 px/yr</span>
     </div>
-    <div id="timelineContainer">
-      <div id="timeline">
-        <div class="axis-line"></div>
-      </div>
-    </div>
+    <div id="timeline"></div>
   </div>
 
+  <!-- vis-timeline library -->
+  <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
-    // ── State & Persistence ──
-    let OCs    = JSON.parse(localStorage.getItem('tl_ocs') || '[]');
-    let events = JSON.parse(localStorage.getItem('tl_events') || '[]');
-    let zoom   = parseInt(localStorage.getItem('tl_zoom') || '10',10);
+    // ── Persistence Keys ──
+    const KEY_OC   = 'tl_ocs';
+    const KEY_EVT  = 'tl_events';
+    const KEY_ZOOM = 'tl_zoom';
 
-    const ocNameIn   = document.getElementById('ocName');
-    const ocColorIn  = document.getElementById('ocColor');
-    const addOcBtn   = document.getElementById('addOcBtn');
-    const eventOcSel = document.getElementById('eventOc');
-    const eventYear  = document.getElementById('eventYear');
-    const eventTitle = document.getElementById('eventTitle');
-    const eventDesc  = document.getElementById('eventDesc');
-    const addEvtBtn  = document.getElementById('addEventBtn');
-    const zoomSlider = document.getElementById('zoomSlider');
-    const zoomValue  = document.getElementById('zoomValue');
-
-    const timeline      = document.getElementById('timeline');
-    const timelineCont  = document.getElementById('timelineContainer');
-
-    // ── Helpers ──
-    function saveAll(){
-      localStorage.setItem('tl_ocs', JSON.stringify(OCs));
-      localStorage.setItem('tl_events', JSON.stringify(events));
-      localStorage.setItem('tl_zoom', zoom);
+    // ── Load/Save Helpers ──
+    function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+    function load(key, def){ 
+      try { return JSON.parse(localStorage.getItem(key)) ?? def; }
+      catch{ return def; }
     }
 
-    function populateOCSelect(){
-      eventOcSel.innerHTML = '<option value="">— select OC —</option>';
-      OCs.forEach((o,i)=>{
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = o.name;
-        eventOcSel.appendChild(opt);
-      });
-    }
+    // ── State ──
+    let OCs    = load(KEY_OC, []);
+    let events = load(KEY_EVT, []);
+    let zoom   = load(KEY_ZOOM, 10);
 
-    function getYearRange(){
-      if(!events.length) return [0,0];
-      const years = events.map(e=>e.year);
-      return [Math.min(...years), Math.max(...years)];
-    }
+    // ── UI Elements ──
+    const ocNameIn = document.getElementById('ocName');
+    const ocColorIn= document.getElementById('ocColor');
+    const addOcBtn = document.getElementById('addOc');
+    const zoomIn   = document.getElementById('zoom');
+    const zoomVal  = document.getElementById('zoomVal');
+    const container= document.getElementById('timeline');
 
-    // ── Rendering ──
-    function renderTimeline(){
-      timeline.innerHTML = '<div class="axis-line"></div>';
-      if(!events.length) return;
+    // ── DataSets ──
+    const ocDataset   = new vis.DataSet(OCs.map((o,i)=>({ id:i, content:o.name, className:'' })));
+    const eventItems  = new vis.DataSet(events);
 
-      const [minY, maxY] = getYearRange();
-      const span = maxY - minY || 1;
-      const width = span * zoom + 200; // padding
-      timeline.style.width = width + 'px';
-
-      // ticks every (decade??) choose step
-      const step = Math.pow(10, Math.floor(Math.log10(span)) - 1) || 1;
-      for(let y = Math.floor(minY/step)*step; y <= maxY; y += step){
-        const x = (y - minY) * zoom + 100;
-        const t = document.createElement('div');
-        t.className = 'tick';
-        t.style.left = x+'px';
-        timeline.appendChild(t);
-
-        const lbl = document.createElement('div');
-        lbl.className = 'tick-label';
-        lbl.style.left = x+'px';
-        lbl.textContent = y;
-        timeline.appendChild(lbl);
+    // ── Timeline Setup ──
+    const timeline = new vis.Timeline(container, eventItems, {
+      editable: {
+        add: true,
+        updateTime: true,
+        updateGroup: false,
+        remove: true
+      },
+      orientation: 'bottom',
+      zoomable: true,
+      moveable: true,
+      stack: true,
+      // ctrl+wheel to zoom, wheel alone to scroll page
+      interaction: { zoomKey: 'ctrlKey' },
+      min: new Date(-1e12),
+      max: new Date(1e12),
+      moment: function(date) {
+        return vis.moment(date).utc();  // ensure UTC for consistency
+      },
+      template: function(item) {
+        // Optional: include OC color next to title
+        const oc = OCs[item.ocIndex];
+        const dot = oc ? `<span style="color:${oc.color}">●</span> ` : '';
+        return dot + item.content;
       }
+    });
 
-      // events
-      events.forEach(evt => {
-        const oc = OCs[evt.ocIndex];
-        const x  = (evt.year - minY) * zoom + 100;
-
-        const dot = document.createElement('div');
-        dot.className = 'event-dot';
-        dot.style.left = x+'px';
-        dot.style.background = oc.color;
-        dot.title = `${evt.year} • ${evt.title}\n\n${evt.desc}`;
-        timeline.appendChild(dot);
-
-        const label = document.createElement('div');
-        label.className = 'event-label';
-        label.style.left = x+'px';
-        label.textContent = evt.title;
-        timeline.appendChild(label);
-      });
-    }
-
-    // ── Event Listeners ──
+    // ── Wire Up OCs Panel ──
     addOcBtn.onclick = () => {
-      const name = ocNameIn.value.trim();
-      const color= ocColorIn.value;
-      if(!name) return alert('OC name required');
+      const name  = ocNameIn.value.trim();
+      const color = ocColorIn.value;
+      if(!name) return alert('OC name is required');
+      const id = OCs.length;
       OCs.push({ name, color });
+      ocDataset.add({ id, content:name });
+      save(KEY_OC, OCs);
       ocNameIn.value = '';
-      saveAll();
-      populateOCSelect();
-      renderTimeline();
     };
 
-    addEvtBtn.onclick = () => {
-      const idx   = parseInt(eventOcSel.value,10);
-      const year  = parseInt(eventYear.value,10);
-      const title = eventTitle.value.trim();
-      const desc  = eventDesc.value.trim();
-      if(isNaN(idx) || isNaN(year) || !title) {
-        return alert('Select OC, enter year & title');
-      }
-      events.push({ ocIndex:idx, year, title, desc });
-      eventYear.value = eventTitle.value = eventDesc.value = '';
-      saveAll();
-      renderTimeline();
+    // ── Zoom Slider ──
+    zoomIn.value = zoom;
+    zoomVal.textContent = zoom + ' px/yr';
+    zoomIn.oninput = () => {
+      zoom = +zoomIn.value;
+      zoomVal.textContent = zoom + ' px/yr';
+      timeline.setOptions({ zoomMin: zoom * 10, zoomMax: zoom * 1000000 });
+      timeline.setWindow(timeline.getWindow().start, timeline.getWindow().end, { animate: false });
+      save(KEY_ZOOM, zoom);
     };
 
-    zoomSlider.value = zoom;
-    zoomValue.textContent = zoom + ' px/yr';
-    zoomSlider.oninput = () => {
-      zoom = parseInt(zoomSlider.value,10);
-      zoomValue.textContent = zoom + ' px/yr';
-      saveAll();
-      renderTimeline();
-    };
+    // ── Event add/update/remove Handlers ──
+    timeline.on('add', function (props, callback) {
+      // prompt user for details
+      const content = prompt('Event title:', '');
+      if(!content) return callback(null);
+      const dateStr = prompt('Date (YYYY-MM-DD or YYYY-MM-DDTHH:mm):', 
+                             vis.moment(props.start).utc().format('YYYY-MM-DD'));
+      const date = dateStr ? new Date(dateStr) : props.start;
+      const desc = prompt('Description (optional):', '') || '';
+      const ocIdx = prompt('Tag OC index (optional):', '') ;
+      const ocIndex = ocIdx !== '' && !isNaN(+ocIdx) ? +ocIdx : null;
 
-    // ── Initialize ──
-    populateOCSelect();
-    renderTimeline();
+      const newItem = {
+        id: Date.now(),
+        content,
+        start: date,
+        description: desc,
+        ocIndex
+      };
+      eventItems.add(newItem);
+      events.push(newItem);
+      save(KEY_EVT, events);
+      callback(newItem);
+    });
+
+    timeline.on('change', function (props, callback) {
+      // props.items = [id]
+      // update underlying `events`
+      props.items.forEach(id => {
+        const it = eventItems.get(id);
+        const idx = events.findIndex(e=>e.id===id);
+        if(idx >= 0) events[idx] = it;
+      });
+      save(KEY_EVT, events);
+      callback(props);
+    });
+
+    timeline.on('remove', function (props, callback) {
+      props.items.forEach(id => {
+        events = events.filter(e=>e.id!==id);
+      });
+      save(KEY_EVT, events);
+      callback(props);
+    });
+
+    // ── Initialize Zoom Bounds ──
+    timeline.setOptions({
+      zoomMin: zoom * 10,
+      zoomMax: zoom * 1000000
+    });
   </script>
 </body>
 </html>

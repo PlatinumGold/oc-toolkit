@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OC Timeline Manager</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body { margin:0; display:flex; height:100vh; font-family:Arial,sans-serif; }
+    #sidebar {
+      width:300px; background:#fff; border-right:1px solid #ccc;
+      box-sizing:border-box; padding:16px; overflow-y:auto;
+    }
+    #sidebar h2 { margin-top:0; color:#4a90e2; }
+    #sidebar label { display:block; margin-top:12px; font-weight:bold; }
+    #sidebar input, #sidebar select, #sidebar textarea, #sidebar button {
+      width:100%; margin-top:4px; padding:6px; box-sizing:border-box;
+    }
+    #sidebar button { margin-top:8px; background:#4a90e2; color:#fff; border:none; cursor:pointer; }
+    #main {
+      flex:1; display:flex; flex-direction:column;
+    }
+    #controls {
+      background:#f4f4f4; padding:8px; border-bottom:1px solid #ccc;
+      display:flex; align-items:center; gap:12px;
+    }
+    #controls label { margin:0; font-weight:normal; }
+    #timelineContainer {
+      flex:1; overflow-x:auto; position:relative; background:#fafafa;
+    }
+    #timeline {
+      position:relative; height:200px;
+      /* width will be set dynamically */
+    }
+    .axis-line {
+      position:absolute; top:50%; left:0; right:0; height:2px;
+      background:#333; transform:translateY(-50%);
+    }
+    .tick {
+      position:absolute; top:calc(50% - 6px); width:1px; height:12px;
+      background:#333;
+    }
+    .tick-label {
+      position:absolute; top:calc(50% + 8px); font-size:0.75em; color:#333;
+      transform:translateX(-50%);
+    }
+    .event-dot {
+      position:absolute; top:50%; width:12px; height:12px;
+      border-radius:50%; transform:translate(-50%,-50%);
+      cursor:pointer;
+    }
+    .event-label {
+      position:absolute; top:calc(50% - 20px); white-space:nowrap;
+      transform:translateX(-50%); font-size:0.75em;
+    }
+    #zoomSlider { width:150px; }
+  </style>
+</head>
+<body>
+
+  <div id="sidebar">
+    <h2>OCs & Events</h2>
+
+    <label>➕ Add New OC</label>
+    <input id="ocName"   placeholder="Character Name…" />
+    <input id="ocColor" type="color" value="#e74c3c" />
+    <button id="addOcBtn">Add OC</button>
+
+    <hr/>
+
+    <label>➕ Add Event</label>
+    <select id="eventOc">
+      <option value="">— select OC —</option>
+    </select>
+    <input id="eventYear" type="number" placeholder="Year (e.g. 2025 or -300)" />
+    <input id="eventTitle" placeholder="Title…" />
+    <textarea id="eventDesc" rows="3" placeholder="Description…"></textarea>
+    <button id="addEventBtn">Add Event</button>
+  </div>
+
+  <div id="main">
+    <div id="controls">
+      <label for="zoomSlider">Zoom:</label>
+      <input id="zoomSlider" type="range" min="1" max="50" value="10"/>
+      <span id="zoomValue">10 px/yr</span>
+    </div>
+    <div id="timelineContainer">
+      <div id="timeline">
+        <div class="axis-line"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State & Persistence ──
+    let OCs    = JSON.parse(localStorage.getItem('tl_ocs') || '[]');
+    let events = JSON.parse(localStorage.getItem('tl_events') || '[]');
+    let zoom   = parseInt(localStorage.getItem('tl_zoom') || '10',10);
+
+    const ocNameIn   = document.getElementById('ocName');
+    const ocColorIn  = document.getElementById('ocColor');
+    const addOcBtn   = document.getElementById('addOcBtn');
+    const eventOcSel = document.getElementById('eventOc');
+    const eventYear  = document.getElementById('eventYear');
+    const eventTitle = document.getElementById('eventTitle');
+    const eventDesc  = document.getElementById('eventDesc');
+    const addEvtBtn  = document.getElementById('addEventBtn');
+    const zoomSlider = document.getElementById('zoomSlider');
+    const zoomValue  = document.getElementById('zoomValue');
+
+    const timeline      = document.getElementById('timeline');
+    const timelineCont  = document.getElementById('timelineContainer');
+
+    // ── Helpers ──
+    function saveAll(){
+      localStorage.setItem('tl_ocs', JSON.stringify(OCs));
+      localStorage.setItem('tl_events', JSON.stringify(events));
+      localStorage.setItem('tl_zoom', zoom);
+    }
+
+    function populateOCSelect(){
+      eventOcSel.innerHTML = '<option value="">— select OC —</option>';
+      OCs.forEach((o,i)=>{
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = o.name;
+        eventOcSel.appendChild(opt);
+      });
+    }
+
+    function getYearRange(){
+      if(!events.length) return [0,0];
+      const years = events.map(e=>e.year);
+      return [Math.min(...years), Math.max(...years)];
+    }
+
+    // ── Rendering ──
+    function renderTimeline(){
+      timeline.innerHTML = '<div class="axis-line"></div>';
+      if(!events.length) return;
+
+      const [minY, maxY] = getYearRange();
+      const span = maxY - minY || 1;
+      const width = span * zoom + 200; // padding
+      timeline.style.width = width + 'px';
+
+      // ticks every (decade??) choose step
+      const step = Math.pow(10, Math.floor(Math.log10(span)) - 1) || 1;
+      for(let y = Math.floor(minY/step)*step; y <= maxY; y += step){
+        const x = (y - minY) * zoom + 100;
+        const t = document.createElement('div');
+        t.className = 'tick';
+        t.style.left = x+'px';
+        timeline.appendChild(t);
+
+        const lbl = document.createElement('div');
+        lbl.className = 'tick-label';
+        lbl.style.left = x+'px';
+        lbl.textContent = y;
+        timeline.appendChild(lbl);
+      }
+
+      // events
+      events.forEach(evt => {
+        const oc = OCs[evt.ocIndex];
+        const x  = (evt.year - minY) * zoom + 100;
+
+        const dot = document.createElement('div');
+        dot.className = 'event-dot';
+        dot.style.left = x+'px';
+        dot.style.background = oc.color;
+        dot.title = `${evt.year} • ${evt.title}\n\n${evt.desc}`;
+        timeline.appendChild(dot);
+
+        const label = document.createElement('div');
+        label.className = 'event-label';
+        label.style.left = x+'px';
+        label.textContent = evt.title;
+        timeline.appendChild(label);
+      });
+    }
+
+    // ── Event Listeners ──
+    addOcBtn.onclick = () => {
+      const name = ocNameIn.value.trim();
+      const color= ocColorIn.value;
+      if(!name) return alert('OC name required');
+      OCs.push({ name, color });
+      ocNameIn.value = '';
+      saveAll();
+      populateOCSelect();
+      renderTimeline();
+    };
+
+    addEvtBtn.onclick = () => {
+      const idx   = parseInt(eventOcSel.value,10);
+      const year  = parseInt(eventYear.value,10);
+      const title = eventTitle.value.trim();
+      const desc  = eventDesc.value.trim();
+      if(isNaN(idx) || isNaN(year) || !title) {
+        return alert('Select OC, enter year & title');
+      }
+      events.push({ ocIndex:idx, year, title, desc });
+      eventYear.value = eventTitle.value = eventDesc.value = '';
+      saveAll();
+      renderTimeline();
+    };
+
+    zoomSlider.value = zoom;
+    zoomValue.textContent = zoom + ' px/yr';
+    zoomSlider.oninput = () => {
+      zoom = parseInt(zoomSlider.value,10);
+      zoomValue.textContent = zoom + ' px/yr';
+      saveAll();
+      renderTimeline();
+    };
+
+    // ── Initialize ──
+    populateOCSelect();
+    renderTimeline();
+  </script>
+</body>
+</html>

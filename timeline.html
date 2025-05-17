@@ -10,43 +10,68 @@
   />
   <style>
     * { box-sizing: border-box; }
-    html, body { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
     #header {
-      height:48px; background:#4a90e2; color:#fff;
-      display:flex; align-items:center; padding:0 16px;
-      font-size:1.1em;
+      height: 48px;
+      background: #4a90e2;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 1.1em;
     }
     #header button {
-      margin-left:8px; background:#fff; color:#4a90e2;
-      border:none; padding:6px 12px; border-radius:4px; cursor:pointer;
+      margin-left: 8px;
+      background: #fff;
+      color: #4a90e2;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
     }
     #main {
-      display:flex; flex-direction:row;
-      height:calc(100% - 48px);
-      min-height:0; /* allow children to shrink */
+      display: flex;
+      flex-direction: row;
+      height: calc(100% - 48px);
+      min-height: 0; /* allows children to grow/shrink */
     }
     #timeline {
-      flex:1; min-height:0; /* let the vis container fill */
+      flex: 1;
+      min-height: 0;   /* allow flex child to shrink */
+      height: 100%;    /* FULL HEIGHT under header */
     }
-    /* hide group labels */
-    .vis-timeline .vis-labelset { display:none; }
+    /* hide the default group labels */
+    .vis-timeline .vis-labelset { display: none; }
     #sidebar {
-      width:320px; background:#fefefe; border-left:1px solid #ccc;
-      padding:16px; overflow-y:auto; display:none;
+      width: 320px;
+      background: #fefefe;
+      border-left: 1px solid #ccc;
+      padding: 16px;
+      overflow-y: auto;
+      display: none;
     }
-    #sidebar h2 { margin-top:0; color:#4a90e2; }
-    #sidebar label { display:block; margin:12px 0 4px; font-weight:bold; }
-    #sidebar input, #sidebar textarea, #sidebar select, #sidebar button {
-      width:100%; padding:6px; margin-bottom:8px;
+    #sidebar h2 { margin-top: 0; color: #4a90e2; }
+    #sidebar label { display: block; margin: 12px 0 4px; font-weight: bold; }
+    #sidebar input,
+    #sidebar textarea,
+    #sidebar select,
+    #sidebar button {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 8px;
     }
-    #sidebar textarea { resize: vertical; height:60px; }
-    #sidebar .actions { display:flex; gap:8px; margin-top:12px; }
+    #sidebar textarea { resize: vertical; height: 60px; }
+    #sidebar .actions { display: flex; gap: 8px; margin-top: 12px; }
     #sidebar .actions button {
-      flex:1; padding:8px; border:none; border-radius:4px; cursor:pointer;
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
     }
-    #sidebar .save   { background:#4a90e2; color:#fff; }
-    #sidebar .delete { background:#e74c3c; color:#fff; }
-    #sidebar .cancel { background:#ccc; }
+    #sidebar .save   { background: #4a90e2; color: #fff; }
+    #sidebar .delete { background: #e74c3c; color: #fff; }
+    #sidebar .cancel { background: #ccc; }
   </style>
 </head>
 <body>
@@ -122,6 +147,9 @@
       }
     );
 
+    // **Auto-fit on load**  
+    timeline.fit();
+
     // ── Sidebar refs ──
     const sb       = document.getElementById('sidebar');
     const fTitle   = document.getElementById('formTitle');
@@ -149,8 +177,7 @@
         inC.value  = data.content;
         inD.value  = data.description||'';
         inS.value  = isoDate(data.start);
-        inE.value  = data.end?isoDate(data.end):'';
-        // extract color from style
+        inE.value  = data.end ? isoDate(data.end) : '';
         const m = /background-color:\s*([^;]+)/.exec(data.style||'');
         inCol.value = m ? m[1] : '#4a90e2';
         inP.value  = data.group;
@@ -190,8 +217,8 @@
       const id = inId.value || Date.now();
       const content = inC.value.trim();
       if(!content) return alert('Title required');
-      const start = inS.value?new Date(inS.value):new Date();
-      const end   = inE.value?new Date(inE.value):undefined;
+      const start = inS.value ? new Date(inS.value) : new Date();
+      const end   = inE.value ? new Date(inE.value) : undefined;
       const color = inCol.value;
       const group = Number(inP.value);
       const style = `background-color:${color}; border-color:${color};`;

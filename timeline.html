@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>OC Timeline Manager</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <!-- vis-timeline CSS -->
   <link
     href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css"
     rel="stylesheet"
@@ -18,17 +17,19 @@
       font-size:1.1em;
     }
     #header button {
-      margin-left:auto; background:#fff; color:#4a90e2;
+      margin-left:8px; background:#fff; color:#4a90e2;
       border:none; padding:6px 12px; border-radius:4px; cursor:pointer;
     }
-    #main { display:flex; height:calc(100% - 48px); }
-    /* timeline pane */
-    #timeline {
-      flex:1; position:relative;
+    #main {
+      display:flex; flex-direction:row;
+      height:calc(100% - 48px);
+      min-height:0; /* allow children to shrink */
     }
-    /* hide the group labels entirely */
-    .vis-timeline .vis-labelset { display: none; }
-    /* sidebar */
+    #timeline {
+      flex:1; min-height:0; /* let the vis container fill */
+    }
+    /* hide group labels */
+    .vis-timeline .vis-labelset { display:none; }
     #sidebar {
       width:320px; background:#fefefe; border-left:1px solid #ccc;
       padding:16px; overflow-y:auto; display:none;
@@ -52,6 +53,7 @@
 
   <div id="header">
     📅 OC Timeline Manager
+    <button id="btnCenter">Center</button>
     <button id="btnNew">New Event</button>
   </div>
 
@@ -90,7 +92,6 @@
     </div>
   </div>
 
-  <!-- vis-timeline -->
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
     // ── Persistence ──
@@ -106,23 +107,22 @@
       { id: 2, content: 'Below' }
     ]);
 
-    // ── vis DataSet & Timeline ──
+    // ── DataSet & Timeline ──
     const items = new vis.DataSet(events);
     const timeline = new vis.Timeline(
       document.getElementById('timeline'),
       { items, groups },
       {
-        editable:{ add:false, updateGroup:true, updateTime:true, remove:false },
+        editable:{ updateGroup:true, updateTime:true },
         interaction:{ dragView:true, zoomKey:'ctrlKey' },
         orientation:'bottom',
         stack:true,
         margin:{ item:10, axis:5 },
-        zoomKey:'ctrlKey',
         moment: d => vis.moment(d).utc()
       }
     );
 
-    // ── Sidebar form refs ──
+    // ── Sidebar refs ──
     const sb       = document.getElementById('sidebar');
     const fTitle   = document.getElementById('formTitle');
     const inId     = document.getElementById('evId');
@@ -135,6 +135,8 @@
     const btnSave  = document.getElementById('btnSave');
     const btnDel   = document.getElementById('btnDelete');
     const btnCan   = document.getElementById('btnCancel');
+    const btnNew   = document.getElementById('btnNew');
+    const btnCenter= document.getElementById('btnCenter');
 
     function isoDate(d){
       return vis.moment(d).utc().format('YYYY-MM-DD');
@@ -148,28 +150,34 @@
         inD.value  = data.description||'';
         inS.value  = isoDate(data.start);
         inE.value  = data.end?isoDate(data.end):'';
-        inCol.value= data.style.match(/background-color:\s*([^;]+)/)?.[1] || '#4a90e2';
+        // extract color from style
+        const m = /background-color:\s*([^;]+)/.exec(data.style||'');
+        inCol.value = m ? m[1] : '#4a90e2';
         inP.value  = data.group;
         btnDel.style.display = 'inline-block';
       } else {
         fTitle.textContent = 'New Event';
-        [inId, inC, inD, inS, inE].forEach(i=>i.value='');
+        [inId,inC,inD,inS,inE].forEach(i=>i.value='');
         inCol.value = '#4a90e2';
         inP.value   = '1';
         btnDel.style.display = 'none';
       }
     }
-    function hideForm(){ sb.style.display = 'none'; timeline.unselect(); }
+    function hideForm(){
+      sb.style.display = 'none';
+      timeline.unselect();
+    }
 
     // ── New / Double-click ──
-    document.getElementById('btnNew').onclick = ()=> showForm(null);
+    btnNew.onclick = ()=> showForm(null);
+    btnCenter.onclick = ()=> timeline.fit();
     timeline.on('doubleClick', props=>{
       if(props.what==='background'){
         showForm({ start: props.time, group:1, style:'background-color:#4a90e2;' });
       }
     });
 
-    // ── Select to edit ──
+    // ── Select item ──
     timeline.on('select', props=>{
       if(props.items.length===1){
         const ev = items.get(props.items[0]);
@@ -183,17 +191,17 @@
       const content = inC.value.trim();
       if(!content) return alert('Title required');
       const start = inS.value?new Date(inS.value):new Date();
-      const end   = inE.value?new Date(inE.value):null;
+      const end   = inE.value?new Date(inE.value):undefined;
       const color = inCol.value;
-      const group = parseInt(inP.value,10);
+      const group = Number(inP.value);
       const style = `background-color:${color}; border-color:${color};`;
 
-      const rec = { id, content, start, group, style, description:inD.value };
+      const rec = { id, content, start, group, style, description: inD.value };
       if(end) rec.end = end;
 
       if(inId.value){
         items.update(rec);
-        events = events.map(e=> e.id==id?rec:e);
+        events = events.map(e=>e.id==id?rec:e);
       } else {
         items.add(rec);
         events.push(rec);

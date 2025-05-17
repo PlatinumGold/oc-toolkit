@@ -37,12 +37,6 @@
       border:3px solid #2C3E50; border-radius:6px;
       padding:6px; background:#fff; z-index:2; width:100px;
     }
-    .char img, .placeholder {
-      display:block; margin:0 auto; max-width:80px;
-    }
-    .placeholder {
-      width:80px; height:200px; background:#e0e0e0;
-    }
     .label { margin:8px 0; font-size:0.9em; line-height:1.2; }
     .char-controls { margin-top:6px; }
     .char-controls button {
@@ -70,10 +64,9 @@
     </div>
     <select id="silhouetteSelect">
       <option value="">None</option>
-      <option value="male">Adult Male</option>
-      <option value="female">Adult Female</option>
+      <option value="stick">Stick Figure</option>
     </select>
-    <input   id="colorInput"   type="color"   value="#2C3E50" title="Border & fill color" />
+    <input   id="colorInput"   type="color"   value="#2C3E50" title="Border & stroke color" />
     <button  id="addBtn">Add Character</button>
   </div>
 
@@ -83,12 +76,6 @@
   </div>
 
   <script>
-    // PNG stick figures from Wikimedia Commons
-    const SILHOUETTES = {
-      male:   'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Stick_figure_male.svg/240px-Stick_figure_male.svg.png',
-      female: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Stick_figure_female.svg/240px-Stick_figure_female.svg.png'
-    };
-
     let chars = [], counter = 0;
     const KEY_CHARS = 'hc_chars', KEY_CTR = 'hc_counter';
 
@@ -165,35 +152,34 @@
             axisH     = display.clientHeight - 40,
             maxFeet   = Math.ceil((axisMaxCm*0.3937008)/12);
 
+      // grid & axis
       const cmStep = Math.ceil(axisMaxCm/100)*10;
       for (let v=0; v<=axisMaxCm; v+=cmStep) {
-        const bottom = (v/axisMaxCm)*axisH + 20;
-        const gl = document.createElement('div');
-        gl.className='grid-line'; gl.style.bottom=bottom+'px';
+        const b = (v/axisMaxCm)*axisH + 20;
+        const gl=document.createElement('div');
+        gl.className='grid-line'; gl.style.bottom=b+'px';
         display.appendChild(gl);
 
-        const lbl = document.createElement('div');
-        lbl.textContent = Math.round(v)+' cm';
-        lbl.style.position='absolute';
-        lbl.style.bottom=bottom+'px';
-        axisL.appendChild(lbl);
+        const l=document.createElement('div');
+        l.textContent=Math.round(v)+' cm';
+        l.style.position='absolute'; l.style.bottom=b+'px';
+        axisL.appendChild(l);
       }
-
       for (let ft=0; ft<=maxFeet; ft++) {
-        const cmVal = ft*12*2.54;
-        if (cmVal>axisMaxCm) break;
-        const bottom=(cmVal/axisMaxCm)*axisH+20;
-        const lbl=document.createElement('div');
-        lbl.textContent=ft+"′ 0″";
-        lbl.style.position='absolute';
-        lbl.style.bottom=bottom+'px';
-        axisR.appendChild(lbl);
+        const cmVal=ft*12*2.54;
+        if(cmVal>axisMaxCm) break;
+        const b=(cmVal/axisMaxCm)*axisH+20;
+        const r=document.createElement('div');
+        r.textContent=ft+"′ 0″";
+        r.style.position='absolute'; r.style.bottom=b+'px';
+        axisR.appendChild(r);
       }
 
       chars.forEach(c=>{
         const card=document.createElement('div');
         card.className='char';
         card.style.borderColor=c.color;
+
         const t=document.createElement('div');
         t.className='label';
         const fts=Math.floor(c.inches/12), ins=Math.round(c.inches%12);
@@ -201,45 +187,91 @@
         card.appendChild(t);
 
         const hPx=(c.cm/axisMaxCm)*axisH;
-        if (c.silhouette && SILHOUETTES[c.silhouette]) {
-          const img=document.createElement('img');
-          img.src=SILHOUETTES[c.silhouette];
-          img.style.height=hPx+'px';
-          img.style.objectFit='contain';
-          card.appendChild(img);
+
+        if (c.silhouette==='stick') {
+          // inline stick figure
+          const svgNS = "http://www.w3.org/2000/svg";
+          const svg = document.createElementNS(svgNS,'svg');
+          svg.setAttribute('width', 80);
+          svg.setAttribute('height', hPx);
+          svg.setAttribute('viewBox','0 0 80 200');
+          // head
+          const head = document.createElementNS(svgNS,'circle');
+          head.setAttribute('cx',40);
+          head.setAttribute('cy',20);
+          head.setAttribute('r',15);
+          head.setAttribute('fill','none');
+          head.setAttribute('stroke',c.color);
+          head.setAttribute('stroke-width',4);
+          svg.appendChild(head);
+          // body
+          const body = document.createElementNS(svgNS,'line');
+          body.setAttribute('x1',40);
+          body.setAttribute('y1',35);
+          body.setAttribute('x2',40);
+          body.setAttribute('y2',150);
+          body.setAttribute('stroke',c.color);
+          body.setAttribute('stroke-width',4);
+          svg.appendChild(body);
+          // arms
+          [[60,100],[20,100]].forEach(([x,y])=>{
+            const arm = document.createElementNS(svgNS,'line');
+            arm.setAttribute('x1',40);
+            arm.setAttribute('y1',60);
+            arm.setAttribute('x2',x);
+            arm.setAttribute('y2',y);
+            arm.setAttribute('stroke',c.color);
+            arm.setAttribute('stroke-width',4);
+            svg.appendChild(arm);
+          });
+          // legs
+          [[60,190],[20,190]].forEach(([x,y])=>{
+            const leg = document.createElementNS(svgNS,'line');
+            leg.setAttribute('x1',40);
+            leg.setAttribute('y1',150);
+            leg.setAttribute('x2',x);
+            leg.setAttribute('y2',y);
+            leg.setAttribute('stroke',c.color);
+            leg.setAttribute('stroke-width',4);
+            svg.appendChild(leg);
+          });
+          card.appendChild(svg);
         } else {
+          // placeholder
           const ph=document.createElement('div');
-          ph.className='placeholder';
           ph.style.height=hPx+'px';
+          ph.style.background='#e0e0e0';
+          ph.style.width='80px';
+          ph.style.margin='0 auto';
           card.appendChild(ph);
         }
 
+        // controls
         const ctr=document.createElement('div');
         ctr.className='char-controls';
         const del=document.createElement('button');
         del.textContent='🗑️';
-        del.addEventListener('click',()=>{
+        del.onclick=()=>{
           chars=chars.filter(x=>x.id!==c.id);
           saveHeights(); render();
-        });
-        ctr.appendChild(del);
-
+        };
         const edt=document.createElement('button');
         edt.textContent='✏️';
-        edt.addEventListener('click',()=>{
+        edt.onclick=()=>{
           const nm=prompt('Name:',c.name);
           if(nm!==null) c.name=nm;
           const cmr=prompt('Height (cm):',c.cm), cmv=parseFloat(cmr);
           if(!isNaN(cmv)){c.cm=cmv; c.inches=cmv*0.3937008;}
-          const sil=prompt('Silhouette (male,female or blank):',c.silhouette);
-          if(['male','female',''].includes(sil)) c.silhouette=sil;
+          const sil=prompt('Silhouette (stick or blank):',c.silhouette);
+          if(['stick',''].includes(sil)) c.silhouette=sil;
           const col=prompt('Color (hex):',c.color);
           if(/^#?[0-9A-Fa-f]{6}$/.test(col)) c.color=col.startsWith('#')?col:'#'+col;
           saveHeights(); render();
-        });
+        };
+        ctr.appendChild(del);
         ctr.appendChild(edt);
-
         card.appendChild(ctr);
+
         display.appendChild(card);
       });
     }

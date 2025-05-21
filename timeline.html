@@ -75,11 +75,11 @@
 
 /* force the internal vis-timeline element to fill its parent */
 #timeline .vis-timeline {
-  height: 100% !important;
+  height: 90% !important;
 }
 #timeline .vis-panel, 
 #timeline .vis-time-axis {
-  height: 100% !important;
+  height: 90% !important;
 }
 
   </style>
@@ -148,7 +148,7 @@ const timeline = new vis.Timeline(
   document.getElementById('timeline'),
   { items, groups },
   {
-    height: '100%',   // ← add this
+    height: '90%',   // ← add this
     width:  '100%',   // ← and this if you want full width
     editable:{ updateGroup:true, updateTime:true },
     interaction:{ dragView:true, zoomKey:'ctrlKey' },

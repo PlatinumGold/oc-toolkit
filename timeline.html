@@ -11,6 +11,8 @@
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+
+    /* ── Header ── */
     #header {
       height: 48px;
       background: #4a90e2;
@@ -29,18 +31,32 @@
       border-radius: 4px;
       cursor: pointer;
     }
+
+    /* ── Layout ── */
     #main {
       display: flex;
-      flex-direction: row;
       height: calc(100% - 48px);
-      min-height: 0;
     }
     #timeline {
+      position: relative;   /* needed for center-line pseudo */
       flex: 1;
-      min-height: 0;
       height: 100%;
     }
+    /* draw the center line */
+    #timeline::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: #4a90e2;
+      z-index: 0;
+    }
+    /* hide default group labels */
     .vis-timeline .vis-labelset { display: none; }
+
+    /* ── Sidebar (add/edit form) ── */
     #sidebar {
       width: 320px;
       background: #fefefe;
@@ -63,10 +79,12 @@
     #sidebar .delete { background: #e74c3c; color: #fff; }
     #sidebar .cancel { background: #ccc; }
 
-    /* force vis-timeline to fill */
+    /* force vis-timeline itself to fill the parent */
     #timeline .vis-timeline,
     #timeline .vis-panel,
-    #timeline .vis-time-axis { height: 100% !important; }
+    #timeline .vis-time-axis {
+      height: 100% !important;
+    }
   </style>
 </head>
 <body>
@@ -114,7 +132,7 @@
 
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
-    // ── Load & rehydrate from storage ──
+    // ── Load & rehydrate events ──
     const STORAGE_KEY = 'oc_tl_events';
     let raw = localStorage.getItem(STORAGE_KEY);
     let events = raw
@@ -135,7 +153,7 @@
       { id:2, content:'Below' }
     ]);
 
-    // ── Instantiate timeline ──
+    // ── Create timeline ──
     const items = new vis.DataSet(events);
     const timeline = new vis.Timeline(
       document.getElementById('timeline'),
@@ -146,12 +164,12 @@
         interaction:{ dragView:true, zoomKey:'ctrlKey' },
         orientation:'bottom', stack:true,
         margin:{ item:10, axis:5 },
-        moment: d=> vis.moment(d).utc()
+        moment: d => vis.moment(d).utc()
       }
     );
     timeline.fit();
 
-    // ── Sidebar references ──
+    // ── Sidebar refs ──
     const sb       = document.getElementById('sidebar');
     const fTitle   = document.getElementById('formTitle');
     const inId     = document.getElementById('evId');
@@ -167,17 +185,17 @@
     const btnNew   = document.getElementById('btnNew');
     const btnCenter= document.getElementById('btnCenter');
 
-    function isoDate(d) {
+    function isoDate(d){
       return vis.moment(d).utc().format('YYYY-MM-DD');
     }
 
-    function showForm(data) {
+    function showForm(data){
       sb.style.display = 'block';
-      if (data) {
+      if(data){
         fTitle.textContent = 'Edit Event';
         inId.value = data.id;
         inC.value  = data.content;
-        inD.value  = data.description || '';
+        inD.value  = data.description||'';
         inS.value  = isoDate(data.start);
         inE.value  = data.end ? isoDate(data.end) : '';
         const m = /background-color:\s*([^;]+)/.exec(data.style||'');
@@ -186,52 +204,51 @@
         btnDel.style.display = 'inline-block';
       } else {
         fTitle.textContent = 'New Event';
-        [inId, inC, inD, inS, inE].forEach(i=>i.value = '');
+        [inId,inC,inD,inS,inE].forEach(i=>i.value='');
         inCol.value = '#4a90e2';
         inP.value   = '1';
         btnDel.style.display = 'none';
       }
     }
 
-    function hideForm() {
+    function hideForm(){
       sb.style.display = 'none';
       timeline.unselect();
     }
 
-    // ── Button handlers ──
+    // ── Handlers ──
     btnNew.onclick    = ()=> showForm(null);
     btnCenter.onclick = ()=> timeline.fit();
 
-    timeline.on('doubleClick', props => {
-      if (props.what === 'background') {
+    timeline.on('doubleClick', props=>{
+      if(props.what==='background'){
         showForm({ start: props.time, group:1, style:'background-color:#4a90e2;' });
       }
     });
 
-    timeline.on('select', props => {
-      if (props.items.length === 1) {
+    timeline.on('select', props=>{
+      if(props.items.length===1){
         const ev = items.get(props.items[0]);
         showForm(ev);
       }
     });
 
-    // ── Save / Update ──
-    btnSave.onclick = ()=> {
+    btnSave.onclick = ()=>{
       const id      = inId.value || Date.now();
       const content = inC.value.trim();
-      if (!content) return alert('Title required');
-      const start   = inS.value ? new Date(inS.value) : new Date();
-      const end     = inE.value ? new Date(inE.value) : undefined;
-      const color   = inCol.value;
-      const group   = Number(inP.value);
-      const style   = `background-color:${color}; border-color:${color};`;
+      if(!content) return alert('Title required');
+      const start = inS.value ? new Date(inS.value) : new Date();
+      const end   = inE.value ? new Date(inE.value) : undefined;
+      const color = inCol.value;
+      const group = Number(inP.value);
+      const style = `background-color:${color}; border-color:${color};`;
 
       const rec = { id, content, start, group, style, description: inD.value };
-      if (end) rec.end = end;
+      if(end) rec.end = end;
 
-      if (inId.value) {
+      if(inId.value){
         items.update(rec);
-        events = events.map(e => e.id == id ? rec : e);
+        events = events.map(e=>e.id==id?rec:e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -240,16 +257,14 @@
       hideForm();
     };
 
-    // ── Delete ──
-    btnDel.onclick = ()=> {
+    btnDel.onclick = ()=>{
       const id = inId.value;
       items.remove(id);
-      events = events.filter(e => e.id != id);
+      events = events.filter(e=>e.id!=id);
       saveAll();
       hideForm();
     };
 
-    // ── Cancel ──
     btnCan.onclick = hideForm;
   </script>
 </body>

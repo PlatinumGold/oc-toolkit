@@ -5,7 +5,9 @@
   <title>OC Timeline Manager</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <!-- vis-timeline CSS -->
-  <link href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css" rel="stylesheet" />
+  <link
+    href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css"
+    rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
     body, html { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; }
@@ -28,7 +30,7 @@
     }
     #sidebar h2 { margin-top:0; color:#4a90e2; }
     #sidebar label { display:block; margin:12px 0 4px; font-weight:bold; }
-    #sidebar input, #sidebar textarea, #sidebar select, #sidebar button {
+    #sidebar input, #sidebar textarea, #sidebar button {
       width:100%; padding:6px; margin-bottom:8px;
     }
     #sidebar textarea { resize: vertical; height:60px; }
@@ -46,8 +48,9 @@
 
   <div id="header">
     📅 OC Timeline Manager
-    <button id="btnCenter">Centre</button>
+    <button id="btnCenter">Center</button>
     <button id="btnNew">New Event</button>
+    <button id="btnClear">Clear All</button>
   </div>
 
   <div id="main">
@@ -71,8 +74,6 @@
       <label>Color</label>
       <input id="evColor" type="color" value="#4a90e2" />
 
-
-
       <div class="actions">
         <button class="save"   id="btnSave">Save</button>
         <button class="delete" id="btnDelete">Delete</button>
@@ -90,6 +91,11 @@
     function saveAll() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }
+    function clearAll() {
+      events = [];
+      items.clear();
+      saveAll();
+    }
 
     // ── Setup vis DataSet & Timeline ──
     const items = new vis.DataSet(events);
@@ -106,7 +112,6 @@
         moment: date => vis.moment(date).utc()
       }
     );
-    // auto-center on load
     timeline.fit();
 
     // ── Sidebar Form Elements ──
@@ -118,16 +123,15 @@
     const inStart   = document.getElementById('evStart');
     const inEnd     = document.getElementById('evEnd');
     const inColor   = document.getElementById('evColor');
-    const inPos     = document.getElementById('evPos');
     const btnSave   = document.getElementById('btnSave');
     const btnDel    = document.getElementById('btnDelete');
     const btnCan    = document.getElementById('btnCancel');
     const btnNew    = document.getElementById('btnNew');
     const btnCenter = document.getElementById('btnCenter');
+    const btnClear  = document.getElementById('btnClear');
 
     // ── Helpers ──
     function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }
-
     function showForm(data = {}) {
       sb.style.display = 'block';
       if (data.id != null) {
@@ -138,7 +142,6 @@
         inStart.value        = isoDate(data.start);
         inEnd.value          = data.end ? isoDate(data.end) : '';
         inColor.value        = data.color || '#4a90e2';
-        inPos.value          = data.className || 'top';
         btnDel.style.display = 'inline-block';
       } else {
         fTitle.textContent   = 'New Event';
@@ -148,7 +151,6 @@
         inStart.value        = '';
         inEnd.value          = '';
         inColor.value        = '#4a90e2';
-        inPos.value          = 'top';
         btnDel.style.display = 'none';
       }
     }
@@ -157,11 +159,12 @@
       timeline.unselect();
     }
 
-    // ── Button hooks ──
+    // ── Button Hooks ──
     btnNew.onclick    = () => showForm();
     btnCenter.onclick = () => timeline.fit();
+    btnClear.onclick  = () => { if (confirm('Clear all events?')) clearAll(); hideForm(); };
 
-    // ── Timeline interactions ──
+    // ── Timeline Events ──
     timeline.on('doubleClick', props => {
       if (props.what==='background') {
         const date = timeline.getEventProperties(props.event).time;
@@ -185,11 +188,9 @@
       const start = inStart.value ? new Date(inStart.value) : new Date();
       const end   = inEnd.value   ? new Date(inEnd.value)   : undefined;
       const color = inColor.value;
-      const cls   = inPos.value;  // 'top' or 'bottom'
       const style = `background-color:${color}; border-color:${color}`;
 
-      const rec = { id, content, start, ...(end && { end }), className: cls, description: inDesc.value, color, style };
-
+      const rec = { id, content, start, ...(end && { end }), style, description: inDesc.value, color };
       if (rawId) {
         items.update(rec);
         events = events.map(e => e.id === id ? rec : e);

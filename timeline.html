@@ -1,4 +1,14 @@
-  <script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OC Timeline Manager</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <!-- vis-timeline CSS -->
+  <link
+    href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css"
+    rel="stylesheet" />
+    <script>
     // ── Persistence ──
     const STORAGE_KEY = 'oc_tl_events';
     let events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -125,3 +135,171 @@
     // ── Cancel ──
     btnCan.onclick = hideForm;
   </script>
+</head>
+<body>
+
+  <div id="header">
+    📅 OC Timeline Manager
+    <button id="btnCenter">Center</button>
+    <button id="btnNew">New Event</button>
+  </div>
+
+  <div id="main">
+    <div id="timeline"></div>
+    <div id="sidebar">
+      <h2 id="formTitle">New Event</h2>
+      <input type="hidden" id="evId" />
+
+      <label>Title</label>
+      <input id="evContent" placeholder="Event title…" />
+
+      <label>Description</label>
+      <textarea id="evDesc" placeholder="Optional description…"></textarea>
+
+      <label>Start Date</label>
+      <input id="evStart" type="date" />
+
+      <label>End Date (optional)</label>
+      <input id="evEnd" type="date" />
+
+      <label>Color</label>
+      <input id="evColor" type="color" value="#4a90e2" />
+
+      <label>Position</label>
+      <select id="evPos">
+        <option value="top">Above line</option>
+        <option value="bottom">Below line</option>
+      </select>
+
+      <div class="actions">
+        <button class="save" id="btnSave">Save</button>
+        <button class="delete" id="btnDelete">Delete</button>
+        <button class="cancel" id="btnCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- vis-timeline -->
+  <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
+  <script>
+    // ── Persistence ──
+    const STORAGE_KEY = 'oc_tl_events';
+    let events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    function saveAll() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    }
+
+    // ── Setup vis DataSet & Timeline ──
+    const items = new vis.DataSet(events);
+    const timeline = new vis.Timeline(
+      document.getElementById('timeline'),
+      items,
+      {
+        editable:{ add:false, updateTime:true, remove:false },
+        interaction:{ dragView:true, zoomKey:'ctrlKey' },
+        orientation:'bottom',
+        stack:true,
+        margin:{ item:10, axis:5 },
+        moment: date => vis.moment(date).utc()
+      }
+    );
+
+    // auto-center on load
+    timeline.fit();
+
+    // ── Sidebar Form Elements ──
+    const sb       = document.getElementById('sidebar');
+    const fTitle   = document.getElementById('formTitle');
+    const inId     = document.getElementById('evId');
+    const inContent= document.getElementById('evContent');
+    const inDesc   = document.getElementById('evDesc');
+    const inStart  = document.getElementById('evStart');
+    const inEnd    = document.getElementById('evEnd');
+    const inColor  = document.getElementById('evColor');
+    const inPos    = document.getElementById('evPos');
+    const btnSave  = document.getElementById('btnSave');
+    const btnDel   = document.getElementById('btnDelete');
+    const btnCan   = document.getElementById('btnCancel');
+    const btnNew   = document.getElementById('btnNew');
+    const btnCenter= document.getElementById('btnCenter');
+
+    // ── Helpers ──
+    function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }
+    function showForm(eventData) {
+      sb.style.display = 'block';
+      if (eventData && eventData.id) {
+        fTitle.textContent   = 'Edit Event';
+        inId.value           = eventData.id;
+        inContent.value      = eventData.content;
+        inDesc.value         = eventData.description || '';
+        inStart.value        = isoDate(eventData.start);
+        inEnd.value          = eventData.end   ? isoDate(eventData.end)   : '';
+        inColor.value        = eventData.color || '#4a90e2';
+        inPos.value          = eventData.className || 'top';
+        btnDel.style.display = 'inline-block';
+      } else {
+        fTitle.textContent = 'New Event';
+        [inId, inContent, inDesc, inStart, inEnd].forEach(i=>i.value='');
+        inColor.value = '#4a90e2';
+        inPos.value   = 'top';
+        btnDel.style.display = 'none';
+      }
+    }
+    function hideForm(){ sb.style.display = 'none'; timeline.unselect(); }
+
+    // ── Button hooks ──
+    btnNew.onclick    = ()=> showForm({});
+    btnCenter.onclick = ()=> timeline.fit();
+
+    // ── Double-click background to add ──
+    timeline.on('doubleClick', props => {
+      if (props.what==='background') {
+        const date = timeline.getEventProperties(props.event).time;
+        showForm({ start: date });
+      }
+    });
+
+    // ── Select item to edit ──
+    timeline.on('select', props => {
+      if (props.items.length===1) {
+        const e = items.get(props.items[0]);
+        showForm(e);
+      }
+    });
+
+    // ── Save ──
+    btnSave.onclick = ()=>{
+      const id      = inId.value || Date.now();
+      const content = inContent.value.trim();
+      if (!content) return alert('Title required');
+      const start   = inStart.value ? new Date(inStart.value) : new Date();
+      const end     = inEnd.value   ? new Date(inEnd.value)   : undefined;
+      const color   = inColor.value;
+      const cls     = inPos.value;  // 'top' or 'bottom'
+      const rec     = { id, content, start, ...(end&&{end}), color, className: cls, description: inDesc.value };
+
+      if (inId.value) {
+        items.update(rec);
+        events = events.map(e=>e.id==id?rec:e);
+      } else {
+        items.add(rec);
+        events.push(rec);
+      }
+      saveAll();
+      hideForm();
+    };
+
+    // ── Delete ──
+    btnDel.onclick = ()=>{
+      const id = inId.value;
+      items.remove(id);
+      events = events.filter(e=>e.id!=id);
+      saveAll();
+      hideForm();
+    };
+
+    // ── Cancel ──
+    btnCan.onclick = hideForm;
+  </script>
+</body>
+</html>

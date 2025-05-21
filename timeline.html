@@ -1,75 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>OC Timeline Manager</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <!-- vis-timeline CSS -->
   <link
     href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css"
-    rel="stylesheet"
-  />
+    rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
-
-    /* Header */
+    body, html { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; }
     #header {
-      height: 48px; background: #4a90e2; color: #fff;
-      display: flex; align-items: center; padding: 0 16px;
-      font-size: 1.1em;
+      height:48px; background:#4a90e2; color:#fff;
+      display:flex; align-items:center; padding:0 16px;
+      font-size:1.1em;
     }
     #header button {
-      margin-left: 8px; background: #fff; color: #4a90e2;
-      border: none; padding: 6px 12px; border-radius: 4px;
-      cursor: pointer;
+      margin-left: auto; background:#fff; color:#4a90e2;
+      border:none; padding:6px 12px; border-radius:4px;
+      cursor:pointer;
     }
-
-    /* Main layout */
-    #main {
-      display: flex; height: calc(100% - 48px);
-    }
-    #timeline {
-      position: relative; flex: 1; height: 100%;
-    }
-    /* center line */
-    #timeline::before {
-      content: '';
-      position: absolute; top: 50%; left: 0;
-      width: 100%; height: 2px; background: #4a90e2;
-      z-index: 0;
-    }
-    /* hide default group labels */
-    .vis-timeline .vis-labelset { display: none; }
-    /* force the vis graph to fill */
-    #timeline .vis-timeline,
-    #timeline .vis-panel,
-    #timeline .vis-time-axis { height: 100% !important; }
-
+    #main { display:flex; height:calc(100% - 48px); }
+    #timeline { flex:1; position:relative; }
     /* Sidebar */
     #sidebar {
-      width: 320px; background: #fefefe;
-      border-left: 1px solid #ccc; padding: 16px;
-      overflow-y: auto; display: none;
+      width:320px; background:#fefefe; border-left:1px solid #ccc;
+      padding:16px; overflow-y:auto; display:none;
     }
-    #sidebar h2 { margin-top: 0; color: #4a90e2; }
-    #sidebar label { display: block; margin: 12px 0 4px; font-weight: bold; }
+    #sidebar h2 { margin-top:0; color:#4a90e2; }
+    #sidebar label { display:block; margin:12px 0 4px; font-weight:bold; }
     #sidebar input, #sidebar textarea, #sidebar select, #sidebar button {
-      width: 100%; padding: 6px; margin-bottom: 8px;
+      width:100%; padding:6px; margin-bottom:8px;
     }
-    #sidebar textarea { resize: vertical; height: 60px; }
-    .actions { display: flex; gap: 8px; margin-top: 12px; }
-    .actions button {
-      flex: 1; padding: 8px; border: none; border-radius: 4px; cursor: pointer;
+    #sidebar textarea { resize: vertical; height:60px; }
+    #sidebar .actions { display:flex; gap:8px; margin-top:12px; }
+    #sidebar .actions button {
+      flex:1; padding:8px; border:none; border-radius:4px;
+      cursor:pointer;
     }
-    .save   { background: #4a90e2; color: #fff; }
-    .delete { background: #e74c3c; color: #fff; }
-    .cancel { background: #ccc; }
+    #sidebar .save { background:#4a90e2; color:#fff; }
+    #sidebar .delete { background:#e74c3c; color:#fff; }
+    #sidebar .cancel { background:#ccc; }
   </style>
 </head>
 <body>
+
   <div id="header">
     📅 OC Timeline Manager
-    <button id="btnCenter">Center</button>
     <button id="btnNew">New Event</button>
   </div>
 
@@ -96,143 +74,121 @@
 
       <label>Position</label>
       <select id="evPos">
-        <option value="1">Above line</option>
-        <option value="2">Below line</option>
+        <option value="top">Above line</option>
+        <option value="bottom">Below line</option>
       </select>
 
       <div class="actions">
-        <button class="save"   id="btnSave">Save</button>
+        <button class="save" id="btnSave">Save</button>
         <button class="delete" id="btnDelete">Delete</button>
         <button class="cancel" id="btnCancel">Cancel</button>
       </div>
     </div>
   </div>
 
+  <!-- vis-timeline -->
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
-    // — Persistence —
+    // ── Persistence ──
     const STORAGE_KEY = 'oc_tl_events';
-    let events = [];
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        events = JSON.parse(raw).map(e => ({
-          ...e,
-          start: new Date(e.start),
-          end:   e.end ? new Date(e.end) : undefined
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to load events', err);
-    }
-
+    let events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     function saveAll() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }
 
-    // — Groups —
-    const groups = new vis.DataSet([
-      { id: 1, content: 'Above' },
-      { id: 2, content: 'Below' }
-    ]);
-
-    // — Timeline —
+    // ── Setup vis DataSet & Timeline ──
     const items = new vis.DataSet(events);
     const timeline = new vis.Timeline(
       document.getElementById('timeline'),
-      { items, groups },
+      items,
       {
-        height: '100%', width: '100%',
-        editable: { updateGroup:true, updateTime:true },
-        interaction: { dragView:true, zoomKey:'ctrlKey' },
-        orientation: 'bottom',
-        stack: true,
-        margin: { item:10, axis:5 },
-        moment: d => vis.moment(d).utc()
+        editable:{ add:false, updateTime:true, remove:false },
+        interaction:{ dragView:true, zoomKey:'ctrlKey' },
+        orientation:'bottom',
+        stack:true,
+        margin:{ item:10, axis:5 },
+        moment:date=>vis.moment(date).utc()
       }
     );
-    timeline.fit();
 
-    // — Form Elements —
+    // ── Sidebar Form Elements ──
     const sb       = document.getElementById('sidebar');
     const fTitle   = document.getElementById('formTitle');
     const inId     = document.getElementById('evId');
-    const inC      = document.getElementById('evContent');
-    const inD      = document.getElementById('evDesc');
-    const inS      = document.getElementById('evStart');
-    const inE      = document.getElementById('evEnd');
-    const inCol    = document.getElementById('evColor');
-    const inP      = document.getElementById('evPos');
+    const inContent= document.getElementById('evContent');
+    const inDesc   = document.getElementById('evDesc');
+    const inStart  = document.getElementById('evStart');
+    const inEnd    = document.getElementById('evEnd');
+    const inColor  = document.getElementById('evColor');
+    const inPos    = document.getElementById('evPos');
     const btnSave  = document.getElementById('btnSave');
     const btnDel   = document.getElementById('btnDelete');
-    const btnCan   = document.getElementById('btnCancel');
-    const btnNew   = document.getElementById('btnNew');
-    const btnCenter= document.getElementById('btnCenter');
+    const btnCancel= document.getElementById('btnCancel');
 
-    function isoDate(d) {
-      return vis.moment(d).utc().format('YYYY-MM-DD');
-    }
-
-    function showForm(data) {
+    // ── Helpers ──
+    function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }
+    function showForm(eventData) {
       sb.style.display = 'block';
-      if (data) {
+      if (eventData) {
         fTitle.textContent = 'Edit Event';
-        inId.value = data.id;
-        inC.value  = data.content;
-        inD.value  = data.description || '';
-        inS.value  = isoDate(data.start);
-        inE.value  = data.end ? isoDate(data.end) : '';
-        const m = /background-color:\s*([^;]+)/.exec(data.style||'');
-        inCol.value = m ? m[1] : '#4a90e2';
-        inP.value   = data.group;
+        inId.value     = eventData.id;
+        inContent.value= eventData.content;
+        inDesc.value   = eventData.description || '';
+        inStart.value  = isoDate(eventData.start);
+        inEnd.value    = eventData.end ? isoDate(eventData.end) : '';
+        inColor.value  = eventData.color || '#4a90e2';
+        inPos.value    = eventData.className||'top';
         btnDel.style.display = 'inline-block';
       } else {
         fTitle.textContent = 'New Event';
-        [inId,inC,inD,inS,inE].forEach(i=>i.value='');
-        inCol.value = '#4a90e2';
-        inP.value   = '1';
+        inId.value = '';
+        inContent.value = '';
+        inDesc.value = '';
+        inStart.value = '';
+        inEnd.value = '';
+        inColor.value = '#4a90e2';
+        inPos.value = 'top';
         btnDel.style.display = 'none';
       }
     }
+    function hideForm(){ sb.style.display = 'none'; }
 
-    function hideForm() {
-      sb.style.display = 'none';
-      timeline.unselect();
-    }
-
-    // — Event Handlers —
-    btnNew.onclick    = () => showForm(null);
-    btnCenter.onclick = () => timeline.fit();
-
+    // ── New Event (button or double-click) ──
+    document.getElementById('btnNew').onclick = () => {
+      showForm(null);
+    };
     timeline.on('doubleClick', props => {
+      // props.event.center gives x px, props.what==='background'
+      // map x to date
       if (props.what === 'background') {
-        showForm({ start: props.time, group: 1, style: 'background-color:#4a90e2;' });
+        const date = timeline.getEventProperties(props.event).time;
+        showForm({ start: date });
       }
     });
 
+    // ── Click item to edit ──
     timeline.on('select', props => {
       if (props.items.length === 1) {
-        const ev = items.get(props.items[0]);
-        showForm(ev);
+        const id = props.items[0];
+        const e = items.get(id);
+        showForm(e);
       }
     });
 
+    // ── Save ──
     btnSave.onclick = () => {
       const id      = inId.value || Date.now();
-      const content = inC.value.trim();
+      const content = inContent.value.trim();
       if (!content) return alert('Title required');
-      const start = inS.value ? new Date(inS.value) : new Date();
-      const end   = inE.value ? new Date(inE.value) : undefined;
-      const color = inCol.value;
-      const group = Number(inP.value);
-      const style = `background-color:${color}; border-color:${color};`;
+      const start = inStart.value ? new Date(inStart.value) : new Date();
+      const end   = inEnd.value ? new Date(inEnd.value) : null;
+      const color = inColor.value;
+      const cls   = inPos.value;  // 'top' or 'bottom'
 
-      const rec = { id, content, start, group, style, description: inD.value };
-      if (end) rec.end = end;
-
+      const rec = { id, content, start, ...(end&&{end}), color, className:cls, description:inDesc.value };
       if (inId.value) {
         items.update(rec);
-        events = events.map(e => e.id == id ? rec : e);
+        events = events.map(e => e.id==id ? rec : e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -241,15 +197,18 @@
       hideForm();
     };
 
+    // ── Delete ──
     btnDel.onclick = () => {
       const id = inId.value;
+      if (!id) return;
       items.remove(id);
-      events = events.filter(e => e.id != id);
+      events = events.filter(e=>e.id!=id);
       saveAll();
       hideForm();
     };
 
-    btnCan.onclick = hideForm;
+    // ── Cancel ──
+    btnCancel.onclick = hideForm;
   </script>
 </body>
 </html>

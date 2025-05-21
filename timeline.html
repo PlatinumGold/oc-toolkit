@@ -12,7 +12,7 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
     #header {
-      height: 148px;
+      height: 48px;
       background: #4a90e2;
       color: #fff;
       display: flex;
@@ -72,6 +72,16 @@
     #sidebar .save   { background: #4a90e2; color: #fff; }
     #sidebar .delete { background: #e74c3c; color: #fff; }
     #sidebar .cancel { background: #ccc; }
+
+/* force the internal vis-timeline element to fill its parent */
+#timeline .vis-timeline {
+  height: 100% !important;
+}
+#timeline .vis-panel, 
+#timeline .vis-time-axis {
+  height: 100% !important;
+}
+
   </style>
 </head>
 <body>
@@ -134,18 +144,21 @@
 
     // ── DataSet & Timeline ──
     const items = new vis.DataSet(events);
-    const timeline = new vis.Timeline(
-      document.getElementById('timeline'),
-      { items, groups },
-      {
-        editable:{ updateGroup:true, updateTime:true },
-        interaction:{ dragView:true, zoomKey:'ctrlKey' },
-        orientation:'bottom',
-        stack:true,
-        margin:{ item:10, axis:5 },
-        moment: d => vis.moment(d).utc()
-      }
-    );
+const timeline = new vis.Timeline(
+  document.getElementById('timeline'),
+  { items, groups },
+  {
+    height: '100%',   // ← add this
+    width:  '100%',   // ← and this if you want full width
+    editable:{ updateGroup:true, updateTime:true },
+    interaction:{ dragView:true, zoomKey:'ctrlKey' },
+    orientation:'bottom',
+    stack:true,
+    margin:{ item:10, axis:5 },
+    moment: d => vis.moment(d).utc()
+  }
+);
+
 
     // **Auto-fit on load**  
     timeline.fit();

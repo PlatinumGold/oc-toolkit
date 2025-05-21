@@ -178,39 +178,42 @@
     }
     function hideForm(){ sb.style.display = 'none'; }
 
-    // — Event Handlers —
-    btnNew.onclick    = () => showForm(null);
-    btnCenter.onclick = ()=> timeline.moveTo(new Date());
-
+    // ── New Event (button or double-click) ──
+    document.getElementById('btnNew').onclick = () => {
+      showForm(null);
+    };
     timeline.on('doubleClick', props => {
+      // props.event.center gives x px, props.what==='background'
+      // map x to date
       if (props.what === 'background') {
-        showForm({ start: props.time, group: 1, style: 'background-color:#4a90e2;' });
+        const date = timeline.getEventProperties(props.event).time;
+        showForm({ start: date });
       }
     });
 
+    // ── Click item to edit ──
     timeline.on('select', props => {
       if (props.items.length === 1) {
-        const ev = items.get(props.items[0]);
-        showForm(ev);
+        const id = props.items[0];
+        const e = items.get(id);
+        showForm(e);
       }
     });
 
+    // ── Save ──
     btnSave.onclick = () => {
       const id      = inId.value || Date.now();
-      const content = inC.value.trim();
+      const content = inContent.value.trim();
       if (!content) return alert('Title required');
-      const start = inS.value ? new Date(inS.value) : new Date();
-      const end   = inE.value ? new Date(inE.value) : undefined;
-      const color = inCol.value;
-      const group = Number(inP.value);
-      const style = `background-color:${color}; border-color:${color};`;
+      const start = inStart.value ? new Date(inStart.value) : new Date();
+      const end   = inEnd.value ? new Date(inEnd.value) : null;
+      const color = inColor.value;
+      const cls   = inPos.value;  // 'top' or 'bottom'
 
-      const rec = { id, content, start, group, style, description: inD.value };
-      if (end) rec.end = end;
-
+      const rec = { id, content, start, ...(end&&{end}), color, className:cls, description:inDesc.value };
       if (inId.value) {
         items.update(rec);
-        events = events.map(e => e.id == id ? rec : e);
+        events = events.map(e => e.id==id ? rec : e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -219,15 +222,18 @@
       hideForm();
     };
 
+    // ── Delete ──
     btnDel.onclick = () => {
       const id = inId.value;
+      if (!id) return;
       items.remove(id);
-      events = events.filter(e => e.id != id);
+      events = events.filter(e=>e.id!=id);
       saveAll();
       hideForm();
     };
 
-    btnCan.onclick = hideForm;
+    // ── Cancel ──
+    btnCancel.onclick = hideForm;
   </script>
 </body>
 </html>

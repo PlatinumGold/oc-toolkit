@@ -11,7 +11,7 @@
     body, html { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; }
     #header {
       height:48px; background:#4a90e2; color:#fff;
-      display:flex; align-items:center; padding:0 16px;
+      display:flex; align-items:centre; padding:0 16px;
       font-size:1.1em;
     }
     #header button {
@@ -46,7 +46,7 @@
 
   <div id="header">
     📅 OC Timeline Manager
-    <button id="btnCenter">Center</button>
+    <button id="btnCenter">Centre</button>
     <button id="btnNew">New Event</button>
   </div>
 
@@ -127,7 +127,7 @@
     const btnDel    = document.getElementById('btnDelete');
     const btnCan    = document.getElementById('btnCancel');
     const btnNew    = document.getElementById('btnNew');
-    const btnCenter = document.getElementById('btnCenter');
+    const btnCentre = document.getElementById('btnCentre');
 
     // ── Helpers ──
     function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }

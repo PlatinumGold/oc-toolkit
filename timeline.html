@@ -87,7 +87,7 @@
     </div>
   </div>
 
-  <!-- vis-timeline -->
+   <!-- vis-timeline -->
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
     // ── Persistence ──
@@ -95,6 +95,21 @@
     let raw = localStorage.getItem(STORAGE_KEY);
     let events = raw ? JSON.parse(raw) : [];
 
+     // ── Setup vis DataSet & Timeline ──
+    const items = new vis.DataSet(events);
+    const timeline = new vis.Timeline(
+      document.getElementById('timeline'),
+      items,
+      {
+        editable:{ add:false, updateTime:true, remove:false },
+        interaction:{ dragView:true, zoomKey:'ctrlKey' },
+        orientation:'bottom',
+        stack:true,
+        margin:{ item:10, axis:5 },
+        moment:date=>vis.moment(date).utc()
+      }
+    );
+    
     // convert saved → proper Date & style
     events = events.map(e => ({
       id:          e.id,

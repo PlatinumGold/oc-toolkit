@@ -51,6 +51,9 @@
     <button id="btnCenter">Centre</button>
     <button id="btnNew">New Event</button>
     <button id="btnClear">Clear All</button>
+    <button id="btnExport">Export JSON</button>
+<input type="file" id="importFile" accept="application/json" style="display:none">
+<button id="btnImport">Import JSON</button>
   </div>
 
   <div id="main">
@@ -129,6 +132,50 @@
     const btnNew    = document.getElementById('btnNew');
     const btnCenter = document.getElementById('btnCenter');
     const btnClear  = document.getElementById('btnClear');
+    const btnExport = document.getElementById('btnExport');
+const btnImport = document.getElementById('btnImport');
+const importFile = document.getElementById('importFile');
+
+// Export current events array as a JSON download
+btnExport.onclick = () => {
+  const blob = new Blob([JSON.stringify(events, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'timeline-events.json';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Trigger file picker
+btnImport.onclick = () => importFile.click();
+
+// When a file is chosen, read & merge
+importFile.onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const imported = JSON.parse(reader.result);
+      // optionally you could clear existing first or dedupe by id
+      imported.forEach(evt => {
+        if (!events.find(e => e.id === evt.id)) {
+          events.push(evt);
+          items.add(evt);
+        }
+      });
+      saveAll();
+      alert('Imported ' + imported.length + ' events.');
+    } catch {
+      alert('Invalid JSON file.');
+    }
+  };
+  reader.readAsText(file);
+  // reset input so same file can be imported again if needed
+  importFile.value = '';
+};
+
 
     // ── Helpers ──
     function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }

@@ -10,78 +10,65 @@
   />
   <style>
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+    html, body { margin:0; padding:0; height:100%; font-family:Arial,sans-serif; }
+
+    /* ── Header & Buttons ── */
     #header {
-      height: 48px;
-      background: #4a90e2;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      padding: 0 16px;
-      font-size: 1.1em;
+      height:48px; background:#4a90e2; color:#fff;
+      display:flex; align-items:center; padding:0 16px; font-size:1.1em;
     }
     #header button {
-      margin-left: 8px;
-      background: #fff;
-      color: #4a90e2;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
+      margin-left:8px; background:#fff; color:#4a90e2;
+      border:none; padding:6px 12px; border-radius:4px; cursor:pointer;
     }
+
+    /* ── Layout ── */
     #main {
-      display: flex;
-      flex-direction: row;
-      height: calc(100% - 48px);
-      min-height: 0; /* allows children to grow/shrink */
+      display:flex; flex-direction:row;
+      height:calc(100% - 48px); min-height:0;
     }
+    /* Timeline panel */
     #timeline {
-      flex: 1;
-      min-height: 0;   /* allow flex child to shrink */
-      height: 100%;    /* FULL HEIGHT under header */
+      flex:1; min-height:0; height:100%;
+      position:relative;  /* for central axis line */
     }
-    /* hide the default group labels */
-    .vis-timeline .vis-labelset { display: none; }
+    /* Sidebar form */
     #sidebar {
-      width: 320px;
-      background: #fefefe;
-      border-left: 1px solid #ccc;
-      padding: 16px;
-      overflow-y: auto;
-      display: none;
+      width:320px; background:#fefefe; border-left:1px solid #ccc;
+      padding:16px; overflow-y:auto; display:none;
     }
-    #sidebar h2 { margin-top: 0; color: #4a90e2; }
-    #sidebar label { display: block; margin: 12px 0 4px; font-weight: bold; }
-    #sidebar input,
-    #sidebar textarea,
-    #sidebar select,
-    #sidebar button {
-      width: 100%;
-      padding: 6px;
-      margin-bottom: 8px;
-    }
-    #sidebar textarea { resize: vertical; height: 60px; }
-    #sidebar .actions { display: flex; gap: 8px; margin-top: 12px; }
-    #sidebar .actions button {
-      flex: 1;
-      padding: 8px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #sidebar .save   { background: #4a90e2; color: #fff; }
-    #sidebar .delete { background: #e74c3c; color: #fff; }
-    #sidebar .cancel { background: #ccc; }
 
-/* force the internal vis-timeline element to fill its parent */
-#timeline .vis-timeline {
-  height: 100% !important;
-}
-#timeline .vis-panel, 
-#timeline .vis-time-axis {
-  height: 100% !important;
-}
+    /* ── Central Axis Line ── */
+    #timeline::before {
+      content:"";
+      position:absolute; top:50%; left:0; right:0;
+      height:2px; background:#444; z-index:0;
+    }
 
+    /* ── Hide default group labels ── */
+    .vis-timeline .vis-labelset { display:none; }
+
+    /* ── Force full-height inside Vis ── */
+    #timeline .vis-timeline,
+    #timeline .vis-panel,
+    #timeline .vis-time-axis {
+      height:100% !important;
+    }
+
+    /* ── Sidebar form styling ── */
+    #sidebar h2 { margin-top:0; color:#4a90e2; }
+    #sidebar label { display:block; margin:12px 0 4px; font-weight:bold; }
+    #sidebar input, #sidebar textarea, #sidebar select, #sidebar button {
+      width:100%; padding:6px; margin-bottom:8px;
+    }
+    #sidebar textarea { resize: vertical; height:60px; }
+    .actions { display:flex; gap:8px; margin-top:12px; }
+    .actions button {
+      flex:1; padding:8px; border:none; border-radius:4px; cursor:pointer;
+    }
+    .save   { background:#4a90e2; color:#fff; }
+    .delete { background:#e74c3c; color:#fff; }
+    .cancel { background:#ccc; }
   </style>
 </head>
 <body>
@@ -94,6 +81,7 @@
 
   <div id="main">
     <div id="timeline"></div>
+
     <div id="sidebar">
       <h2 id="formTitle">New Event</h2>
       <input type="hidden" id="evId" />
@@ -132,38 +120,35 @@
     // ── Persistence ──
     const STORAGE_KEY = 'oc_tl_events';
     let events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    function saveAll(){
+    function saveAll() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }
 
-    // ── Groups for above/below ──
+    // ── Define two lanes (groups) ──
     const groups = new vis.DataSet([
-      { id: 1, content: 'Above' },
-      { id: 2, content: 'Below' }
+      { id:1, content:'Above' },
+      { id:2, content:'Below' }
     ]);
 
-    // ── DataSet & Timeline ──
+    // ── Initialize items & timeline ──
     const items = new vis.DataSet(events);
-const timeline = new vis.Timeline(
-  document.getElementById('timeline'),
-  { items, groups },
-  {
-    height: '100%',   // ← add this
-    width:  '100%',   // ← and this if you want full width
-    editable:{ updateGroup:true, updateTime:true },
-    interaction:{ dragView:true, zoomKey:'ctrlKey' },
-    orientation:'bottom',
-    stack:true,
-    margin:{ item:10, axis:5 },
-    moment: d => vis.moment(d).utc()
-  }
-);
+    const timeline = new vis.Timeline(
+      document.getElementById('timeline'),
+      { items, groups },
+      {
+        height:'100%', width:'100%',
+        editable:{ updateGroup:true, updateTime:true },
+        interaction:{ dragView:true, zoomKey:'ctrlKey' },
+        orientation:'bottom', stack:true,
+        margin:{ item:10, axis:5 },
+        moment: d=> vis.moment(d).utc()
+      }
+    );
 
-
-    // **Auto-fit on load**  
+    // auto-fit on load
     timeline.fit();
 
-    // ── Sidebar refs ──
+    // ── Sidebar references ──
     const sb       = document.getElementById('sidebar');
     const fTitle   = document.getElementById('formTitle');
     const inId     = document.getElementById('evId');
@@ -179,18 +164,20 @@ const timeline = new vis.Timeline(
     const btnNew   = document.getElementById('btnNew');
     const btnCenter= document.getElementById('btnCenter');
 
-    function isoDate(d){
+    function isoDate(d) {
       return vis.moment(d).utc().format('YYYY-MM-DD');
     }
-    function showForm(data){
+
+    function showForm(data) {
       sb.style.display = 'block';
-      if(data){
+      if(data) {
         fTitle.textContent = 'Edit Event';
         inId.value = data.id;
         inC.value  = data.content;
-        inD.value  = data.description||'';
+        inD.value  = data.description || '';
         inS.value  = isoDate(data.start);
         inE.value  = data.end ? isoDate(data.end) : '';
+        // extract color from style
         const m = /background-color:\s*([^;]+)/.exec(data.style||'');
         inCol.value = m ? m[1] : '#4a90e2';
         inP.value  = data.group;
@@ -203,29 +190,32 @@ const timeline = new vis.Timeline(
         btnDel.style.display = 'none';
       }
     }
-    function hideForm(){
+
+    function hideForm() {
       sb.style.display = 'none';
       timeline.unselect();
     }
 
-    // ── New / Double-click ──
-    btnNew.onclick = ()=> showForm(null);
-    btnCenter.onclick = ()=> timeline.fit();
-    timeline.on('doubleClick', props=>{
-      if(props.what==='background'){
+    // ── New / Center buttons ──
+    btnNew.onclick    = ()=> showForm(null);
+    btnCenter.onclick = ()=> timeline.moveTo(new Date());
+
+    // ── Double-click background to add ──
+    timeline.on('doubleClick', props => {
+      if(props.what==='background') {
         showForm({ start: props.time, group:1, style:'background-color:#4a90e2;' });
       }
     });
 
-    // ── Select item ──
-    timeline.on('select', props=>{
-      if(props.items.length===1){
+    // ── Select existing ──
+    timeline.on('select', props => {
+      if(props.items.length===1) {
         const ev = items.get(props.items[0]);
         showForm(ev);
       }
     });
 
-    // ── Save ──
+    // ── Save event ──
     btnSave.onclick = ()=>{
       const id = inId.value || Date.now();
       const content = inC.value.trim();
@@ -239,9 +229,9 @@ const timeline = new vis.Timeline(
       const rec = { id, content, start, group, style, description: inD.value };
       if(end) rec.end = end;
 
-      if(inId.value){
+      if(inId.value) {
         items.update(rec);
-        events = events.map(e=>e.id==id?rec:e);
+        events = events.map(e=> e.id == id ? rec : e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -250,11 +240,11 @@ const timeline = new vis.Timeline(
       hideForm();
     };
 
-    // ── Delete ──
+    // ── Delete event ──
     btnDel.onclick = ()=>{
       const id = inId.value;
       items.remove(id);
-      events = events.filter(e=>e.id!=id);
+      events = events.filter(e=> e.id != id);
       saveAll();
       hideForm();
     };

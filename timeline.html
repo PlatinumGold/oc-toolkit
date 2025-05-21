@@ -39,25 +39,10 @@
     }
 
     /* —— Main Layout —— */
-    /* your existing header is 48px tall, so #main takes the rest */
-#main {
-  display: flex;
-  height: calc(100vh - 48px);
-  min-height: 0; /* allow children to shrink properly */
-}
-/* make the timeline container itself fill #main */
-#timeline {
-  flex: 1;
-  height: 90%;
-  min-height: 0;
-}
-/* force the Vis Timeline internals to fill their parent */
-.vis-timeline, 
-.vis-timeline .vis-panel,
-.vis-timeline .vis-content,
-.vis-timeline .vis-time-axis {
-  height: 90% !important;
-}
+    
+    #main { display:flex; height:calc(100% - 48px); }
+    #timeline { flex:1; position:relative; }
+    
     #sidebar {
       width:320px; background:#fefefe; border-left:1px solid #ccc;
       padding:16px; overflow-y:auto; display:none;

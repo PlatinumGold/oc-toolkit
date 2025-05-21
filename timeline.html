@@ -12,58 +12,44 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
 
-    /* ── Header ── */
+    /* Header */
     #header {
-      height: 48px;
-      background: #4a90e2;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      padding: 0 16px;
+      height: 48px; background: #4a90e2; color: #fff;
+      display: flex; align-items: center; padding: 0 16px;
       font-size: 1.1em;
     }
     #header button {
-      margin-left: 8px;
-      background: #fff;
-      color: #4a90e2;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
+      margin-left: 8px; background: #fff; color: #4a90e2;
+      border: none; padding: 6px 12px; border-radius: 4px;
       cursor: pointer;
     }
 
-    /* ── Layout ── */
+    /* Main layout */
     #main {
-      display: flex;
-      height: calc(100% - 48px);
+      display: flex; height: calc(100% - 48px);
     }
     #timeline {
-      position: relative;   /* needed for center-line pseudo */
-      flex: 1;
-      height: 100%;
+      position: relative; flex: 1; height: 100%;
     }
-    /* draw the center line */
+    /* center line */
     #timeline::before {
       content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background: #4a90e2;
+      position: absolute; top: 50%; left: 0;
+      width: 100%; height: 2px; background: #4a90e2;
       z-index: 0;
     }
     /* hide default group labels */
     .vis-timeline .vis-labelset { display: none; }
+    /* force the vis graph to fill */
+    #timeline .vis-timeline,
+    #timeline .vis-panel,
+    #timeline .vis-time-axis { height: 100% !important; }
 
-    /* ── Sidebar (add/edit form) ── */
+    /* Sidebar */
     #sidebar {
-      width: 320px;
-      background: #fefefe;
-      border-left: 1px solid #ccc;
-      padding: 16px;
-      overflow-y: auto;
-      display: none;
+      width: 320px; background: #fefefe;
+      border-left: 1px solid #ccc; padding: 16px;
+      overflow-y: auto; display: none;
     }
     #sidebar h2 { margin-top: 0; color: #4a90e2; }
     #sidebar label { display: block; margin: 12px 0 4px; font-weight: bold; }
@@ -71,24 +57,16 @@
       width: 100%; padding: 6px; margin-bottom: 8px;
     }
     #sidebar textarea { resize: vertical; height: 60px; }
-    #sidebar .actions { display: flex; gap: 8px; margin-top: 12px; }
-    #sidebar .actions button {
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .actions button {
       flex: 1; padding: 8px; border: none; border-radius: 4px; cursor: pointer;
     }
-    #sidebar .save   { background: #4a90e2; color: #fff; }
-    #sidebar .delete { background: #e74c3c; color: #fff; }
-    #sidebar .cancel { background: #ccc; }
-
-    /* force vis-timeline itself to fill the parent */
-    #timeline .vis-timeline,
-    #timeline .vis-panel,
-    #timeline .vis-time-axis {
-      height: 100% !important;
-    }
+    .save   { background: #4a90e2; color: #fff; }
+    .delete { background: #e74c3c; color: #fff; }
+    .cancel { background: #ccc; }
   </style>
 </head>
 <body>
-
   <div id="header">
     📅 OC Timeline Manager
     <button id="btnCenter">Center</button>
@@ -132,44 +110,50 @@
 
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
-    // ── Load & rehydrate events ──
+    // — Persistence —
     const STORAGE_KEY = 'oc_tl_events';
-    let raw = localStorage.getItem(STORAGE_KEY);
-    let events = raw
-      ? JSON.parse(raw).map(e => ({
+    let events = [];
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        events = JSON.parse(raw).map(e => ({
           ...e,
           start: new Date(e.start),
           end:   e.end ? new Date(e.end) : undefined
-        }))
-      : [];
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load events', err);
+    }
 
     function saveAll() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }
 
-    // ── Above/below groups ──
+    // — Groups —
     const groups = new vis.DataSet([
-      { id:1, content:'Above' },
-      { id:2, content:'Below' }
+      { id: 1, content: 'Above' },
+      { id: 2, content: 'Below' }
     ]);
 
-    // ── Create timeline ──
+    // — Timeline —
     const items = new vis.DataSet(events);
     const timeline = new vis.Timeline(
       document.getElementById('timeline'),
       { items, groups },
       {
-        height:'100%', width:'100%',
-        editable:{ updateGroup:true, updateTime:true },
-        interaction:{ dragView:true, zoomKey:'ctrlKey' },
-        orientation:'bottom', stack:true,
-        margin:{ item:10, axis:5 },
+        height: '100%', width: '100%',
+        editable: { updateGroup:true, updateTime:true },
+        interaction: { dragView:true, zoomKey:'ctrlKey' },
+        orientation: 'bottom',
+        stack: true,
+        margin: { item:10, axis:5 },
         moment: d => vis.moment(d).utc()
       }
     );
     timeline.fit();
 
-    // ── Sidebar refs ──
+    // — Form Elements —
     const sb       = document.getElementById('sidebar');
     const fTitle   = document.getElementById('formTitle');
     const inId     = document.getElementById('evId');
@@ -185,17 +169,17 @@
     const btnNew   = document.getElementById('btnNew');
     const btnCenter= document.getElementById('btnCenter');
 
-    function isoDate(d){
+    function isoDate(d) {
       return vis.moment(d).utc().format('YYYY-MM-DD');
     }
 
-    function showForm(data){
+    function showForm(data) {
       sb.style.display = 'block';
-      if(data){
+      if (data) {
         fTitle.textContent = 'Edit Event';
         inId.value = data.id;
         inC.value  = data.content;
-        inD.value  = data.description||'';
+        inD.value  = data.description || '';
         inS.value  = isoDate(data.start);
         inE.value  = data.end ? isoDate(data.end) : '';
         const m = /background-color:\s*([^;]+)/.exec(data.style||'');
@@ -211,32 +195,32 @@
       }
     }
 
-    function hideForm(){
+    function hideForm() {
       sb.style.display = 'none';
       timeline.unselect();
     }
 
-    // ── Handlers ──
-    btnNew.onclick    = ()=> showForm(null);
-    btnCenter.onclick = ()=> timeline.fit();
+    // — Event Handlers —
+    btnNew.onclick    = () => showForm(null);
+    btnCenter.onclick = () => timeline.fit();
 
-    timeline.on('doubleClick', props=>{
-      if(props.what==='background'){
-        showForm({ start: props.time, group:1, style:'background-color:#4a90e2;' });
+    timeline.on('doubleClick', props => {
+      if (props.what === 'background') {
+        showForm({ start: props.time, group: 1, style: 'background-color:#4a90e2;' });
       }
     });
 
-    timeline.on('select', props=>{
-      if(props.items.length===1){
+    timeline.on('select', props => {
+      if (props.items.length === 1) {
         const ev = items.get(props.items[0]);
         showForm(ev);
       }
     });
 
-    btnSave.onclick = ()=>{
+    btnSave.onclick = () => {
       const id      = inId.value || Date.now();
       const content = inC.value.trim();
-      if(!content) return alert('Title required');
+      if (!content) return alert('Title required');
       const start = inS.value ? new Date(inS.value) : new Date();
       const end   = inE.value ? new Date(inE.value) : undefined;
       const color = inCol.value;
@@ -244,11 +228,11 @@
       const style = `background-color:${color}; border-color:${color};`;
 
       const rec = { id, content, start, group, style, description: inD.value };
-      if(end) rec.end = end;
+      if (end) rec.end = end;
 
-      if(inId.value){
+      if (inId.value) {
         items.update(rec);
-        events = events.map(e=>e.id==id?rec:e);
+        events = events.map(e => e.id == id ? rec : e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -257,10 +241,10 @@
       hideForm();
     };
 
-    btnDel.onclick = ()=>{
+    btnDel.onclick = () => {
       const id = inId.value;
       items.remove(id);
-      events = events.filter(e=>e.id!=id);
+      events = events.filter(e => e.id != id);
       saveAll();
       hideForm();
     };

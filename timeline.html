@@ -105,29 +105,31 @@
   <!-- vis-timeline -->
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
-    // persistence key
+    // ── Persistence ──
     const STORAGE_KEY = 'oc_tl_events';
+    let raw = localStorage.getItem(STORAGE_KEY);
+    let events = raw ? JSON.parse(raw) : [];
 
-    // load & rehydrate dates
-    let events = [];
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        JSON.parse(raw).forEach(e => {
-          events.push({
-            ...e,
-            start: new Date(e.start),
-            end:   e.end ? new Date(e.end) : undefined
-          });
-        });
-      }
-    } catch(err) {
-      console.warn('Could not load events', err);
-    }
+    // convert saved → proper Date & style
+    events = events.map(e => ({
+      id:          e.id,
+      content:     e.content,
+      description: e.description,
+      start:       new Date(e.start),
+      end:         e.end ? new Date(e.end) : undefined,
+      group:       e.group,
+      style:       e.style
+                 || `background-color:${e.color};border-color:${e.color};`
+    }));
 
     function saveAll(){
-      localStorage.setItem(STORAGE_KEY,
-        JSON.stringify(events)
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(events.map(e=>({
+          ...e,
+          start: e.start.toISOString(),
+          end:   e.end ? e.end.toISOString() : null
+        })))
       );
     }
 
@@ -185,7 +187,9 @@
         inD.value   = e.description||'';
         inS.value   = isoDate(e.start);
         inE.value   = e.end ? isoDate(e.end) : '';
-        inCol.value = e.color||'#4a90e2';
+        // extract color from style
+        let m = /background-color:\s*(#[0-9A-Fa-f]{6})/.exec(e.style);
+        inCol.value = m ? m[1] : '#4a90e2';
         inP.value   = e.group;
         btnDel.style.display = 'inline-block';
       } else {
@@ -202,7 +206,7 @@
       timeline.unselect();
     }
 
-    // New / Center buttons
+    // New / Center
     btnNew.onclick    = ()=> showForm({});
     btnCenter.onclick = ()=> timeline.fit();
 
@@ -212,7 +216,7 @@
         showForm({
           start: props.time,
           group: 1,
-          color: '#4a90e2'
+          style: 'background-color:#4a90e2;border-color:#4a90e2;'
         });
       }
     });
@@ -227,20 +231,21 @@
 
     // save
     btnSave.onclick = ()=>{
-      const id      = inId.value || Date.now();
+      const id      = inId.value || Date.now().toString();
       const content = inC.value.trim();
       if (!content) return alert('Title required');
       const start = inS.value ? new Date(inS.value) : new Date();
       const end   = inE.value ? new Date(inE.value) : undefined;
       const color = inCol.value;
       const group = Number(inP.value);
+      const style = `background-color:${color};border-color:${color};`;
 
-      const rec = { id, content, start, group, color, description: inD.value };
+      const rec = { id, content, start, group, style, description: inD.value };
       if (end) rec.end = end;
 
       if (inId.value) {
         items.update(rec);
-        events = events.map(ev => ev.id==id ? rec : ev);
+        events = events.map(ev=>ev.id===id?rec:ev);
       } else {
         items.add(rec);
         events.push(rec);
@@ -253,7 +258,7 @@
     btnDel.onclick = ()=>{
       const id = inId.value;
       items.remove(id);
-      events = events.filter(ev=>ev.id!=id);
+      events = events.filter(ev=>ev.id!==id);
       saveAll();
       hideForm();
     };

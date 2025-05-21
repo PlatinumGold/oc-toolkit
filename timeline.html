@@ -8,149 +8,66 @@
     href="https://unpkg.com/vis-timeline@latest/styles/vis-timeline-graph2d.min.css"
     rel="stylesheet"
   />
-<script>
-  // ── Persistence ──
-  const STORAGE_KEY = 'oc_tl_events';
-  let raw = localStorage.getItem(STORAGE_KEY);
-  let events = raw
-    ? JSON.parse(raw).map(e => ({
-        ...e,
-        start: new Date(e.start),
-        end:    e.end ? new Date(e.end) : undefined
-      }))
-    : [];
-
-  function saveAll() {
-    // when saving, Dates get stringified automatically
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-  }
-
-  // ── Define two lanes (groups) ──
-  const groups = new vis.DataSet([
-    { id:1, content:'Above' },
-    { id:2, content:'Below' }
-  ]);
-
-  // ── Initialize items & timeline ──
-  const items = new vis.DataSet(events);
-  const timeline = new vis.Timeline(
-    document.getElementById('timeline'),
-    { items, groups },
-    {
-      height:'100%', width:'100%',
-      editable:{ updateGroup:true, updateTime:true },
-      interaction:{ dragView:true, zoomKey:'ctrlKey' },
-      orientation:'bottom', stack:true,
-      margin:{ item:10, axis:5 },
-      moment: d=> vis.moment(d).utc()
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+    #header {
+      height: 48px;
+      background: #4a90e2;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 1.1em;
     }
-  );
-
-  // auto-fit on load
-  timeline.fit();
-
-  // ── Sidebar refs ──
-  const sb       = document.getElementById('sidebar');
-  const fTitle   = document.getElementById('formTitle');
-  const inId     = document.getElementById('evId');
-  const inC      = document.getElementById('evContent');
-  const inD      = document.getElementById('evDesc');
-  const inS      = document.getElementById('evStart');
-  const inE      = document.getElementById('evEnd');
-  const inCol    = document.getElementById('evColor');
-  const inP      = document.getElementById('evPos');
-  const btnSave  = document.getElementById('btnSave');
-  const btnDel   = document.getElementById('btnDelete');
-  const btnCan   = document.getElementById('btnCancel');
-  const btnNew   = document.getElementById('btnNew');
-  const btnCenter= document.getElementById('btnCenter');
-
-  function isoDate(d) {
-    return vis.moment(d).utc().format('YYYY-MM-DD');
-  }
-
-  function showForm(data) {
-    sb.style.display = 'block';
-    if(data) {
-      fTitle.textContent = 'Edit Event';
-      inId.value = data.id;
-      inC.value  = data.content;
-      inD.value  = data.description || '';
-      inS.value  = isoDate(data.start);
-      inE.value  = data.end ? isoDate(data.end) : '';
-      const m = /background-color:\s*([^;]+)/.exec(data.style||'');
-      inCol.value = m ? m[1] : '#4a90e2';
-      inP.value  = data.group;
-      btnDel.style.display = 'inline-block';
-    } else {
-      fTitle.textContent = 'New Event';
-      [inId,inC,inD,inS,inE].forEach(i=>i.value='');
-      inCol.value = '#4a90e2';
-      inP.value   = '1';
-      btnDel.style.display = 'none';
+    #header button {
+      margin-left: 8px;
+      background: #fff;
+      color: #4a90e2;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
     }
-  }
-
-  function hideForm() {
-    sb.style.display = 'none';
-    timeline.unselect();
-  }
-
-  // ── Wire up buttons ──
-  btnNew.onclick    = ()=> showForm(null);
-  btnCenter.onclick = ()=> timeline.moveTo(new Date());
-
-  timeline.on('doubleClick', props => {
-    if(props.what==='background') {
-      showForm({ start: props.time, group:1, style:'background-color:#4a90e2;' });
+    #main {
+      display: flex;
+      flex-direction: row;
+      height: calc(100% - 48px);
+      min-height: 0;
     }
-  });
-
-  timeline.on('select', props => {
-    if(props.items.length===1) {
-      const ev = items.get(props.items[0]);
-      showForm(ev);
+    #timeline {
+      flex: 1;
+      min-height: 0;
+      height: 100%;
     }
-  });
-
-  // ── Save or add ──
-  btnSave.onclick = ()=>{
-    const id = inId.value || Date.now();
-    const content = inC.value.trim();
-    if(!content) return alert('Title required');
-    const start = inS.value ? new Date(inS.value) : new Date();
-    const end   = inE.value ? new Date(inE.value) : undefined;
-    const color = inCol.value;
-    const group = Number(inP.value);
-    const style = `background-color:${color}; border-color:${color};`;
-
-    const rec = { id, content, start, group, style, description: inD.value };
-    if(end) rec.end = end;
-
-    if(inId.value) {
-      items.update(rec);
-      events = events.map(e=> e.id==id ? rec : e);
-    } else {
-      items.add(rec);
-      events.push(rec);
+    .vis-timeline .vis-labelset { display: none; }
+    #sidebar {
+      width: 320px;
+      background: #fefefe;
+      border-left: 1px solid #ccc;
+      padding: 16px;
+      overflow-y: auto;
+      display: none;
     }
-    saveAll();
-    hideForm();
-  };
+    #sidebar h2 { margin-top: 0; color: #4a90e2; }
+    #sidebar label { display: block; margin: 12px 0 4px; font-weight: bold; }
+    #sidebar input, #sidebar textarea, #sidebar select, #sidebar button {
+      width: 100%; padding: 6px; margin-bottom: 8px;
+    }
+    #sidebar textarea { resize: vertical; height: 60px; }
+    #sidebar .actions { display: flex; gap: 8px; margin-top: 12px; }
+    #sidebar .actions button {
+      flex: 1; padding: 8px; border: none; border-radius: 4px; cursor: pointer;
+    }
+    #sidebar .save   { background: #4a90e2; color: #fff; }
+    #sidebar .delete { background: #e74c3c; color: #fff; }
+    #sidebar .cancel { background: #ccc; }
 
-  // ── Delete ──
-  btnDel.onclick = ()=>{
-    const id = inId.value;
-    items.remove(id);
-    events = events.filter(e=> e.id!=id);
-    saveAll();
-    hideForm();
-  };
-
-  // ── Cancel ──
-  btnCan.onclick = hideForm;
-</script>
-
+    /* force vis-timeline to fill */
+    #timeline .vis-timeline,
+    #timeline .vis-panel,
+    #timeline .vis-time-axis { height: 100% !important; }
+  </style>
 </head>
 <body>
 
@@ -162,7 +79,6 @@
 
   <div id="main">
     <div id="timeline"></div>
-
     <div id="sidebar">
       <h2 id="formTitle">New Event</h2>
       <input type="hidden" id="evId" />
@@ -198,20 +114,28 @@
 
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
-    // ── Persistence ──
+    // ── Load & rehydrate from storage ──
     const STORAGE_KEY = 'oc_tl_events';
-    let events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let raw = localStorage.getItem(STORAGE_KEY);
+    let events = raw
+      ? JSON.parse(raw).map(e => ({
+          ...e,
+          start: new Date(e.start),
+          end:   e.end ? new Date(e.end) : undefined
+        }))
+      : [];
+
     function saveAll() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }
 
-    // ── Define two lanes (groups) ──
+    // ── Above/below groups ──
     const groups = new vis.DataSet([
       { id:1, content:'Above' },
       { id:2, content:'Below' }
     ]);
 
-    // ── Initialize items & timeline ──
+    // ── Instantiate timeline ──
     const items = new vis.DataSet(events);
     const timeline = new vis.Timeline(
       document.getElementById('timeline'),
@@ -225,8 +149,6 @@
         moment: d=> vis.moment(d).utc()
       }
     );
-
-    // auto-fit on load
     timeline.fit();
 
     // ── Sidebar references ──
@@ -251,21 +173,20 @@
 
     function showForm(data) {
       sb.style.display = 'block';
-      if(data) {
+      if (data) {
         fTitle.textContent = 'Edit Event';
         inId.value = data.id;
         inC.value  = data.content;
         inD.value  = data.description || '';
         inS.value  = isoDate(data.start);
         inE.value  = data.end ? isoDate(data.end) : '';
-        // extract color from style
         const m = /background-color:\s*([^;]+)/.exec(data.style||'');
         inCol.value = m ? m[1] : '#4a90e2';
-        inP.value  = data.group;
+        inP.value   = data.group;
         btnDel.style.display = 'inline-block';
       } else {
         fTitle.textContent = 'New Event';
-        [inId,inC,inD,inS,inE].forEach(i=>i.value='');
+        [inId, inC, inD, inS, inE].forEach(i=>i.value = '');
         inCol.value = '#4a90e2';
         inP.value   = '1';
         btnDel.style.display = 'none';
@@ -277,42 +198,40 @@
       timeline.unselect();
     }
 
-    // ── New / Center buttons ──
+    // ── Button handlers ──
     btnNew.onclick    = ()=> showForm(null);
-    btnCenter.onclick = ()=> timeline.moveTo(new Date());
+    btnCenter.onclick = ()=> timeline.fit();
 
-    // ── Double-click background to add ──
     timeline.on('doubleClick', props => {
-      if(props.what==='background') {
+      if (props.what === 'background') {
         showForm({ start: props.time, group:1, style:'background-color:#4a90e2;' });
       }
     });
 
-    // ── Select existing ──
     timeline.on('select', props => {
-      if(props.items.length===1) {
+      if (props.items.length === 1) {
         const ev = items.get(props.items[0]);
         showForm(ev);
       }
     });
 
-    // ── Save event ──
-    btnSave.onclick = ()=>{
-      const id = inId.value || Date.now();
+    // ── Save / Update ──
+    btnSave.onclick = ()=> {
+      const id      = inId.value || Date.now();
       const content = inC.value.trim();
-      if(!content) return alert('Title required');
-      const start = inS.value ? new Date(inS.value) : new Date();
-      const end   = inE.value ? new Date(inE.value) : undefined;
-      const color = inCol.value;
-      const group = Number(inP.value);
-      const style = `background-color:${color}; border-color:${color};`;
+      if (!content) return alert('Title required');
+      const start   = inS.value ? new Date(inS.value) : new Date();
+      const end     = inE.value ? new Date(inE.value) : undefined;
+      const color   = inCol.value;
+      const group   = Number(inP.value);
+      const style   = `background-color:${color}; border-color:${color};`;
 
       const rec = { id, content, start, group, style, description: inD.value };
-      if(end) rec.end = end;
+      if (end) rec.end = end;
 
-      if(inId.value) {
+      if (inId.value) {
         items.update(rec);
-        events = events.map(e=> e.id == id ? rec : e);
+        events = events.map(e => e.id == id ? rec : e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -321,11 +240,11 @@
       hideForm();
     };
 
-    // ── Delete event ──
-    btnDel.onclick = ()=>{
+    // ── Delete ──
+    btnDel.onclick = ()=> {
       const id = inId.value;
       items.remove(id);
-      events = events.filter(e=> e.id != id);
+      events = events.filter(e => e.id != id);
       saveAll();
       hideForm();
     };

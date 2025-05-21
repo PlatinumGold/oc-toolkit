@@ -151,32 +151,29 @@
       return vis.moment(d).utc().format('YYYY-MM-DD');
     }
 
-    function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }
-    function showForm(eventData) {
+    function showForm(data) {
       sb.style.display = 'block';
-      if (eventData) {
+      if (data) {
         fTitle.textContent = 'Edit Event';
-        inId.value     = eventData.id;
-        inContent.value= eventData.content;
-        inDesc.value   = eventData.description || '';
-        inStart.value  = isoDate(eventData.start);
-        inEnd.value    = eventData.end ? isoDate(eventData.end) : '';
-        inColor.value  = eventData.color || '#4a90e2';
-        inPos.value    = eventData.className||'top';
+        inId.value = data.id;
+        inC.value  = data.content;
+        inD.value  = data.description || '';
+        inS.value  = isoDate(data.start);
+        inE.value  = data.end ? isoDate(data.end) : '';
+        const m = /background-color:\s*([^;]+)/.exec(data.style||'');
+        inCol.value = m ? m[1] : '#4a90e2';
+        inP.value   = data.group;
         btnDel.style.display = 'inline-block';
       } else {
         fTitle.textContent = 'New Event';
-        inId.value = '';
-        inContent.value = '';
-        inDesc.value = '';
-        inStart.value = '';
-        inEnd.value = '';
-        inColor.value = '#4a90e2';
-        inPos.value = 'top';
+        [inId,inC,inD,inS,inE].forEach(i=>i.value='');
+        inCol.value = '#4a90e2';
+        inP.value   = '1';
         btnDel.style.display = 'none';
       }
     }
-        function hideForm() {
+
+    function hideForm() {
       sb.style.display = 'none';
       timeline.unselect();
     }

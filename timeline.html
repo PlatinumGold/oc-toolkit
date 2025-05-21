@@ -15,12 +15,26 @@
       height:65px; background:#4a90e2; color:#fff;
       display:flex; align-items:center; padding:0 16px;
       font-size:1.1em;
-    }
-    #header button {
-      margin-left: 8px; background:#fff; color:#4a90e2;
-      border:none; padding:6px 12px; border-radius:4px;
-      cursor:pointer;
-    }
+    #header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 48px;
+  background: #4a90e2;
+  color: #fff;
+  padding: 0 16px;
+  font-size: 1.1em;
+}
+
+.hdr-left, .hdr-right {
+  display: flex;
+  align-items: center;
+}
+
+.hdr-right button {
+  margin-left: 8px;
+}
+
     #main { display:flex; height:calc(100% - 48px); }
     #timeline { flex:1; position:relative; }
     /* Sidebar */
@@ -47,14 +61,19 @@
 <body>
 
   <div id="header">
+  <div class="hdr-left">
     📅 OC Timeline Manager
-    <button id="btnCenter">Centre</button>
+    <button id="btnCenter">Center</button>
     <button id="btnNew">New Event</button>
     <button id="btnClear">Clear All</button>
-    <button id="btnExport">Export JSON</button>
-<input type="file" id="importFile" accept="application/json" style="display:none">
-<button id="btnImport">Import JSON</button>
   </div>
+  <div class="hdr-right">
+    <button id="btnExport">Export JSON</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none">
+    <button id="btnImport">Import JSON</button>
+  </div>
+</div>
+
 
   <div id="main">
     <div id="timeline"></div>

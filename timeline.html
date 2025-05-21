@@ -11,40 +11,43 @@
   <style>
     * { box-sizing: border-box; }
     body, html { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; }
+
+    /* —— Header —— */
     #header {
-      height:65px; background:#4a90e2; color:#fff;
-      display:flex; align-items:center; padding:0 16px;
-      font-size:1.1em;
-    #header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 48px;
-  background: #4a90e2;
-  color: #fff;
-  padding: 0 16px;
-  font-size: 1.1em;
-}
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 64px;
+      background: #4a90e2;
+      color: #fff;
+      padding: 0 16px;
+      font-size: 1.1em;
+    }
+    .hdr-left, .hdr-right {
+      display: flex;
+      align-items: center;
+    }
+    .hdr-left button,
+    .hdr-right button {
+      margin-left: 8px;
+      background: #fff;
+      color: #4a90e2;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
 
-.hdr-left, .hdr-right {
-  display: flex;
-  align-items: center;
-}
-
-.hdr-right button {
-  margin-left: 8px;
-}
-
+    /* —— Main Layout —— */
     #main { display:flex; height:calc(100% - 48px); }
     #timeline { flex:1; position:relative; }
-    /* Sidebar */
     #sidebar {
       width:320px; background:#fefefe; border-left:1px solid #ccc;
       padding:16px; overflow-y:auto; display:none;
     }
     #sidebar h2 { margin-top:0; color:#4a90e2; }
     #sidebar label { display:block; margin:12px 0 4px; font-weight:bold; }
-    #sidebar input, #sidebar textarea, #sidebar button {
+    #sidebar input, #sidebar textarea, #sidebar select, #sidebar button {
       width:100%; padding:6px; margin-bottom:8px;
     }
     #sidebar textarea { resize: vertical; height:60px; }
@@ -61,19 +64,17 @@
 <body>
 
   <div id="header">
-  <div class="hdr-left">
-    📅 OC Timeline Manager
-    <button id="btnCenter">Center</button>
-    <button id="btnNew">New Event</button>
-    <button id="btnClear">Clear All</button>
+    <div class="hdr-left">
+      📅 OC Timeline Manager
+      <button id="btnNew">New Event</button>
+      <button id="btnCenter">Center</button>
+    </div>
+    <div class="hdr-right">
+      <button id="btnExport">Export JSON</button>
+      <button id="btnImport">Import JSON</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </div>
   </div>
-  <div class="hdr-right">
-    <button id="btnExport">Export JSON</button>
-    <input type="file" id="importFile" accept="application/json" style="display:none">
-    <button id="btnImport">Import JSON</button>
-  </div>
-</div>
-
 
   <div id="main">
     <div id="timeline"></div>
@@ -82,19 +83,19 @@
       <input type="hidden" id="evId" />
 
       <label>Title</label>
-      <input id="evContent" placeholder="Event title…" />
+      <input id="evContent" placeholder="Event title…">
 
       <label>Description</label>
       <textarea id="evDesc" placeholder="Optional description…"></textarea>
 
       <label>Start Date</label>
-      <input id="evStart" type="date" />
+      <input id="evStart" type="date">
 
       <label>End Date (optional)</label>
-      <input id="evEnd" type="date" />
+      <input id="evEnd" type="date">
 
       <label>Color</label>
-      <input id="evColor" type="color" value="#4a90e2" />
+      <input id="evColor" type="color" value="#4a90e2">
 
       <div class="actions">
         <button class="save"   id="btnSave">Save</button>
@@ -104,28 +105,19 @@
     </div>
   </div>
 
-  <!-- vis-timeline -->
   <script src="https://unpkg.com/vis-timeline@latest/standalone/umd/vis-timeline-graph2d.min.js"></script>
   <script>
     // ── Persistence ──
     const STORAGE_KEY = 'oc_tl_events';
     let events = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    function saveAll() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-    }
-    function clearAll() {
-      events = [];
-      items.clear();
-      saveAll();
-    }
+    function saveAll(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(events)); }
 
-    // ── Setup vis DataSet & Timeline ──
+    // ── Setup vis Timeline ──
     const items = new vis.DataSet(events);
     const timeline = new vis.Timeline(
       document.getElementById('timeline'),
       items,
       {
-        height: '100%',
         editable:{ add:false, updateTime:true, remove:false },
         interaction:{ dragView:true, zoomKey:'ctrlKey' },
         orientation:'bottom',
@@ -136,130 +128,82 @@
     );
     timeline.fit();
 
-    // ── Sidebar Form Elements ──
-    const sb        = document.getElementById('sidebar');
-    const fTitle    = document.getElementById('formTitle');
-    const inId      = document.getElementById('evId');
-    const inContent = document.getElementById('evContent');
-    const inDesc    = document.getElementById('evDesc');
-    const inStart   = document.getElementById('evStart');
-    const inEnd     = document.getElementById('evEnd');
-    const inColor   = document.getElementById('evColor');
+    // ── Sidebar Refs ──
+    const sb     = document.getElementById('sidebar');
+    const fTitle = document.getElementById('formTitle');
+    const inId   = document.getElementById('evId');
+    const inC    = document.getElementById('evContent');
+    const inD    = document.getElementById('evDesc');
+    const inS    = document.getElementById('evStart');
+    const inE    = document.getElementById('evEnd');
+    const inCol  = document.getElementById('evColor');
     const btnSave   = document.getElementById('btnSave');
     const btnDel    = document.getElementById('btnDelete');
     const btnCan    = document.getElementById('btnCancel');
     const btnNew    = document.getElementById('btnNew');
     const btnCenter = document.getElementById('btnCenter');
-    const btnClear  = document.getElementById('btnClear');
     const btnExport = document.getElementById('btnExport');
-const btnImport = document.getElementById('btnImport');
-const importFile = document.getElementById('importFile');
-
-// Export current events array as a JSON download
-btnExport.onclick = () => {
-  const blob = new Blob([JSON.stringify(events, null, 2)], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = 'timeline-events.json';
-  a.click();
-  URL.revokeObjectURL(url);
-};
-
-// Trigger file picker
-btnImport.onclick = () => importFile.click();
-
-// When a file is chosen, read & merge
-importFile.onchange = e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const imported = JSON.parse(reader.result);
-      // optionally you could clear existing first or dedupe by id
-      imported.forEach(evt => {
-        if (!events.find(e => e.id === evt.id)) {
-          events.push(evt);
-          items.add(evt);
-        }
-      });
-      saveAll();
-      alert('Imported ' + imported.length + ' events.');
-    } catch {
-      alert('Invalid JSON file.');
-    }
-  };
-  reader.readAsText(file);
-  // reset input so same file can be imported again if needed
-  importFile.value = '';
-};
-
+    const btnImport = document.getElementById('btnImport');
+    const importFi  = document.getElementById('importFile');
 
     // ── Helpers ──
     function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }
-    function showForm(data = {}) {
+    function showForm(data){
       sb.style.display = 'block';
-      if (data.id != null) {
-        fTitle.textContent   = 'Edit Event';
-        inId.value           = data.id;
-        inContent.value      = data.content || '';
-        inDesc.value         = data.description || '';
-        inStart.value        = isoDate(data.start);
-        inEnd.value          = data.end ? isoDate(data.end) : '';
-        inColor.value        = data.color || '#4a90e2';
+      if(data){
+        fTitle.textContent = 'Edit Event';
+        inId.value = data.id;
+        inC.value  = data.content;
+        inD.value  = data.description||'';
+        inS.value  = isoDate(data.start);
+        inE.value  = data.end ? isoDate(data.end) : '';
+        inCol.value= data.color||'#4a90e2';
         btnDel.style.display = 'inline-block';
       } else {
-        fTitle.textContent   = 'New Event';
-        inId.value           = '';
-        inContent.value      = '';
-        inDesc.value         = '';
-        inStart.value        = '';
-        inEnd.value          = '';
-        inColor.value        = '#4a90e2';
+        fTitle.textContent = 'New Event';
+        inId.value = inC.value = inD.value = inS.value = inE.value = '';
+        inCol.value = '#4a90e2';
         btnDel.style.display = 'none';
       }
     }
-    function hideForm() {
+    function hideForm(){
       sb.style.display = 'none';
       timeline.unselect();
     }
 
-    // ── Button Hooks ──
-    btnNew.onclick    = () => showForm();
-    btnCenter.onclick = () => timeline.fit();
-    btnClear.onclick  = () => { if (confirm('Clear all events?')) clearAll(); hideForm(); };
+    // ── Events ──
+    btnNew.onclick    = ()=> showForm(null);
+    btnCenter.onclick = ()=> timeline.fit();
 
-    // ── Timeline Events ──
-    timeline.on('doubleClick', props => {
-      if (props.what==='background') {
-        const date = timeline.getEventProperties(props.event).time;
-        showForm({ start: date });
-      }
-    });
-    timeline.on('select', props => {
-      if (props.items.length === 1) {
-        const e = items.get(props.items[0]);
-        showForm(e);
+    timeline.on('doubleClick', props=>{
+      if(props.what==='background'){
+        const dt = timeline.getEventProperties(props.event).time;
+        showForm({ start: dt });
       }
     });
 
-    // ── Save ──
-    btnSave.onclick = () => {
-      const rawId   = inId.value;
-      const id      = rawId ? +rawId : Date.now();
-      const content = inContent.value.trim();
-      if (!content) return alert('Title required');
+    timeline.on('select', props=>{
+      if(props.items.length===1){
+        const ev = items.get(props.items[0]);
+        showForm(ev);
+      }
+    });
 
-      const start = inStart.value ? new Date(inStart.value) : new Date();
-      const end   = inEnd.value   ? new Date(inEnd.value)   : undefined;
-      const color = inColor.value;
-      const style = `background-color:${color}; border-color:${color}`;
-
-      const rec = { id, content, start, ...(end && { end }), style, description: inDesc.value, color };
-      if (rawId) {
+    btnSave.onclick = ()=>{
+      const id = inId.value || Date.now();
+      const rec = {
+        id,
+        content: inC.value.trim(),
+        start: new Date(inS.value||new Date()),
+        ...(inE.value && { end: new Date(inE.value) }),
+        color: inCol.value,
+        className: '',
+        description: inD.value
+      };
+      if(!rec.content) return alert('Title required');
+      if(inId.value){
         items.update(rec);
-        events = events.map(e => e.id === id ? rec : e);
+        events = events.map(e=>e.id==id?rec:e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -268,17 +212,41 @@ importFile.onchange = e => {
       hideForm();
     };
 
-    // ── Delete ──
-    btnDel.onclick = () => {
-      const id = +inId.value;
+    btnDel.onclick = ()=>{
+      const id = inId.value;
       items.remove(id);
-      events = events.filter(e => e.id !== id);
+      events = events.filter(e=>e.id!=id);
       saveAll();
       hideForm();
     };
-
-    // ── Cancel ──
     btnCan.onclick = hideForm;
+
+    // ── Export / Import JSON ──
+    btnExport.onclick = ()=>{
+      const blob = new Blob([JSON.stringify(events, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'timeline-events.json';
+      a.click(); URL.revokeObjectURL(url);
+    };
+    btnImport.onclick = ()=> importFi.click();
+    importFi.onchange = e=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const rdr = new FileReader();
+      rdr.onload = ()=> {
+        try {
+          const arr = JSON.parse(rdr.result);
+          if(Array.isArray(arr)){
+            events = arr;
+            items.clear(); items.add(events);
+            saveAll();
+            timeline.fit();
+          }
+        } catch{}  
+      };
+      rdr.readAsText(f);
+    };
   </script>
 </body>
 </html>

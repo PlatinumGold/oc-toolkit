@@ -11,16 +11,18 @@
   <style>
     * { box-sizing: border-box; }
     body, html { margin:0; padding:0; width:100%; height:100%; font-family:Arial,sans-serif; }
+    /* header */
     #header {
       height:48px; background:#4a90e2; color:#fff;
       display:flex; align-items:center; padding:0 16px;
       font-size:1.1em;
     }
     #header button {
-      margin-left: auto; background:#fff; color:#4a90e2;
+      margin-left:auto; background:#fff; color:#4a90e2;
       border:none; padding:6px 12px; border-radius:4px;
-      cursor:pointer;
+      cursor:pointer; margin-left: 8px;
     }
+    /* main layout */
     #main { display:flex; height:calc(100% - 48px); }
     #timeline { flex:1; position:relative; }
     /* Sidebar */
@@ -36,18 +38,18 @@
     #sidebar textarea { resize: vertical; height:60px; }
     #sidebar .actions { display:flex; gap:8px; margin-top:12px; }
     #sidebar .actions button {
-      flex:1; padding:8px; border:none; border-radius:4px;
-      cursor:pointer;
+      flex:1; padding:8px; border:none; border-radius:4px; cursor:pointer;
     }
-    #sidebar .save { background:#4a90e2; color:#fff; }
-    #sidebar .delete { background:#e74c3c; color:#fff; }
-    #sidebar .cancel { background:#ccc; }
+    .save   { background:#4a90e2; color:#fff; }
+    .delete { background:#e74c3c; color:#fff; }
+    .cancel { background:#ccc; }
   </style>
 </head>
 <body>
 
   <div id="header">
     📅 OC Timeline Manager
+    <button id="btnCenter">Center</button>
     <button id="btnNew">New Event</button>
   </div>
 
@@ -107,9 +109,12 @@
         orientation:'bottom',
         stack:true,
         margin:{ item:10, axis:5 },
-        moment:date=>vis.moment(date).utc()
+        moment: date => vis.moment(date).utc()
       }
     );
+
+    // auto-center on load
+    timeline.fit();
 
     // ── Sidebar Form Elements ──
     const sb       = document.getElementById('sidebar');
@@ -123,72 +128,68 @@
     const inPos    = document.getElementById('evPos');
     const btnSave  = document.getElementById('btnSave');
     const btnDel   = document.getElementById('btnDelete');
-    const btnCancel= document.getElementById('btnCancel');
+    const btnCan   = document.getElementById('btnCancel');
+    const btnNew   = document.getElementById('btnNew');
+    const btnCenter= document.getElementById('btnCenter');
 
     // ── Helpers ──
     function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }
     function showForm(eventData) {
       sb.style.display = 'block';
-      if (eventData) {
-        fTitle.textContent = 'Edit Event';
-        inId.value     = eventData.id;
-        inContent.value= eventData.content;
-        inDesc.value   = eventData.description || '';
-        inStart.value  = isoDate(eventData.start);
-        inEnd.value    = eventData.end ? isoDate(eventData.end) : '';
-        inColor.value  = eventData.color || '#4a90e2';
-        inPos.value    = eventData.className||'top';
+      if (eventData && eventData.id) {
+        fTitle.textContent   = 'Edit Event';
+        inId.value           = eventData.id;
+        inContent.value      = eventData.content;
+        inDesc.value         = eventData.description || '';
+        inStart.value        = isoDate(eventData.start);
+        inEnd.value          = eventData.end   ? isoDate(eventData.end)   : '';
+        inColor.value        = eventData.color || '#4a90e2';
+        inPos.value          = eventData.className || 'top';
         btnDel.style.display = 'inline-block';
       } else {
         fTitle.textContent = 'New Event';
-        inId.value = '';
-        inContent.value = '';
-        inDesc.value = '';
-        inStart.value = '';
-        inEnd.value = '';
+        [inId, inContent, inDesc, inStart, inEnd].forEach(i=>i.value='');
         inColor.value = '#4a90e2';
-        inPos.value = 'top';
+        inPos.value   = 'top';
         btnDel.style.display = 'none';
       }
     }
-    function hideForm(){ sb.style.display = 'none'; }
+    function hideForm(){ sb.style.display = 'none'; timeline.unselect(); }
 
-    // ── New Event (button or double-click) ──
-    document.getElementById('btnNew').onclick = () => {
-      showForm(null);
-    };
+    // ── Button hooks ──
+    btnNew.onclick    = ()=> showForm({});
+    btnCenter.onclick = ()=> timeline.fit();
+
+    // ── Double-click background to add ──
     timeline.on('doubleClick', props => {
-      // props.event.center gives x px, props.what==='background'
-      // map x to date
-      if (props.what === 'background') {
+      if (props.what==='background') {
         const date = timeline.getEventProperties(props.event).time;
         showForm({ start: date });
       }
     });
 
-    // ── Click item to edit ──
+    // ── Select item to edit ──
     timeline.on('select', props => {
-      if (props.items.length === 1) {
-        const id = props.items[0];
-        const e = items.get(id);
+      if (props.items.length===1) {
+        const e = items.get(props.items[0]);
         showForm(e);
       }
     });
 
     // ── Save ──
-    btnSave.onclick = () => {
+    btnSave.onclick = ()=>{
       const id      = inId.value || Date.now();
       const content = inContent.value.trim();
       if (!content) return alert('Title required');
-      const start = inStart.value ? new Date(inStart.value) : new Date();
-      const end   = inEnd.value ? new Date(inEnd.value) : null;
-      const color = inColor.value;
-      const cls   = inPos.value;  // 'top' or 'bottom'
+      const start   = inStart.value ? new Date(inStart.value) : new Date();
+      const end     = inEnd.value   ? new Date(inEnd.value)   : undefined;
+      const color   = inColor.value;
+      const cls     = inPos.value;  // 'top' or 'bottom'
+      const rec     = { id, content, start, ...(end&&{end}), color, className: cls, description: inDesc.value };
 
-      const rec = { id, content, start, ...(end&&{end}), color, className:cls, description:inDesc.value };
       if (inId.value) {
         items.update(rec);
-        events = events.map(e => e.id==id ? rec : e);
+        events = events.map(e=>e.id==id?rec:e);
       } else {
         items.add(rec);
         events.push(rec);
@@ -198,9 +199,8 @@
     };
 
     // ── Delete ──
-    btnDel.onclick = () => {
+    btnDel.onclick = ()=>{
       const id = inId.value;
-      if (!id) return;
       items.remove(id);
       events = events.filter(e=>e.id!=id);
       saveAll();
@@ -208,7 +208,7 @@
     };
 
     // ── Cancel ──
-    btnCancel.onclick = hideForm;
+    btnCan.onclick = hideForm;
   </script>
 </body>
 </html>

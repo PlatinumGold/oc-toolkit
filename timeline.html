@@ -39,8 +39,14 @@
     }
 
     /* —— Main Layout —— */
-    #main { display:flex; height:calc(100% - 48px); }
-    #timeline { flex:1; position:relative; }
+    #main {
+  display: flex;
+  height: calc(100vh - 48px); /* fills remaining space */
+}
+    #timeline {
+  flex: 1;
+  position: relative;
+}
     #sidebar {
       width:320px; background:#fefefe; border-left:1px solid #ccc;
       padding:16px; overflow-y:auto; display:none;
@@ -68,6 +74,7 @@
       📅 OC Timeline Manager
       <button id="btnNew">New Event</button>
       <button id="btnCenter">Center</button>
+      <button id="btnClear">Clear All</button>
     </div>
     <div class="hdr-right">
       <button id="btnExport">Export JSON</button>
@@ -145,6 +152,14 @@
     const btnExport = document.getElementById('btnExport');
     const btnImport = document.getElementById('btnImport');
     const importFi  = document.getElementById('importFile');
+    const btnClear = document.getElementById('btnClear');
+btnClear.onclick = () => {
+  if (confirm("Are you sure you want to delete all events?")) {
+    items.clear();
+    events = [];
+    saveAll();
+  }
+};
 
     // ── Helpers ──
     function isoDate(d){ return vis.moment(d).utc().format('YYYY-MM-DD'); }

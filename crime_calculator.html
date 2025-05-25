@@ -196,7 +196,7 @@
     bribery: ['public','commercialBribery'],
     blackmail: ['blackmail'],
     extortion: ['extortion'],
-    espionage: ['gov','corp','residential','nuclear'],
+    espionage: ['gov','corp','residentialEsp','nuclear'],
     treason: ['aiding','levying'],
     terrorism: ['domestic','international'],
     sedition: ['sedition'],
@@ -233,7 +233,7 @@
     public:'Bribery (Official)', commercialBribery:'Bribery (Commercial)',
     blackmail:'Blackmail', extortion:'Extortion',
     gov:'Espionage (State)', corp:'Espionage (Corporate)',
-    residential:'Espionage (Residential)', nuclear:'Nuclear Espionage',
+    residentialEsp:'Espionage (ResidentialEsp)', nuclear:'Nuclear Espionage',
     aiding:'Aiding Enemy State', levying:'Levying War',
     domestic:'Domestic Terrorism', international:'Intl. Terrorism',
     sedition:'Sedition',
@@ -287,7 +287,7 @@
     'Extortion':'Force/threat for gain.',
     'Espionage (State)':'Spying for state.',
     'Espionage (Corporate)':'Trade-secret theft.',
-    'Espionage (Residential)':'Home bugging.',
+    'Espionage (ResidentialEsp)':'Home bugging.',
     'Nuclear Espionage':'Steal nuclear secrets.',
     'Aiding Enemy State':'Help hostile power.',
     'Levying War':'Rebelling against country.',
@@ -355,7 +355,7 @@
     extortion:{min:1,max:10,cap:false},
     gov:{min:10,max:30,cap:false},
     corp:{min:5,max:20,cap:false},
-    residentialEspionage:{min:1,max:5,cap:false},
+    residentialEsp:{min:1,max:5,cap:false},
     nuclear:{min:15,max:40,cap:false},
     aiding:{min:10,max:25,cap:false},
     levying:{min:15,max:30,cap:false},
@@ -512,27 +512,39 @@
     saveAll(); renderStack();
   };
 
-  // ── Render Stack ──
-  function renderStack(){
-    stackBody.innerHTML='';
-    stack.forEach((e,i)=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`
-        <td>${e.label}</td>
-        <td>${e.qty}</td>
-        <td>${e.min}–${e.max}</td>
-        <td>${e.cap?'Yes':'No'}</td>
-        <td></td>
-        <td><button data-i="${i}">🗑️</button></td>`;
-      stackBody.appendChild(tr);
-    });
-    stackBody.querySelectorAll('button').forEach(btn=>{
-      btn.onclick=()=>{
-        stack.splice(+btn.dataset.i,1);
-        saveAll(); renderStack();
-      };
-    });
-  }
+  // === RENDER STACK ===
+function renderStack() {
+  stackBody.innerHTML = '';
+  const [sym, rate] = currency[ctyEl.value || ''];
+
+  stack.forEach((e,i) => {
+    const tr = document.createElement('tr');
+
+    // compute fine range
+    const df = defaultFines[e.key] || {min:0, max:0};
+    const mnF = Math.round(df.min * e.qty * rate);
+    const mxF = Math.round(df.max * e.qty * rate);
+
+    tr.innerHTML = `
+      <td>${e.label}<br><small>${defs[e.label] || ''}</small></td>
+      <td>${e.qty}</td>
+      <td>${e.min}–${e.max}</td>
+      <td>${e.cap ? 'Yes' : 'No'}</td>
+      <td>${sym}${mnF.toLocaleString()}–${sym}${mxF.toLocaleString()}</td>
+      <td><button data-i="${i}">🗑️</button></td>
+    `;
+    stackBody.appendChild(tr);
+  });
+
+  // wire up remove buttons
+  stackBody.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => {
+      stack.splice(+btn.dataset.i, 1);
+      saveAll();
+      renderStack();
+    };
+  });
+}
 
   // ── Reset ──
   resetStack.onclick=()=>{

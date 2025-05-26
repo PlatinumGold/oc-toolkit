@@ -5,107 +5,25 @@
   <title>OC Creator Toolkit</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    :root {
-      --brand-gradient: linear-gradient(90deg,
-        #f1c40f 0%, 
-        #c0392b 12.5%,
-        #8e44ad 25%,
-        #2C3E50 37.5%,
-        #16a085 50%,
-        #d35400 62.5%,
-        #4CAF50 75%,
-        #4a90e2 87.5%
-      );
-      --card-bg: #fff;
-      --card-shadow: rgba(0,0,0,0.1);
-      --text: #333;
-      --accent: #c0392b;
-    }
-    *, *::before, *::after { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #eef2f5;
-      color: var(--text);
-    }
-    header {
-      background: var(--brand-gradient);
-      color: #fff;
-      padding: 40px 20px;
-      text-align: center;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 2.5em;
-      letter-spacing: 1px;
-    }
-    header p {
-      margin-top: 10px;
-      font-size: 1.1em;
-      opacity: 0.9;
-    }
-    main {
-      max-width: 1200px;
-      margin: 20px auto;
-      padding: 0 20px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px,1fr));
-      gap: 20px;
-    }
-    .tool-card {
-      background: var(--card-bg);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 4px 12px var(--card-shadow);
-      transition: transform 0.2s, box-shadow 0.2s;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .tool-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 20px var(--card-shadow);
-    }
-    .tool-card h2 {
-      margin-top: 0;
-      font-size: 1.3em;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .tool-card ul {
-      flex: 1;
-      margin: 10px 0 20px 1em;
-      list-style-type: disc;
-      color: #555;
-    }
-    .tool-card button {
-      align-self: flex-start;
-      padding: 10px 16px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.95em;
-      transition: background 0.2s;
-    }
-    .tool-card button:hover {
-      background: #a8322a;
-    }
-    @media (max-width: 600px) {
-      header { padding: 30px 10px; }
-      header h1 { font-size: 2em; }
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
+    h1 { text-align: center; font-size: 2em; margin-bottom: 0.2em; }
+    .subtitle { text-align: center; margin-top: 0; margin-bottom: 1.5em; }
+    .subtitle a { color: #c39a6b; text-decoration: none; border-bottom: 1px dashed #c39a6b; }
+    .subtitle a:hover { opacity: 0.8; }
+    .tool-section { background: #fff; padding: 15px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .tool-section h2 { margin-top: 0; }
+    .tool-section ul { margin: 5px 0 10px 20px; }
+    .tool-section button { padding: 8px 12px; border: none; background: #444; color: #fff; border-radius: 4px; cursor: pointer; }
+    .tool-section button:hover { background: #222; }
   </style>
 </head>
 <body>
 
-  <h1>Welcome to Thunder’s OC Toolkit!</h1>
+  <h1>Welcome to Thunder’s OC Toolkit</h1>
   <p class="subtitle">
     I hope you have a 
     <a href="https://www.youtube.com/watch?v=U0TXIXTzJEY" target="_blank" rel="noopener">
-      golden experience ⭐
+      golden experience
     </a>.
   </p>
 

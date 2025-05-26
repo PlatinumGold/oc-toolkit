@@ -7,10 +7,10 @@
   <style>
     body { font-family: Arial, sans-serif; margin:0; }
     header { background:#c0392b; color:#fff; padding:16px; text-align:center; font-size:1.5em; }
-    main { max-width:800px; margin:20px auto; padding:0 16px; }
+    main { max-width:900px; margin:20px auto; padding:0 16px; }
     h2 { margin-top:24px; }
     label { display:block; margin-top:12px; }
-    select, input[type="number"], input[type="text"], input[type="color"] {
+    select, input[type="number"], input[type="text"], input[type="color"], input[type="file"], textarea {
       width:100%; padding:8px; box-sizing:border-box; margin-top:4px;
     }
     .inline { display:inline-block; width:48%; vertical-align:top; }
@@ -29,14 +29,16 @@
       max-width:400px; text-align:center;
     }
     table { width:100%; border-collapse:collapse; margin-top:8px; }
-    th, td { border:1px solid #ccc; padding:6px; text-align:left; }
+    th, td { border:1px solid #ccc; padding:6px; text-align:left; vertical-align:top; }
+    td small { display:block; color:#666; margin-top:4px; }
     #results, .oc-summary { margin-top:20px; padding:12px; background:#eef; border-radius:4px; }
     .oc-card {
       border:2px solid #c0392b; border-radius:6px; padding:10px;
-      display:inline-block; width:240px; margin:8px; vertical-align:top; position: relative;
+      display:inline-block; width:260px; margin:8px; vertical-align:top;
+      position: relative;
     }
     .oc-card img, .oc-card .placeholder {
-      width:100%; height:120px; object-fit:cover; background:#ddd;
+      width:100%; height:140px; object-fit:cover; background:#ddd;
       display:flex; align-items:center; justify-content:center; color:#666;
     }
     .oc-card button.deleteOC {
@@ -61,9 +63,15 @@
 
 <main>
   <h2>▶️ Current OC</h2>
-  <label>OC Name<input id="ocName" type="text" placeholder="Character Name…"/></label>
-  <label>Placeholder Color<input id="ocColor" type="color" value="#dddddd"/></label>
-  <label>OC Image<input id="ocImg" type="file" accept="image/*"/></label>
+  <label>OC Name
+    <input id="ocName" type="text" placeholder="Character Name…"/>
+  </label>
+  <label>Placeholder Color
+    <input id="ocColor" type="color" value="#dddddd"/>
+  </label>
+  <label>OC Image
+    <input id="ocImg" type="file" accept="image/*"/>
+  </label>
   <button id="resetStack">🔄 Reset Current Stack</button>
 
   <h2>➕ Add Crime</h2>
@@ -110,16 +118,17 @@
         <option value="illegalGambling">Illegal Gambling</option>
       </optgroup>
       <optgroup label="Petty Crimes">
-        <option value="trespassCivil">Civil Trespass</option>
+        <option value="trespassCivil">Trespass</option>
         <option value="trespassCriminal">Criminal Trespass</option>
         <option value="pickpocket">Pickpocketing</option>
         <option value="shoplifting">Shoplifting</option>
         <option value="disorderly">Disorderly Conduct</option>
       </optgroup>
       <optgroup label="Abuse & Exploitation">
-        <option value="abuse">Abuse</option>
+        <option value="abuse">Abuse (Child/Elder/Other)</option>
         <option value="organHarvest">Organ Harvesting/Selling</option>
         <option value="desecration">Desecration of a Corpse</option>
+        <option value="humanTrafficking">Human Trafficking</option>
         <option value="humanExperiment">Human Experimentation</option>
         <option value="voyeurism">Invasion of Privacy / Voyeurism</option>
       </optgroup>
@@ -128,7 +137,7 @@
   </label>
 
   <label>Subtype
-    <select id="subtype" disabled><option>—</option></select>
+    <select id="subtype" disabled><option value="">—</option></select>
   </label>
   <input id="otherText" type="text" placeholder="Custom crime…" style="display:none"/>
 
@@ -145,14 +154,14 @@
   </label>
 
   <div id="customOverrides">
-    <p><em>Override defaults:</em></p>
+    <p><em>Override defaults (optional):</em></p>
     <div class="inline">
-      <label>Min Years<input id="minYears" type="number" min="0"></label>
+      <label>Min Years<input id="minYears" type="number" min="0"/></label>
     </div>
     <div class="inline">
-      <label>Max Years<input id="maxYears" type="number" min="0"></label>
+      <label>Max Years<input id="maxYears" type="number" min="0"/></label>
     </div>
-    <label><input id="capitalPun" type="checkbox"> Capital Punishment?</label>
+    <label><input id="capitalPun" type="checkbox"/> Capital Punishment?</label>
   </div>
 
   <label>Quantity<input id="qty" type="number" min="1" value="1"/></label>
@@ -168,16 +177,16 @@
       </thead>
       <tbody id="stackBody"></tbody>
     </table>
-    <label><input type="radio" name="mode" value="concurrent" checked> Concurrent</label>
-    <label><input type="radio" name="mode" value="consecutive"> Consecutive</label>
+    <label><input type="radio" name="mode" value="concurrent" checked/> Concurrent</label>
+    <label><input type="radio" name="mode" value="consecutive"/> Consecutive</label>
   </div>
 
   <button id="calculate">Calculate Sentence & Fines</button>
   <div id="results"></div>
 
-  <button id="saveOC">💾 Save OC Profile</button>
+  <h2>💾 Saved OC Profiles</h2>
+  <button id="saveOC">Save Current OC</button>
   <div id="ocs">
-    <h3>Saved OCs</h3>
     <div id="ocList"></div>
   </div>
 
@@ -185,238 +194,283 @@
 </main>
 
 <script>
-  // ── Data maps ──
+  // ── Data Definitions ──
   const categories = {
-    murder:['first','second','voluntary','involuntary'],
-    assault:['simple','aggravated'],
-    kidnapping:['parental','stranger','falseImp'],
-    sa:['rape','statutory','sexualAssault','incest','grooming','sexualExtortion'],
-    robbery:['armed','strongArm'],
-    theft:['larceny','petty','grandAuto'],
-    burglary:['residential','commercial'],
-    arson:['firstA','secondA'],
-    vandalism:['graffiti','malicious'],
-    embezzlement:['employee','corporate'],
-    fraud:['bank','insurance','election'],
-    moneyLaundering:['structuring','shell'],
-    taxEvasion:['falsify','offshore'],
-    bribery:['public','commercialBribery'],
-    blackmail:['blackmail'],
-    extortion:['extortion'],
-    espionage:['gov','corp','residentialEsp','nuclear'],
-    treason:['aiding','levying'],
-    terrorism:['domestic','international'],
-    sedition:['sedition'],
-    possession:['classA','classB','classC'],
-    trafficking:['large','street'],
-    manufacturing:['methLab','growOp'],
-    publicIntox:['publicIntox'],
-    prostitution:['prostitution'],
-    illegalGambling:['underground','sportsBook'],
-    trespassCivil:['trespassCivil'],
-    trespassCriminal:['trespassCriminal'],
-    pickpocket:['pickpocket'],
-    shoplifting:['shoplifting'],
-    disorderly:['disorderly'],
-    cannibalism:[],
-    abuse:['child','elder','otherAbuse'],
-    organHarvest:[],
-    desecration:[],
-    humanExperiment:[],
-    voyeurism:[],
-    other:[]
+    murder: ['first','second','voluntary','involuntary'],
+    assault: ['simple','aggravated'],
+    kidnapping: ['parental','stranger','falseImp'],
+    sa: ['rape','statutory','sexualAssault','incest','grooming','sexualExtortion'],
+    robbery: ['armed','strongArm'],
+    cannibalism: [],
+    theft: ['larceny','petty','grandAuto'],
+    burglary: ['residential','commercial'],
+    arson: ['firstA','secondA'],
+    vandalism: ['graffiti','malicious'],
+    embezzlement: ['employee','corporate'],
+    fraud: ['bank','insurance','election'],
+    moneyLaundering: ['structuring','shell'],
+    taxEvasion: ['falsify','offshore'],
+    bribery: ['public','commercial'],
+    blackmail: ['blackmail'],
+    extortion: ['extortion'],
+    espionage: ['gov','corp','residentialEsp','nuclear'],
+    treason: ['aiding','levying'],
+    terrorism: ['domestic','international'],
+    sedition: ['sedition'],
+    possession: ['classA','classB','classC'],
+    trafficking: ['large','street'],
+    manufacturing: ['methLab','growOp'],
+    publicIntox: ['publicIntox'],
+    prostitution: ['prostitution'],
+    illegalGambling: ['underground','sportsBook'],
+    trespassCivil: ['trespassCivil'],
+    trespassCriminal: ['trespassCriminal'],
+    pickpocket: ['pickpocket'],
+    shoplifting: ['shoplifting'],
+    disorderly: ['disorderly'],
+    abuse: ['childAbuse','elderAbuse','otherAbuse'],
+    organHarvest: [],
+    desecration: [],
+    humanTrafficking: [],
+    humanExperiment: [],
+    voyeurism: [],
+    other: []
   };
 
   const labels = {
-    first:'1st-Degree Murder', second:'2nd-Degree Murder',
-    voluntary:'Voluntary Manslaughter', involuntary:'Involuntary Manslaughter',
-    simple:'Simple Assault', aggravated:'Aggravated Assault',
-    parental:'Parental Abduction', stranger:'Stranger Abduction', falseImp:'False Imprisonment',
-    rape:'Rape', statutory:'Statutory Rape', sexualAssault:'Sexual Assault',
-    incest:'Incest', grooming:'Grooming (Minor)', sexualExtortion:'Sexual Extortion',
-    armed:'Armed Robbery', strongArm:'Strong-arm Robbery',
-    cannibalism:'Cannibalism (Consumption of Human Flesh)',
-    larceny:'Larceny', petty:'Petty Theft', grandAuto:'Grand Theft Auto',
-    residential:'Residential Burglary', commercial:'Commercial Burglary',
-    firstA:'1st-Degree Arson', secondA:'2nd-Degree Arson',
-    graffiti:'Graffiti', malicious:'Malicious Destr. of Property',
-    employee:'Employee Embezzlement', corporate:'Corporate Embezzlement',
-    bank:'Bank Fraud', insurance:'Insurance Fraud', election:'Election Fraud',
-    structuring:'Structuring', shell:'Shell Co. Money Laundering',
-    falsify:'Tax Falsification', offshore:'Offshore Accounts',
-    public:'Bribery (Official)', commercialBribery:'Bribery (Commercial)',
-    blackmail:'Blackmail', extortion:'Extortion',
-    gov:'Espionage (State)', corp:'Espionage (Corporate)',
-    residentialEsp:'Espionage (Residential)', nuclear:'Nuclear Espionage',
-    aiding:'Aiding Enemy State', levying:'Levying War',
-    domestic:'Domestic Terrorism', international:'Intl. Terrorism',
+    // Violent
+    first:'1st-Degree Murder',
+    second:'2nd-Degree Murder',
+    voluntary:'Voluntary Manslaughter',
+    involuntary:'Involuntary Manslaughter',
+    simple:'Simple Assault',
+    aggravated:'Aggravated Assault',
+    parental:'Parental Abduction',
+    stranger:'Stranger Abduction',
+    falseImp:'False Imprisonment',
+    rape:'Rape',
+    statutory:'Statutory Rape',
+    sexualAssault:'Sexual Assault',
+    incest:'Incest',
+    grooming:'Grooming (Minor)',
+    sexualExtortion:'Sexual Extortion',
+    armed:'Armed Robbery',
+    strongArm:'Strong-arm Robbery',
+    cannibalism:'Cannibalism',
+    // Property
+    larceny:'Larceny',
+    petty:'Petty Theft',
+    grandAuto:'Grand Theft Auto',
+    residential:'Residential Burglary',
+    commercial:'Commercial Burglary',
+    firstA:'1st-Degree Arson',
+    secondA:'2nd-Degree Arson',
+    graffiti:'Graffiti',
+    malicious:'Malicious Destruction',
+    employee:'Employee Embezzlement',
+    corporate:'Corporate Embezzlement',
+    // White-collar
+    bank:'Bank Fraud',
+    insurance:'Insurance Fraud',
+    election:'Election Fraud',
+    structuring:'Structuring',
+    shell:'Shell Co. Money Laundering',
+    falsify:'Tax Falsification',
+    offshore:'Offshore Accounts',
+    public:'Bribery (Official)',
+    commercial:'Bribery (Commercial)',
+    blackmail:'Blackmail',
+    extortion:'Extortion',
+    // Political
+    gov:'Espionage (State)',
+    corp:'Espionage (Corporate)',
+    residentialEsp:'Espionage (Residential)',
+    nuclear:'Nuclear Espionage',
+    aiding:'Aiding Enemy State',
+    levying:'Levying War',
+    domestic:'Domestic Terrorism',
+    international:'International Terrorism',
     sedition:'Sedition',
-    classA:'Possession Class A', classB:'Possession Class B', classC:'Possession Class C',
-    large:'Large-Scale Trafficking', street:'Street-Level Dealing',
-    methLab:'Meth Lab Manufacture', growOp:'Grow-Op Cultivation',
-    publicIntox:'Public Intoxication', prostitution:'Prostitution',
-    underground:'Underground Gambling', sportsBook:'Sports Bookmaking',
-    trespassCivil:'Trespass', trespassCriminal:'Criminal Trespass',
-    pickpocket:'Pickpocketing', shoplifting:'Shoplifting',
+    // Drugs
+    classA:'Possession Class A',
+    classB:'Possession Class B',
+    classC:'Possession Class C',
+    large:'Large-Scale Trafficking',
+    street:'Street-Level Dealing',
+    methLab:'Meth Lab Manufacture',
+    growOp:'Grow-Op Cultivation',
+    publicIntox:'Public Intoxication',
+    prostitution:'Prostitution',
+    underground:'Underground Gambling',
+    sportsBook:'Sports Bookmaking',
+    trespassCivil:'Trespass',
+    trespassCriminal:'Criminal Trespass',
+    pickpocket:'Pickpocketing',
+    shoplifting:'Shoplifting',
     disorderly:'Disorderly Conduct',
-    abuse:'Abuse (Select Type)',
-    child:'Child Abuse (Physical, Emotional or Sexual)',
-    elder:'Elder Abuse (Neglect or Exploitation)',
-    otherAbuse:'Other Abuse (Non-specified)',
-    organHarvest:'Organ Harvesting/Selling (Illicit)',
-    desecration:'Desecration of a Corpse (Mishandling Remains)',
-    humanExperiment:'Human Experimentation (Non-Consent)',
-    voyeurism:'Invasion of Privacy / Voyeurism (Secret Surveillance)',
+    // Abuse & Exploitation
+    childAbuse:'Abuse (Child)',
+    elderAbuse:'Abuse (Elderly)',
+    otherAbuse:'Abuse (Other)',
+    organHarvest:'Organ Harvesting/Selling',
+    desecration:'Desecration of a Corpse',
+    humanTrafficking:'Human Trafficking',
+    humanExperiment:'Human Experimentation',
+    voyeurism:'Invasion of Privacy / Voyeurism',
+    // Other
     other:'Custom Crime'
   };
 
   const defs = {
-    '1st-Degree Murder':'Premeditated killing.',
-    '2nd-Degree Murder':'Intentional without planning.',
-    'Voluntary Manslaughter':'Heat-of-passion killing.',
-    'Involuntary Manslaughter':'Negligent killing.',
-    'Simple Assault':'Minor harm or threat.',
-    'Aggravated Assault':'Serious harm or weapon.',
-    'Rape':'Non-consensual intercourse.',
-    'Statutory Rape':'Sexual act with minor.',
-    'Sexual Assault':'Non-consensual act.',
-    'Incest':'Sex between close relatives.',
-    'Grooming (Minor)':'Enticement of minor.',
-    'Sexual Extortion':'Coercion via threats.',
-    'Armed Robbery':'Theft with weapon.',
-    'Strong-arm Robbery':'Theft by force.',
-    'Cannibalism (Consumption of Human Flesh)':
-    'Killing and consuming human flesh—felony under most laws.',
-    '1st-Degree Murder':'Premeditated killing.',
-    '2nd-Degree Murder':'Intentional without planning.',
-    'Voluntary Manslaughter':'Heat-of-passion killing.',
-    'Involuntary Manslaughter':'Negligent killing.',
-    'Simple Assault':'Minor harm or threat.',
-    'Aggravated Assault':'Serious harm or weapon.',
-    'Rape':'Non-consensual intercourse.',
-    'Statutory Rape':'Sexual act with minor.',
-    'Sexual Assault':'Non-consensual act.',
-    'Incest':'Sex between close relatives.',
-    'Grooming (Minor)':'Enticement of minor.',
-    'Sexual Extortion':'Coercion via threats.',
-    'Armed Robbery':'Theft with weapon.',
-    'Strong-arm Robbery':'Theft by force.',
-    'Child Abuse (Physical, Emotional or Sexual)':
-      'Mistreatment of a minor—physical, emotional, or sexual harm.',
-    'Elder Abuse (Neglect or Exploitation)':
-      'Harm or exploitation of an elderly person.',
-    'Other Abuse (Non-specified)':
-      'Any other form of abuse not categorized above.',
-    'Organ Harvesting/Selling (Illicit)':
-      'Removing human organs without consent for black-market sale.',
-    'Desecration of a Corpse (Mishandling Remains)':
-      'Defiling or disrespecting human remains.',
-    'Human Experimentation (Non-Consent)':
-      'Performing experiments on humans without informed consent.',
-    'Invasion of Privacy / Voyeurism (Secret Surveillance)':
-      'Surreptitious observation or recording of private acts.',
-    'Custom Crime':'User-defined offense.'
+    '1st-Degree Murder':'A premeditated, intentional killing with malice aforethought.',
+    '2nd-Degree Murder':'Intentional killing absent prior planning or premeditation.',
+    'Voluntary Manslaughter':'Killing in the heat of passion upon adequate provocation.',
+    'Involuntary Manslaughter':'Unintentional killing due to recklessness or criminal negligence.',
+    'Simple Assault':'Threat or attempt to inflict minor bodily harm.',
+    'Aggravated Assault':'Assault causing serious injury or involving a deadly weapon.',
+    'Parental Abduction':'Wrongful removal of one’s own child without consent.',
+    'Stranger Abduction':'Unlawful taking of a minor by force or coercion.',
+    'False Imprisonment':'Unlawfully restraining another person’s freedom of movement.',
+    'Rape':'Non-consensual sexual intercourse by force or threat.',
+    'Statutory Rape':'Sexual activity with a person below the legal age of consent.',
+    'Sexual Assault':'Any non-consensual sexual act other than intercourse.',
+    'Incest':'Sexual activity between close blood relatives.',
+    'Grooming (Minor)':'Building trust with a minor to facilitate sexual abuse.',
+    'Sexual Extortion':'Coercing sexual acts through threats or blackmail.',
+    'Armed Robbery':'Theft from a person using a weapon or threat of force.',
+    'Strong-arm Robbery':'Theft from a person by physical force without a weapon.',
+    'Cannibalism':'Consuming human flesh, often accompanied by murder.',
+    'Larceny':'Taking another’s personal property without consent.',
+    'Petty Theft':'Theft of property below a statutory dollar amount.',
+    'Grand Theft Auto':'Wrongful taking of a motor vehicle.',
+    'Residential Burglary':'Unlawful entry into a dwelling to commit a felony or theft.',
+    'Commercial Burglary':'Breaking into a non-residential structure to commit a crime.',
+    '1st-Degree Arson':'Willful and malicious burning of property with intent.',
+    '2nd-Degree Arson':'Less severe arson causing damage without endangering life.',
+    'Graffiti':'Unauthorized markings or spray-painting on another’s property.',
+    'Malicious Destruction':'Intentional damage or destruction of someone’s property.',
+    'Employee Embezzlement':'Fraudulent appropriation of funds by an employee.',
+    'Corporate Embezzlement':'Large-scale misappropriation of corporate assets.',
+    'Bank Fraud':'Schemes to defraud financial institutions or customers.',
+    'Insurance Fraud':'False statements or claims made to an insurer for gain.',
+    'Election Fraud':'Illegally influencing or tampering with election processes.',
+    'Structuring':'Breaking up financial transactions to avoid regulatory reporting.',
+    'Shell Co. Money Laundering':'Using fake companies to conceal illicit funds.',
+    'Tax Falsification':'Knowingly filing false information on tax returns.',
+    'Offshore Accounts':'Hiding assets in foreign jurisdictions to evade taxes.',
+    'Bribery (Official)':'Offering or taking bribes to or from a public official.',
+    'Bribery (Commercial)':'Bribes exchanged in a private business context.',
+    'Blackmail':'Threatening to reveal damaging information unless demands are met.',
+    'Extortion':'Obtaining property or services through coercion or threats.',
+    'Espionage (State)':'Spying on behalf of a foreign government.',
+    'Espionage (Corporate)':'Stealing trade secrets for corporate advantage.',
+    'Espionage (Residential)':'Bugging a private residence to obtain information.',
+    'Nuclear Espionage':'Theft or sabotage of nuclear secrets or materials.',
+    'Aiding Enemy State':'Providing assistance to a hostile nation or group.',
+    'Levying War':'Organizing or waging war against one’s own country.',
+    'Domestic Terrorism':'Violent acts intended to intimidate within one’s country.',
+    'International Terrorism':'Violent acts with cross-border political motives.',
+    'Sedition':'Conduct or speech inciting rebellion against government authority.',
+    'Possession Class A':'Holding Class A controlled substances (e.g., heroin).',
+    'Possession Class B':'Holding Class B controlled substances (e.g., amphetamines).',
+    'Possession Class C':'Holding Class C substances (e.g., tranquilizers).',
+    'Large-Scale Trafficking':'Distributing large quantities of illicit drugs.',
+    'Street-Level Dealing':'Selling small amounts of drugs to individuals.',
+    'Meth Lab Manufacture':'Operating a clandestine methamphetamine laboratory.',
+    'Grow-Op Cultivation':'Cultivating cannabis unlawfully at scale.',
+    'Public Intoxication':'Being visibly intoxicated in public spaces.',
+    'Prostitution':'Engaging in or soliciting sexual services for money.',
+    'Underground Gambling':'Operating illegal betting or gaming operations.',
+    'Sports Bookmaking':'Taking bets on sporting events without a license.',
+    'Trespass':'Unauthorized entry onto another’s land or property.',
+    'Criminal Trespass':'Entering property with intent to commit a crime.',
+    'Pickpocketing':'Stealing from a person’s pocket or bag without notice.',
+    'Shoplifting':'Theft of merchandise from a retail establishment.',
+    'Disorderly Conduct':'Behavior that disturbs public peace and order.',
+    'Abuse (Child)':'Physical or emotional mistreatment of a minor.',
+    'Abuse (Elderly)':'Physical, emotional, or financial harm to an elderly person.',
+    'Abuse (Other)':'Other forms of abuse not otherwise categorized.',
+    'Organ Harvesting/Selling':'Illicit removal and sale of human organs.',
+    'Desecration of a Corpse':'Mutilating, defiling, or disrespecting a dead body.',
+    'Human Trafficking':'Forced exploitation of people for labor or sex.',
+    'Human Experimentation':'Conducting experiments on humans without consent.',
+    'Invasion of Privacy / Voyeurism':'Observing or recording private acts illegally.',
+    'Custom Crime':'A user-defined offense.'
   };
 
   const defaultRanges = {
-    first:{min:20,max:40,cap:true},
-    second:{min:15,max:30,cap:false},
-    voluntary:{min:3,max:10,cap:false},
-    involuntary:{min:1,max:5,cap:false},
-    simple:{min:1,max:5,cap:false},
-    aggravated:{min:3,max:15,cap:false},
-    rape:{min:10,max:30,cap:false},
-    statutory:{min:5,max:15,cap:false},
-    sexualAssault:{min:8,max:25,cap:false},
-    incest:{min:5,max:15,cap:false},
-    grooming:{min:2,max:10,cap:false},
-    sexualExtortion:{min:3,max:15,cap:false},
-    parental:{min:5,max:15,cap:false},
-    stranger:{min:5,max:15,cap:false},
-    falseImp:{min:1,max:5,cap:false},
-    armed:{min:7,max:20,cap:false},
-    strongArm:{min:3,max:10,cap:false},
-    cannibalism:{min:10,max:30,cap:false},
-    larceny:{min:0,max:2,cap:false},
-    petty:{min:0,max:2,cap:false},
-    grandAuto:{min:5,max:15,cap:false},
-    residential:{min:5,max:20,cap:false},
-    commercial:{min:5,max:20,cap:false},
-    firstA:{min:5,max:20,cap:false},
-    secondA:{min:3,max:10,cap:false},
-    graffiti:{min:0,max:1,cap:false},
-    malicious:{min:1,max:5,cap:false},
-    employee:{min:1,max:10,cap:false},
+    // Violent
+    first:{min:20,max:40,cap:true}, second:{min:15,max:30,cap:false},
+    voluntary:{min:3,max:10,cap:false}, involuntary:{min:1,max:5,cap:false},
+    simple:{min:1,max:5,cap:false}, aggravated:{min:3,max:15,cap:false},
+    parental:{min:5,max:15,cap:false}, stranger:{min:5,max:15,cap:false},
+    falseImp:{min:1,max:5,cap:false}, rape:{min:10,max:30,cap:false},
+    statutory:{min:5,max:15,cap:false}, sexualAssault:{min:8,max:25,cap:false},
+    incest:{min:5,max:15,cap:false}, grooming:{min:2,max:10,cap:false},
+    sexualExtortion:{min:3,max:15,cap:false}, armed:{min:7,max:20,cap:false},
+    strongArm:{min:3,max:10,cap:false}, cannibalism:{min:10,max:30,cap:false},
+    // Property
+    larceny:{min:0,max:2,cap:false}, petty:{min:0,max:2,cap:false},
+    grandAuto:{min:5,max:15,cap:false}, residential:{min:5,max:20,cap:false},
+    commercial:{min:5,max:20,cap:false}, firstA:{min:5,max:20,cap:false},
+    secondA:{min:3,max:10,cap:false}, graffiti:{min:0,max:1,cap:false},
+    malicious:{min:1,max:5,cap:false}, employee:{min:1,max:10,cap:false},
     corporate:{min:5,max:20,cap:false},
-    bank:{min:2,max:15,cap:false},
-    insurance:{min:2,max:10,cap:false},
-    election:{min:5,max:20,cap:false},
-    structuring:{min:1,max:5,cap:false},
-    shell:{min:1,max:5,cap:false},
-    falsify:{min:2,max:10,cap:false},
-    offshore:{min:1,max:5,cap:false},
-    public:{min:1,max:10,cap:false},
-    commercialBribery:{min:1,max:5,cap:false},
-    blackmail:{min:1,max:10,cap:false},
+    // White-collar
+    bank:{min:2,max:15,cap:false}, insurance:{min:2,max:10,cap:false},
+    election:{min:5,max:20,cap:false}, structuring:{min:1,max:5,cap:false},
+    shell:{min:1,max:5,cap:false}, falsify:{min:2,max:10,cap:false},
+    offshore:{min:1,max:5,cap:false}, public:{min:1,max:10,cap:false},
+    commercial:{min:1,max:5,cap:false}, blackmail:{min:1,max:10,cap:false},
     extortion:{min:1,max:10,cap:false},
-    gov:{min:10,max:30,cap:false},
-    corp:{min:5,max:20,cap:false},
-    residentialEsp:{min:1,max:5,cap:false},
-    nuclear:{min:15,max:40,cap:false},
-    aiding:{min:10,max:25,cap:false},
-    levying:{min:15,max:30,cap:false},
-    domestic:{min:10,max:30,cap:false},
-    international:{min:15,max:40,cap:false},
+    // Political
+    gov:{min:10,max:30,cap:false}, corp:{min:5,max:20,cap:false},
+    residentialEsp:{min:1,max:5,cap:false}, nuclear:{min:15,max:40,cap:false},
+    aiding:{min:10,max:25,cap:false}, levying:{min:15,max:30,cap:false},
+    domestic:{min:10,max:30,cap:false}, international:{min:15,max:40,cap:false},
     sedition:{min:5,max:15,cap:false},
-    classA:{min:0,max:2,cap:false},
-    classB:{min:0,max:2,cap:false},
-    classC:{min:0,max:2,cap:false},
-    large:{min:5,max:30,cap:false},
-    street:{min:1,max:10,cap:false},
-    methLab:{min:5,max:20,cap:false},
+    // Drugs
+    classA:{min:0,max:2,cap:false}, classB:{min:0,max:2,cap:false},
+    classC:{min:0,max:2,cap:false}, large:{min:5,max:30,cap:false},
+    street:{min:1,max:10,cap:false}, methLab:{min:5,max:20,cap:false},
     growOp:{min:1,max:10,cap:false},
-    publicIntox:{min:0,max:1,cap:false},
-    prostitution:{min:0,max:5,cap:false},
-    underground:{min:0,max:2,cap:false},
-    sportsBook:{min:0,max:2,cap:false},
-    trespassCivil:{min:0,max:1,cap:false},
-    trespassCriminal:{min:0,max:5,cap:false},
-    pickpocket:{min:0,max:2,cap:false},
-    shoplifting:{min:0,max:2,cap:false},
+    // Public Order
+    publicIntox:{min:0,max:1,cap:false}, prostitution:{min:0,max:5,cap:false},
+    underground:{min:0,max:2,cap:false}, sportsBook:{min:0,max:2,cap:false},
+    // Petty
+    trespassCivil:{min:0,max:1,cap:false}, trespassCriminal:{min:0,max:5,cap:false},
+    pickpocket:{min:0,max:2,cap:false}, shoplifting:{min:0,max:2,cap:false},
     disorderly:{min:0,max:1,cap:false},
-    child:{min:5,max:20,cap:false},
-    elder:{min:3,max:15,cap:false},
-    otherAbuse:{min:1,max:10,cap:false},
-    organHarvest:{min:5,max:15,cap:false},
-    desecration:{min:1,max:5,cap:false},
-    humanExperiment:{min:10,max:25,cap:false},
-    voyeurism:{min:0,max:2,cap:false},
+    // Abuse & Exploitation
+    childAbuse:{min:2,max:10,cap:false}, elderAbuse:{min:2,max:10,cap:false},
+    otherAbuse:{min:1,max:5,cap:false}, organHarvest:{min:5,max:15,cap:false},
+    desecration:{min:1,max:5,cap:false}, humanTrafficking:{min:10,max:40,cap:false},
+    humanExperiment:{min:5,max:20,cap:false}, voyeurism:{min:1,max:5,cap:false},
+    // Other
     other:{min:0,max:0,cap:false}
   };
 
   const defaultFines = {
     murder:{min:50000,max:200000}, assault:{min:5000,max:50000},
     kidnapping:{min:20000,max:100000}, sa:{min:30000,max:150000},
-    robbery:{min:10000,max:75000}, cannibalism:{min:50000,max:200000},
-    burglary:{min:2000,max:50000}, arson:{min:5000,max:100000},
-    vandalism:{min:200,max:5000}, embezzlement:{min:10000,max:250000},
-    fraud:{min:5000,max:200000}, moneyLaundering:{min:10000,max:500000},
-    taxEvasion:{min:5000,max:200000}, bribery:{min:5000,max:100000},
-    blackmail:{min:2000,max:50000}, extortion:{min:2000,max:75000},
-    espionage:{min:20000,max:100000}, treason:{min:50000,max:200000},
-    terrorism:{min:30000,max:200000}, sedition:{min:10000,max:50000},
-    possession:{min:500,max:20000}, trafficking:{min:5000,max:100000},
-    manufacturing:{min:5000,max:150000}, publicIntox:{min:100,max:1000},
-    prostitution:{min:200,max:5000}, illegalGambling:{min:500,max:20000},
-    trespassCivil:{min:100,max:2000}, trespassCriminal:{min:500,max:10000},
-    pickpocket:{min:500,max:5000}, shoplifting:{min:500,max:10000},
-    disorderly:{min:100,max:2000}, child:{min:10000,max:50000},
-    elder:{min:5000,max:30000},
-    otherAbuse:{min:2000,max:20000},
-    organHarvest:{min:100000,max:500000},
-    desecration:{min:5000,max:20000},
-    humanExperiment:{min:50000,max:200000},
-    voyeurism:{min:1000,max:10000},
+    robbery:{min:10000,max:75000}, cannibalism:{min:10000,max:50000},
+    theft:{min:500,max:20000}, burglary:{min:2000,max:50000},
+    arson:{min:5000,max:100000}, vandalism:{min:200,max:5000},
+    embezzlement:{min:10000,max:250000}, fraud:{min:5000,max:200000},
+    moneyLaundering:{min:10000,max:500000}, taxEvasion:{min:5000,max:200000},
+    bribery:{min:5000,max:100000}, blackmail:{min:2000,max:50000},
+    extortion:{min:2000,max:75000}, espionage:{min:20000,max:100000},
+    treason:{min:50000,max:200000}, terrorism:{min:30000,max:200000},
+    sedition:{min:10000,max:50000}, possession:{min:500,max:20000},
+    trafficking:{min:5000,max:100000}, manufacturing:{min:5000,max:150000},
+    publicIntox:{min:100,max:1000}, prostitution:{min:200,max:5000},
+    illegalGambling:{min:500,max:20000}, trespassCivil:{min:100,max:2000},
+    trespassCriminal:{min:500,max:10000}, pickpocket:{min:500,max:5000},
+    shoplifting:{min:500,max:10000}, disorderly:{min:100,max:2000},
+    childAbuse:{min:5000,max:50000}, elderAbuse:{min:5000,max:50000},
+    otherAbuse:{min:1000,max:10000}, organHarvest:{min:50000,max:200000},
+    desecration:{min:2000,max:10000}, humanTrafficking:{min:30000,max:150000},
+    humanExperiment:{min:10000,max:50000}, voyeurism:{min:1000,max:5000},
     other:{min:0,max:0}
   };
 
@@ -428,11 +482,11 @@
 
   const legality = {
     usa: new Set(Object.keys(defaultRanges)),
-    uk:  new Set(Object.keys(defaultRanges)),
-    canada:new Set(Object.keys(defaultRanges)),
-    australia:new Set(Object.keys(defaultRanges)),
-    germany:new Set(Object.keys(defaultRanges)),
-    france:new Set(Object.keys(defaultRanges))
+    uk:  new Set(Object.keys(defaultRanges).filter(k=>k!=='pickpocket')),
+    canada: new Set(Object.keys(defaultRanges)),
+    australia: new Set(Object.keys(defaultRanges)),
+    germany: new Set(Object.keys(defaultRanges)),
+    france: new Set(Object.keys(defaultRanges))
   };
 
   const currency = {
@@ -441,12 +495,231 @@
     germany:['€',0.9], france:['€',0.9]
   };
 
-  // … then your state, persistence, and all the event handlers … 
-  // **just be sure** in your `addCrimeBtn.onclick` you skip subtypes
-  // when `categories[c].length===0` (i.e. cannibalism, organHarvest, etc.),
-  // or when c==='abuse' you require a subtype.
+  // ── State & Persistence ──
+  let stack=[], ocs=[];
+  function saveAll(){
+    localStorage.crimeStack = JSON.stringify(stack);
+    localStorage.ocsList    = JSON.stringify(ocs);
+  }
+  function loadAll(){
+    try{ stack=JSON.parse(localStorage.crimeStack)||[]; }catch{stack=[];}
+    try{ ocs=JSON.parse(localStorage.ocsList)||[]; }catch{ocs=[];}
+    renderStack(); renderOCs();
+  }
 
-  // Everything else remains exactly as in your last version.
+  // ── Element Refs ──
+  const globalOk    = document.getElementById('globalOk'),
+        catEl       = document.getElementById('category'),
+        subEl       = document.getElementById('subtype'),
+        othEl       = document.getElementById('otherText'),
+        ctyEl       = document.getElementById('country'),
+        minEl       = document.getElementById('minYears'),
+        maxEl       = document.getElementById('maxYears'),
+        capEl       = document.getElementById('capitalPun'),
+        qtyEl       = document.getElementById('qty'),
+        addCrimeBtn = document.getElementById('addCrime'),
+        stackBody   = document.getElementById('stackBody'),
+        calcBtn     = document.getElementById('calculate'),
+        resEl       = document.getElementById('results'),
+        resetStack  = document.getElementById('resetStack'),
+        saveOCBtn   = document.getElementById('saveOC'),
+        ocNameIn    = document.getElementById('ocName'),
+        ocColorIn   = document.getElementById('ocColor'),
+        ocImgIn     = document.getElementById('ocImg'),
+        ocListDiv   = document.getElementById('ocList');
+
+  // ── Modal ──
+  window.onload = ()=> globalModal.style.display = 'flex';
+  globalOk.onclick = ()=> globalModal.style.display = 'none';
+
+  // ── Category → Subtype ──
+  catEl.onchange = ()=>{
+    const c = catEl.value;
+    subEl.disabled = true;
+    subEl.innerHTML = '';
+    othEl.style.display = 'none';
+    if(!c) return;
+    if(c==='other'){ othEl.style.display='block'; return; }
+    const opts = categories[c]||[];
+    if(!opts.length) return;
+    subEl.disabled = false;
+    subEl.innerHTML = '<option value="">— Select subtype —</option>';
+    opts.forEach(k=>{
+      const o = document.createElement('option');
+      o.value = k; o.textContent = labels[k];
+      subEl.appendChild(o);
+    });
+  };
+
+  // ── Fill Overrides ──
+  function fillOverrides(){
+    let key = subEl.value || (catEl.value==='other'?'other':subEl.value);
+    if(!key) return;
+    let r = defaultRanges[key] || {min:0,max:0,cap:false};
+    if(ctyEl.value && legality[ctyEl.value] && !legality[ctyEl.value].has(key)){
+      r = {min:0,max:0,cap:false};
+    } else if(ctyEl.value){
+      const m = countryMods[ctyEl.value];
+      r = {min:Math.round(r.min*m.minMul),max:Math.round(r.max*m.maxMul),cap:r.cap};
+    }
+    minEl.value = r.min;
+    maxEl.value = r.max;
+    capEl.checked = r.cap;
+  }
+  subEl.onchange = fillOverrides;
+  ctyEl.onchange = fillOverrides;
+
+  // ── Add Crime ──
+  addCrimeBtn.onclick = ()=>{
+    const c = catEl.value;
+    if(!c) return alert('Select a category');
+    let key,label;
+    if(c==='other'){
+      key = 'other';
+      label = othEl.value.trim()||'Custom Crime';
+    } else if(c==='abuse'){
+      // subtype for abuse
+      const sub = subEl.value;
+      if(!sub) return alert('Select abuse subtype');
+      key = sub;
+      label = labels[sub];
+    } else {
+      key = subEl.value || c;
+      if(categories[c].length && !subEl.value) return alert('Select subtype');
+      label = labels[key];
+    }
+    const qty = +qtyEl.value||1;
+    const mn = +minEl.value||0, mx = +maxEl.value||0, cap = capEl.checked;
+    stack.push({id:Date.now(),key,label,qty,min:mn,max:mx,cap});
+    saveAll(); renderStack();
+  };
+
+  // ── Render Stack ──
+  function renderStack(){
+    stackBody.innerHTML = '';
+    const [sym,rate] = currency[ctyEl.value||''];
+    stack.forEach((e,i)=>{
+      const df = defaultFines[e.key]||{min:0,max:0};
+      const mnF = Math.round(df.min * e.qty * rate);
+      const mxF = Math.round(df.max * e.qty * rate);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${e.label}<br><small>${defs[e.label]||''}</small></td>
+        <td>${e.qty}</td>
+        <td>${e.min}–${e.max}</td>
+        <td>${e.cap?'Yes':'No'}</td>
+        <td>${sym}${mnF.toLocaleString()}–${sym}${mxF.toLocaleString()}</td>
+        <td><button data-i="${i}">🗑️</button></td>`;
+      stackBody.appendChild(tr);
+    });
+    stackBody.querySelectorAll('button').forEach(btn=>{
+      btn.onclick = ()=>{
+        stack.splice(+btn.dataset.i,1);
+        saveAll(); renderStack();
+      };
+    });
+  }
+
+  // ── Reset Stack ──
+  resetStack.onclick = ()=>{
+    if(confirm('Clear current stack?')){
+      stack=[]; saveAll(); renderStack(); resEl.innerHTML='';
+    }
+  };
+
+  // ── Calculate ──
+  calcBtn.onclick = ()=>{
+    if(!stack.length) return alert('Add at least one crime');
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    let tmin=0,tmax=0,fmin=0,fmax=0;
+    const [sym,rate] = currency[ctyEl.value||''];
+    stack.forEach(e=>{
+      const mn = e.min*e.qty, mx= e.max*e.qty;
+      if(mode==='concurrent'){
+        tmin = Math.max(tmin,mn); tmax = Math.max(tmax,mx);
+      } else {
+        tmin += mn; tmax += mx;
+      }
+      const df = defaultFines[e.key]||{min:0,max:0};
+      const mnF = df.min*e.qty*rate, mxF = df.max*e.qty*rate;
+      if(mode==='concurrent'){
+        fmin = Math.max(fmin,mnF); fmax = Math.max(fmax,mxF);
+      } else {
+        fmin += mnF; fmax += mxF;
+      }
+    });
+    resEl.innerHTML = `
+      <p><strong>Sentence (${mode}):</strong> ${tmin}–${tmax} years${stack.some(x=>x.cap)?', capital possible':''}.</p>
+      <p><strong>Fines:</strong> ${sym}${fmin.toLocaleString()}–${sym}${fmax.toLocaleString()}</p>
+    `;
+  };
+
+  // ── Save & Render OCs ──
+  saveOCBtn.onclick = ()=>{
+    const name = ocNameIn.value.trim();
+    if(!name) return alert('Enter OC name');
+    function pushOC(imgData){
+      calcBtn.onclick();
+      ocs.push({
+        id:Date.now(),name,img:imgData,color:ocColorIn.value,
+        crimes:JSON.parse(JSON.stringify(stack)),
+        summary:resEl.innerHTML
+      });
+      saveAll(); renderOCs();
+      stack=[]; saveAll(); renderStack(); resEl.innerHTML='';
+      ocNameIn.value=''; ocImgIn.value='';
+    }
+    if(ocImgIn.files[0]){
+      const fr=new FileReader();
+      fr.onload=e=>pushOC(e.target.result);
+      fr.readAsDataURL(ocImgIn.files[0]);
+    } else pushOC(null);
+  };
+
+  function renderOCs(){
+    ocListDiv.innerHTML='';
+    ocs.forEach(o=>{
+      const div=document.createElement('div'); div.className='oc-card';
+      const h=document.createElement('h4'); h.textContent=o.name; div.appendChild(h);
+      if(o.img){
+        const img=document.createElement('img'); img.src=o.img; div.appendChild(img);
+      } else {
+        const ph=document.createElement('div'); ph.className='placeholder';
+        ph.style.background=o.color; ph.textContent='No Image'; div.appendChild(ph);
+      }
+      const btn=document.createElement('button'); btn.textContent='🗑️ Delete';
+      btn.className='deleteOC'; btn.onclick=()=>{
+        ocs=ocs.filter(x=>x.id!==o.id);
+        saveAll(); renderOCs();
+      };
+      div.appendChild(btn);
+      const sum=document.createElement('div'); sum.className='oc-summary';
+      sum.innerHTML=o.summary; div.appendChild(sum);
+
+      const tbl=document.createElement('table');
+      tbl.innerHTML='<thead><tr><th>Crime</th><th>Qty</th><th>Years</th><th>Fine</th></tr></thead>';
+      const tb=document.createElement('tbody');
+      const [sym,rate] = currency[ctyEl.value||''];
+      o.crimes.forEach(c=>{
+        const df=defaultFines[c.key]||{min:0,max:0};
+        const mnF=df.min*c.qty*rate, mxF=df.max*c.qty*rate;
+        const r=document.createElement('tr');
+        r.innerHTML=`
+          <td>${c.label}</td>
+          <td>${c.qty}</td>
+          <td>${c.min}–${c.max}</td>
+          <td>${sym}${mnF.toLocaleString()}–${sym}${mxF.toLocaleString()}</td>
+        `;
+        tb.appendChild(r);
+      });
+      tbl.appendChild(tb);
+      div.appendChild(tbl);
+      ocListDiv.appendChild(div);
+    });
+  }
+
+  // ── Init ──
+  loadAll();
 </script>
 
 </body>

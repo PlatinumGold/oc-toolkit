@@ -6,7 +6,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     :root {
-      --brand: #4a90e2;
+      --brand-gradient: linear-gradient(90deg,
+        #f1c40f 0%, 
+        #c0392b 12.5%,
+        #8e44ad 25%,
+        #2C3E50 37.5%,
+        #16a085 50%,
+        #d35400 62.5%,
+        #4CAF50 75%,
+        #4a90e2 87.5%
+      );
       --card-bg: #fff;
       --card-shadow: rgba(0,0,0,0.1);
       --text: #333;
@@ -16,15 +25,14 @@
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #eef2f5 0%, #f9f9f9 100%);
+      background: #eef2f5;
       color: var(--text);
     }
     header {
-      background: var(--brand);
+      background: var(--brand-gradient);
       color: #fff;
       padding: 40px 20px;
       text-align: center;
-      clip-path: polygon(0 0,100% 0,100% 85%,0 100%);
     }
     header h1 {
       margin: 0;
@@ -38,7 +46,7 @@
     }
     main {
       max-width: 1200px;
-      margin: -60px auto 40px;
+      margin: 20px auto;
       padding: 0 20px;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px,1fr));
@@ -68,7 +76,6 @@
     .tool-card ul {
       flex: 1;
       margin: 10px 0 20px 1em;
-      padding-left: 0;
       list-style-type: disc;
       color: #555;
     }
@@ -84,12 +91,11 @@
       transition: background 0.2s;
     }
     .tool-card button:hover {
-      background: darken(var(--accent), 10%);
+      background: #a8322a;
     }
     @media (max-width: 600px) {
       header { padding: 30px 10px; }
       header h1 { font-size: 2em; }
-      main { margin-top: -40px; }
     }
   </style>
 </head>
@@ -97,7 +103,7 @@
 
   <header>
     <h1>OC Creator Toolkit</h1>
-    <p>Your one-stop suite for character building, stats, timelines & more</p>
+    <p>Your one-stop suite for character building, stats, timelines &amp; more</p>
   </header>
 
   <main>
@@ -106,7 +112,7 @@
       <ul>
         <li>Create and manage timelines per OC</li>
         <li>Drag-and-drop events with rich detail</li>
-        <li>Pan & zoom from the Big Bang to the far future</li>
+        <li>Pan &amp; zoom from the Big Bang to the far future</li>
       </ul>
       <button onclick="location.href='timeline.html'">Open Timeline Manager</button>
     </div>
@@ -116,7 +122,7 @@
       <ul>
         <li>Compare OC heights using silhouettes</li>
         <li>Upload custom images or use built-in figures</li>
-        <li>Mixed units (cm, ft/in) & color customization</li>
+        <li>Mixed units (cm, ft/in) &amp; color customization</li>
       </ul>
       <button onclick="location.href='height_comparison.html'">Open Height Tool</button>
     </div>
@@ -124,8 +130,8 @@
     <div class="tool-card">
       <h2>🧬 Family Tree Builder</h2>
       <ul>
-        <li>Visualize bloodlines & relationships</li>
-        <li>Supports multiple generations & in-laws</li>
+        <li>Visualize bloodlines &amp; relationships</li>
+        <li>Supports multiple generations &amp; in-laws</li>
         <li>Notes on marriages, adoptions, and more</li>
       </ul>
       <button onclick="location.href='family_tree.html'">Open Family Tree</button>
@@ -135,8 +141,8 @@
       <h2>⚖️ Crime Sentence Calculator</h2>
       <ul>
         <li>Comprehensive crime list with definitions</li>
-        <li>Sentences & fines by country, concurrent/consecutive</li>
-        <li>Save & export OC criminal profiles</li>
+        <li>Sentences &amp; fines by country, concurrent/consecutive</li>
+        <li>Save &amp; export OC criminal profiles</li>
       </ul>
       <button onclick="location.href='crime_calculator.html'">Launch Crime Calculator</button>
     </div>

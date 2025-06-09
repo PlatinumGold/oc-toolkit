@@ -141,15 +141,16 @@
   </label>
   <input id="otherText" type="text" placeholder="Custom crime…" style="display:none"/>
 
-  <label>Country
-    <select id="country">
-      <option value="">Default (World Avg)</option>
-      <option value="usa">USA</option>
-      <option value="uk">UK</option>
-      <option value="canada">Canada</option>
-      <option value="australia">Australia</option>
-      <option value="germany">Germany</option>
-      <option value="france">France</option>
+  <h2>🌍 Continent</h2>
+  <label>
+    <select id="continent">
+      <option value="">World Avg</option>
+      <option value="northAmerica">North America</option>
+      <option value="europe">Europe</option>
+      <option value="asia">Asia</option>
+      <option value="southAmerica">South America</option>
+      <option value="africa">Africa</option>
+      <option value="oceania">Oceania</option>
     </select>
   </label>
 
@@ -162,6 +163,14 @@
       <label>Max Years<input id="maxYears" type="number" min="0"/></label>
     </div>
     <label><input id="capitalPun" type="checkbox"/> Capital Punishment?</label>
+    <div id="fineOverrides" style="display:none; margin-top:12px;">
+      <div class="inline">
+        <label>Min Fine ($)<input id="minFine" type="number" min="0"/></label>
+      </div>
+      <div class="inline">
+        <label>Max Fine ($)<input id="maxFine" type="number" min="0"/></label>
+      </div>
+    </div>
   </div>
 
   <label>Quantity<input id="qty" type="number" min="1" value="1"/></label>
@@ -177,8 +186,8 @@
       </thead>
       <tbody id="stackBody"></tbody>
     </table>
-    <label><input type="radio" name="mode" value="concurrent" checked/> Concurrent</label>
-    <label><input type="radio" name="mode" value="consecutive"/> Consecutive</label>
+    <label title="Concurrent: you serve only the single longest sentence"><input type="radio" name="mode" value="concurrent" checked/> Concurrent</label>
+    <label title="Consecutive: sentences add together"><input type="radio" name="mode" value="consecutive"/> Consecutive</label>
   </div>
 
   <button id="calculate">Calculate Sentence & Fines</button>
@@ -195,6 +204,7 @@
 
 <script>
   // ── Data Definitions ──
+
   const categories = {
     murder: ['first','second','voluntary','involuntary'],
     assault: ['simple','aggravated'],
@@ -398,124 +408,187 @@
     'Custom Crime':'A user-defined offense.'
   };
 
-  const defaultRanges = {
-    // Violent
-    first:{min:20,max:40,cap:true}, second:{min:15,max:30,cap:false},
-    voluntary:{min:3,max:10,cap:false}, involuntary:{min:1,max:5,cap:false},
-    simple:{min:1,max:5,cap:false}, aggravated:{min:3,max:15,cap:false},
-    parental:{min:5,max:15,cap:false}, stranger:{min:5,max:15,cap:false},
-    falseImp:{min:1,max:5,cap:false}, rape:{min:10,max:30,cap:false},
-    statutory:{min:5,max:15,cap:false}, sexualAssault:{min:8,max:25,cap:false},
-    incest:{min:5,max:15,cap:false}, grooming:{min:2,max:10,cap:false},
-    sexualExtortion:{min:3,max:15,cap:false}, armed:{min:7,max:20,cap:false},
-    strongArm:{min:3,max:10,cap:false}, cannibalism:{min:10,max:30,cap:false},
-    // Property
-    larceny:{min:0,max:2,cap:false}, petty:{min:0,max:2,cap:false},
-    grandAuto:{min:5,max:15,cap:false}, residential:{min:5,max:20,cap:false},
-    commercial:{min:5,max:20,cap:false}, firstA:{min:5,max:20,cap:false},
-    secondA:{min:3,max:10,cap:false}, graffiti:{min:0,max:1,cap:false},
-    malicious:{min:1,max:5,cap:false}, employee:{min:1,max:10,cap:false},
-    corporate:{min:5,max:20,cap:false},
-    // White-collar
-    bank:{min:2,max:15,cap:false}, insurance:{min:2,max:10,cap:false},
-    election:{min:5,max:20,cap:false}, structuring:{min:1,max:5,cap:false},
-    shell:{min:1,max:5,cap:false}, falsify:{min:2,max:10,cap:false},
-    offshore:{min:1,max:5,cap:false}, public:{min:1,max:10,cap:false},
-    commercial:{min:1,max:5,cap:false}, blackmail:{min:1,max:10,cap:false},
-    extortion:{min:1,max:10,cap:false},
-    // Political
-    gov:{min:10,max:30,cap:false}, corp:{min:5,max:20,cap:false},
-    residentialEsp:{min:1,max:5,cap:false}, nuclear:{min:15,max:40,cap:false},
-    aiding:{min:10,max:25,cap:false}, levying:{min:15,max:30,cap:false},
-    domestic:{min:10,max:30,cap:false}, international:{min:15,max:40,cap:false},
-    sedition:{min:5,max:15,cap:false},
-    // Drugs
-    classA:{min:0,max:2,cap:false}, classB:{min:0,max:2,cap:false},
-    classC:{min:0,max:2,cap:false}, large:{min:5,max:30,cap:false},
-    street:{min:1,max:10,cap:false}, methLab:{min:5,max:20,cap:false},
-    growOp:{min:1,max:10,cap:false},
-    // Public Order
-    publicIntox:{min:0,max:1,cap:false}, prostitution:{min:0,max:5,cap:false},
-    underground:{min:0,max:2,cap:false}, sportsBook:{min:0,max:2,cap:false},
-    // Petty
-    trespassCivil:{min:0,max:1,cap:false}, trespassCriminal:{min:0,max:5,cap:false},
-    pickpocket:{min:0,max:2,cap:false}, shoplifting:{min:0,max:2,cap:false},
-    disorderly:{min:0,max:1,cap:false},
-    // Abuse & Exploitation
-    childAbuse:{min:2,max:10,cap:false}, elderAbuse:{min:2,max:10,cap:false},
-    otherAbuse:{min:1,max:5,cap:false}, organHarvest:{min:5,max:15,cap:false},
-    desecration:{min:1,max:5,cap:false}, humanTrafficking:{min:10,max:40,cap:false},
-    humanExperiment:{min:5,max:20,cap:false}, voyeurism:{min:1,max:5,cap:false},
-    // Other
-    other:{min:0,max:0,cap:false}
-  };
+const defaultRanges = {
+  // Violent
+  first:     { min:{years:20, months:0}, max:{years:40, months:0}, cap:true,  communityServiceHours: 0 },
+  second:    { min:{years:15, months:0}, max:{years:30, months:0}, cap:false, communityServiceHours: 0 },
+  voluntary: { min:{years:3,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  involuntary:{min:{years:1,  months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  simple:    { min:{years:1,  months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  aggravated:{ min:{years:3,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  parental:  { min:{years:5,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  stranger:  { min:{years:5,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  falseImp:  { min:{years:1,  months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  rape:      { min:{years:10, months:0}, max:{years:30, months:0}, cap:false, communityServiceHours: 0 },
+  statutory: { min:{years:5,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  sexualAssault:{min:{years:8, months:0}, max:{years:25, months:0}, cap:false, communityServiceHours: 0 },
+  incest:    { min:{years:5,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  grooming:  { min:{years:2,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  sexualExtortion:{min:{years:3, months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  armed:     { min:{years:7,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
+  strongArm: { min:{years:3,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  cannibalism:{min:{years:10, months:0}, max:{years:30, months:0}, cap:false, communityServiceHours: 0 },
 
-  const defaultFines = {
-    murder:{min:50000,max:200000}, assault:{min:5000,max:50000},
-    kidnapping:{min:20000,max:100000}, sa:{min:30000,max:150000},
-    robbery:{min:10000,max:75000}, cannibalism:{min:10000,max:50000},
-    theft:{min:500,max:20000}, burglary:{min:2000,max:50000},
-    arson:{min:5000,max:100000}, vandalism:{min:200,max:5000},
-    embezzlement:{min:10000,max:250000}, fraud:{min:5000,max:200000},
-    moneyLaundering:{min:10000,max:500000}, taxEvasion:{min:5000,max:200000},
-    bribery:{min:5000,max:100000}, blackmail:{min:2000,max:50000},
-    extortion:{min:2000,max:75000}, espionage:{min:20000,max:100000},
-    treason:{min:50000,max:200000}, terrorism:{min:30000,max:200000},
-    sedition:{min:10000,max:50000}, possession:{min:500,max:20000},
-    trafficking:{min:5000,max:100000}, manufacturing:{min:5000,max:150000},
-    publicIntox:{min:100,max:1000}, prostitution:{min:200,max:5000},
-    illegalGambling:{min:500,max:20000}, trespassCivil:{min:100,max:2000},
-    trespassCriminal:{min:500,max:10000}, pickpocket:{min:500,max:5000},
-    shoplifting:{min:500,max:10000}, disorderly:{min:100,max:2000},
-    childAbuse:{min:5000,max:50000}, elderAbuse:{min:5000,max:50000},
-    otherAbuse:{min:1000,max:10000}, organHarvest:{min:50000,max:200000},
-    desecration:{min:2000,max:10000}, humanTrafficking:{min:30000,max:150000},
-    humanExperiment:{min:10000,max:50000}, voyeurism:{min:1000,max:5000},
-    other:{min:0,max:0}
-  };
+  // Property
+ larceny:   { min:{years:0, months:0}, max:{years:0, months:6},  cap:false, communityServiceHours: 40 },
+  petty:     { min:{years:0, months:0}, max:{years:0, months:6},  cap:false, communityServiceHours: 40 },
+  grandAuto: { min:{years:5,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  residential:{min:{years:5,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
+  commercial:{min:{years:5,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
+  firstA:    { min:{years:5,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
+  secondA:   { min:{years:3,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  graffiti:  { min:{years:0, months:0}, max:{years:0, months:3},  cap:false, communityServiceHours: 20 },
+  malicious: { min:{years:1,  months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  employee:  { min:{years:1,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  corporate: { min:{years:5,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
 
-  const countryMods = {
-    usa:{minMul:1.1,maxMul:1.2}, uk:{minMul:0.9,maxMul:0.95},
-    canada:{minMul:0.8,maxMul:0.9}, australia:{minMul:0.85,maxMul:0.95},
-    germany:{minMul:0.7,maxMul:0.8}, france:{minMul:0.8,maxMul:0.9}
-  };
+  // White-Collar
+  bank:      { min:{years:2,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
+  insurance: { min:{years:2,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  election:  { min:{years:5,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
+  structuring:{min:{years:1, months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  shell:     { min:{years:1,  months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  falsify:   { min:{years:2,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  offshore:  { min:{years:1,  months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  public:    { min:{years:1,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  commercial:{ min:{years:1, months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  blackmail: { min:{years:1,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  extortion: { min:{years:1,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
 
-  const legality = {
-    usa: new Set(Object.keys(defaultRanges)),
-    uk:  new Set(Object.keys(defaultRanges).filter(k=>k!=='pickpocket')),
-    canada: new Set(Object.keys(defaultRanges)),
-    australia: new Set(Object.keys(defaultRanges)),
-    germany: new Set(Object.keys(defaultRanges)),
-    france: new Set(Object.keys(defaultRanges))
-  };
+  // Political
+  gov:       { min:{years:10, months:0}, max:{years:30, months:0}, cap:false, communityServiceHours: 0 },
+  corp:      { min:{years:5,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
+  residentialEsp:{min:{years:1, months:0}, max:{years:5,  months:0}, cap:false, communityServiceHours: 0 },
+  nuclear:   { min:{years:15, months:0}, max:{years:40, months:0}, cap:false, communityServiceHours: 0 },
+  aiding:    { min:{years:10, months:0}, max:{years:25, months:0}, cap:false, communityServiceHours: 0 },
+  levying:   { min:{years:15, months:0}, max:{years:30, months:0}, cap:false, communityServiceHours: 0 },
+  domestic:  { min:{years:10, months:0}, max:{years:30, months:0}, cap:false, communityServiceHours: 0 },
+  international:{min:{years:15,months:0}, max:{years:40, months:0}, cap:false, communityServiceHours: 0 },
+  sedition:  { min:{years:5,  months:0}, max:{years:15, months:0}, cap:false, communityServiceHours: 0 },
 
-  const currency = {
-    '':['$',1], usa:['$',1], uk:['£',0.8],
-    canada:['C$',1.2], australia:['A$',1.3],
-    germany:['€',0.9], france:['€',0.9]
+  // Drug-Related
+  classA:    { min:{years:0, months:0}, max:{years:1, months:0},  cap:false, communityServiceHours: 40 },
+  classB:    { min:{years:0, months:0}, max:{years:1, months:0},  cap:false, communityServiceHours: 40 },
+  classC:    { min:{years:0, months:0}, max:{years:1, months:0},  cap:false, communityServiceHours: 40 },
+  large:     { min:{years:5,  months:0}, max:{years:30, months:0}, cap:false, communityServiceHours: 0 },
+  street:    { min:{years:1,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+  methLab:   { min:{years:5,  months:0}, max:{years:20, months:0}, cap:false, communityServiceHours: 0 },
+  growOp:    { min:{years:1,  months:0}, max:{years:10, months:0}, cap:false, communityServiceHours: 0 },
+
+  // Public Order
+  publicIntox:{min:{years:0, months:0}, max:{years:0, months:1}, cap:false, communityServiceHours: 20 },
+  prostitution:{min:{years:0, months:0}, max:{years:0, months:6}, cap:false, communityServiceHours: 0 },
+  underground:{min:{years:0, months:0}, max:{years:2, months:0}, cap:false, communityServiceHours: 0 },
+  sportsBook: {min:{years:0, months:0}, max:{years:2, months:0}, cap:false, communityServiceHours: 0 },
+
+  // Petty
+  trespassCivil:{min:{years:0,months:0}, max:{years:0,months:3}, cap:false, communityServiceHours: 20 },
+  trespassCriminal:{min:{years:0, months:0}, max:{years:5, months:0}, cap:false, communityServiceHours: 0 },
+  pickpocket:{min:{years:0,months:0}, max:{years:0,months:6}, cap:false, communityServiceHours: 20 },
+    shoplifting:{min:{years:0,months:0}, max:{years:0,months:6}, cap:false, communityServiceHours: 20 },
+  disorderly:{min:{years:0,months:0}, max:{years:0,months:3}, cap:false, communityServiceHours: 20 },
+  
+  // Abuse & Exploitation
+  childAbuse:{min:{years:2, months:0}, max:{years:10,months:0}, cap:false, communityServiceHours: 0 },
+  elderAbuse:{min:{years:2, months:0}, max:{years:10,months:0}, cap:false, communityServiceHours: 0 },
+  otherAbuse:{min:{years:1, months:0}, max:{years:5, months:0}, cap:false, communityServiceHours: 0 },
+  organHarvest:{min:{years:5, months:0}, max:{years:15,months:0}, cap:false, communityServiceHours: 0 },
+  desecration:{min:{years:1, months:0}, max:{years:5, months:0}, cap:false, communityServiceHours: 0 },
+  humanTrafficking:{min:{years:10,months:0}, max:{years:40,months:0}, cap:false, communityServiceHours: 0 },
+  humanExperiment:{min:{years:5, months:0}, max:{years:20,months:0}, cap:false, communityServiceHours: 0 },
+  voyeurism: { min:{years:1, months:0}, max:{years:5,months:0}, cap:false, communityServiceHours: 20 },
+
+  // Other
+  other:     { min:{years:0,  months:0}, max:{years:0,  months:0}, cap:false, communityServiceHours: 0 }
+};
+
+const defaultFines = {
+  murder:      {min:50000,   max:200000},
+  assault:     {min:5000,    max:50000},
+  kidnapping:  {min:20000,   max:100000},
+  sa:          {min:30000,   max:150000},
+  robbery:     {min:10000,   max:75000},
+  cannibalism: {min:20000,   max:100000},
+
+  theft:       {min:500,     max:20000},
+  burglary:    {min:2000,    max:50000},
+  arson:       {min:5000,    max:100000},
+  vandalism:   {min:200,     max:5000},
+  embezzlement:{min:10000,   max:250000},
+
+  fraud:         {min:5000,   max:200000},
+  moneyLaundering:{min:10000, max:500000},
+  taxEvasion:   {min:5000,    max:200000},
+  bribery:      {min:5000,    max:100000},
+  blackmail:    {min:2000,    max:50000},
+  extortion:    {min:2000,    max:75000},
+
+  espionage:    {min:20000,   max:100000},
+  treason:      {min:50000,   max:200000},
+  terrorism:    {min:30000,   max:200000},
+  sedition:     {min:10000,   max:50000},
+
+  possession:   {min:500,     max:20000},
+  trafficking:  {min:5000,    max:100000},
+  manufacturing:{min:5000,    max:150000},
+
+  publicIntox:  {min:100,     max:1000},
+  prostitution: {min:200,     max:5000},
+  illegalGambling:{min:500,   max:20000},
+
+  trespassCivil:{min:100,     max:2000},
+  trespassCriminal:{min:500,  max:10000},
+  pickpocket:   {min:500,     max:5000},
+  shoplifting:  {min:500,     max:10000},
+  disorderly:   {min:100,     max:2000},
+
+  childAbuse:   {min:5000,    max:50000},
+  elderAbuse:   {min:5000,    max:50000},
+  otherAbuse:   {min:2000,    max:20000},
+  organHarvest: {min:50000,   max:200000},
+  desecration:  {min:2000,    max:10000},
+  humanTrafficking:{min:30000, max:150000},
+  humanExperiment:{min:10000, max:50000},
+  voyeurism:    {min:1000,    max:5000},
+
+  other:        {min:0,       max:0}
+};
+
+  // ── Continent Modifiers ──
+  const continentMods = {
+    worldAvg: {minMul:1, maxMul:1},
+    northAmerica: {minMul:1.1, maxMul:1.2},
+    europe:       {minMul:0.9, maxMul:0.95},
+    asia:         {minMul:0.85, maxMul:0.9},
+    southAmerica: {minMul:0.8, maxMul:0.85},
+    africa:       {minMul:0.7, maxMul:0.8},
+    oceania:      {minMul:1.0, maxMul:1.05}
   };
 
   // ── State & Persistence ──
-  let stack=[], ocs=[];
+  let stack = [], ocs = [];
   function saveAll(){
     localStorage.crimeStack = JSON.stringify(stack);
     localStorage.ocsList    = JSON.stringify(ocs);
   }
   function loadAll(){
-    try{ stack=JSON.parse(localStorage.crimeStack)||[]; }catch{stack=[];}
-    try{ ocs=JSON.parse(localStorage.ocsList)||[]; }catch{ocs=[];}
+    stack = JSON.parse(localStorage.crimeStack||'[]');
+    ocs   = JSON.parse(localStorage.ocsList||'[]');
     renderStack(); renderOCs();
   }
 
-  // ── Element Refs ──
+  // ── Refs ──
   const globalOk    = document.getElementById('globalOk'),
         catEl       = document.getElementById('category'),
         subEl       = document.getElementById('subtype'),
         othEl       = document.getElementById('otherText'),
-        ctyEl       = document.getElementById('country'),
+        contEl      = document.getElementById('continent'),
         minEl       = document.getElementById('minYears'),
         maxEl       = document.getElementById('maxYears'),
         capEl       = document.getElementById('capitalPun'),
+        minFineEl   = document.getElementById('minFine'),
+        maxFineEl   = document.getElementById('maxFine'),
+        fineOv      = document.getElementById('fineOverrides'),
         qtyEl       = document.getElementById('qty'),
         addCrimeBtn = document.getElementById('addCrime'),
         stackBody   = document.getElementById('stackBody'),
@@ -529,98 +602,113 @@
         ocListDiv   = document.getElementById('ocList');
 
   // ── Modal ──
-  window.onload = ()=> globalModal.style.display = 'flex';
-  globalOk.onclick = ()=> globalModal.style.display = 'none';
+  window.onload = ()=> globalModal.style.display='flex';
+  globalOk.onclick = ()=> globalModal.style.display='none';
 
-  // ── Category → Subtype ──
+  // ── Category → Subtype & show fine overrides ──
   catEl.onchange = ()=>{
     const c = catEl.value;
-    subEl.disabled = true;
-    subEl.innerHTML = '';
-    othEl.style.display = 'none';
+    subEl.disabled = true; subEl.innerHTML='';
+    othEl.style.display = fineOv.style.display = 'none';
     if(!c) return;
-    if(c==='other'){ othEl.style.display='block'; return; }
-    const opts = categories[c]||[];
+    if(c==='other'){
+      othEl.style.display='block';
+      fineOv.style.display='block';
+      return;
+    }
+    if(c==='abuse'){
+      // abuse subtypes
+      ['childAbuse','elderAbuse','otherAbuse'].forEach(key=>{
+        const o=document.createElement('option');
+        o.value=key; o.textContent=labels[key];
+        subEl.appendChild(o);
+      });
+      subEl.disabled = false;
+      return;
+    }
+    const opts = categories[c] || [];
     if(!opts.length) return;
-    subEl.disabled = false;
+    subEl.disabled=false;
     subEl.innerHTML = '<option value="">— Select subtype —</option>';
     opts.forEach(k=>{
-      const o = document.createElement('option');
-      o.value = k; o.textContent = labels[k];
+      const o=document.createElement('option');
+      o.value=k; o.textContent=labels[k];
       subEl.appendChild(o);
     });
   };
 
   // ── Fill Overrides ──
   function fillOverrides(){
-    let key = subEl.value || (catEl.value==='other'?'other':subEl.value);
+    const cont = contEl.value || 'worldAvg';
+    const mod = continentMods[cont];
+    let key = subEl.value || (catEl.value==='other'?'other':'');
     if(!key) return;
+    // sentencing
     let r = defaultRanges[key] || {min:0,max:0,cap:false};
-    if(ctyEl.value && legality[ctyEl.value] && !legality[ctyEl.value].has(key)){
-      r = {min:0,max:0,cap:false};
-    } else if(ctyEl.value){
-      const m = countryMods[ctyEl.value];
-      r = {min:Math.round(r.min*m.minMul),max:Math.round(r.max*m.maxMul),cap:r.cap};
+    r = {min: Math.round(r.min*mod.minMul), max: Math.round(r.max*mod.maxMul), cap: r.cap};
+    minEl.value = r.min; maxEl.value = r.max; capEl.checked = r.cap;
+    // fines only override on custom crime:
+    if(catEl.value==='other'){
+      minFineEl.value = ''; maxFineEl.value = '';
     }
-    minEl.value = r.min;
-    maxEl.value = r.max;
-    capEl.checked = r.cap;
   }
-  subEl.onchange = fillOverrides;
-  ctyEl.onchange = fillOverrides;
+  subEl.onchange = contEl.onchange = fillOverrides;
 
-  // ── Add Crime ──
+  // ── Add Crime to Stack ──
   addCrimeBtn.onclick = ()=>{
-    const c = catEl.value;
-    if(!c) return alert('Select a category');
+    const c=catEl.value; if(!c) return alert('Select a category');
     let key,label;
     if(c==='other'){
-      key = 'other';
+      key='other';
       label = othEl.value.trim()||'Custom Crime';
-    } else if(c==='abuse'){
-      // subtype for abuse
-      const sub = subEl.value;
-      if(!sub) return alert('Select abuse subtype');
-      key = sub;
-      label = labels[sub];
     } else {
-      key = subEl.value || c;
-      if(categories[c].length && !subEl.value) return alert('Select subtype');
+      key = (c==='abuse'? subEl.value : (categories[c].length? subEl.value: c));
+      if(categories[c].length && !key) return alert('Select subtype');
       label = labels[key];
     }
-    const qty = +qtyEl.value||1;
+    const qty = +qtyEl.value || 1;
     const mn = +minEl.value||0, mx = +maxEl.value||0, cap = capEl.checked;
-    stack.push({id:Date.now(),key,label,qty,min:mn,max:mx,cap});
+    let minFine = 0, maxFine = 0;
+    if(c==='other'){
+      minFine = +minFineEl.value||0;
+      maxFine = +maxFineEl.value||0;
+    }
+    stack.push({id:Date.now(),key,label,qty,min:mn,max:mx,cap,minFine,maxFine});
     saveAll(); renderStack();
   };
 
   // ── Render Stack ──
   function renderStack(){
-    stackBody.innerHTML = '';
-    const [sym,rate] = currency[ctyEl.value||''];
+    stackBody.innerHTML='';
+    const cont = contEl.value||'worldAvg',
+          mod = continentMods[cont];
     stack.forEach((e,i)=>{
-      const df = defaultFines[e.key]||{min:0,max:0};
-      const mnF = Math.round(df.min * e.qty * rate);
-      const mxF = Math.round(df.max * e.qty * rate);
+      // compute fines
+      let df = defaultFines[e.key]||{min:0,max:0};
+      df = {min: Math.round(df.min*mod.minMul), max: Math.round(df.max*mod.maxMul)};
+      let mnF = e.minFine || df.min,
+          mxF = e.maxFine || df.max;
+      mnF *= e.qty; mxF *= e.qty;
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${e.label}<br><small>${defs[e.label]||''}</small></td>
         <td>${e.qty}</td>
         <td>${e.min}–${e.max}</td>
         <td>${e.cap?'Yes':'No'}</td>
-        <td>${sym}${mnF.toLocaleString()}–${sym}${mxF.toLocaleString()}</td>
-        <td><button data-i="${i}">🗑️</button></td>`;
+        <td>$${mnF.toLocaleString()}–$${mxF.toLocaleString()}</td>
+        <td><button data-i="${i}">🗑️</button></td>
+      `;
       stackBody.appendChild(tr);
     });
     stackBody.querySelectorAll('button').forEach(btn=>{
-      btn.onclick = ()=>{
+      btn.onclick=()=>{
         stack.splice(+btn.dataset.i,1);
         saveAll(); renderStack();
       };
     });
   }
 
-  // ── Reset Stack ──
+  // ── Reset ──
   resetStack.onclick = ()=>{
     if(confirm('Clear current stack?')){
       stack=[]; saveAll(); renderStack(); resEl.innerHTML='';
@@ -632,36 +720,42 @@
     if(!stack.length) return alert('Add at least one crime');
     const mode = document.querySelector('input[name="mode"]:checked').value;
     let tmin=0,tmax=0,fmin=0,fmax=0;
-    const [sym,rate] = currency[ctyEl.value||''];
     stack.forEach(e=>{
-      const mn = e.min*e.qty, mx= e.max*e.qty;
+      const mn=e.min*e.qty, mx=e.max*e.qty;
       if(mode==='concurrent'){
-        tmin = Math.max(tmin,mn); tmax = Math.max(tmax,mx);
+        tmin=Math.max(tmin,mn); tmax=Math.max(tmax,mx);
       } else {
-        tmin += mn; tmax += mx;
+        tmin+=mn; tmax+=mx;
       }
-      const df = defaultFines[e.key]||{min:0,max:0};
-      const mnF = df.min*e.qty*rate, mxF = df.max*e.qty*rate;
+      // fines
+      let mnF=e.minFine, mxF=e.maxFine;
+      if(mnF===0&&mxF===0){
+        // use default
+        const df=defaultFines[e.key]||{min:0,max:0},
+              cont=contEl.value||'worldAvg',
+              mod=continentMods[cont];
+        mnF = Math.round(df.min*mod.minMul) * e.qty;
+        mxF = Math.round(df.max*mod.maxMul) * e.qty;
+      }
       if(mode==='concurrent'){
-        fmin = Math.max(fmin,mnF); fmax = Math.max(fmax,mxF);
+        fmin=Math.max(fmin,mnF); fmax=Math.max(fmax,mxF);
       } else {
-        fmin += mnF; fmax += mxF;
+        fmin+=mnF; fmax+=mxF;
       }
     });
     resEl.innerHTML = `
       <p><strong>Sentence (${mode}):</strong> ${tmin}–${tmax} years${stack.some(x=>x.cap)?', capital possible':''}.</p>
-      <p><strong>Fines:</strong> ${sym}${fmin.toLocaleString()}–${sym}${fmax.toLocaleString()}</p>
+      <p><strong>Fines:</strong> $${fmin.toLocaleString()}–$${fmax.toLocaleString()}</p>
     `;
   };
 
   // ── Save & Render OCs ──
   saveOCBtn.onclick = ()=>{
-    const name = ocNameIn.value.trim();
-    if(!name) return alert('Enter OC name');
-    function pushOC(imgData){
+    const name=ocNameIn.value.trim(); if(!name) return alert('Enter OC name');
+    function pushOC(img){
       calcBtn.onclick();
       ocs.push({
-        id:Date.now(),name,img:imgData,color:ocColorIn.value,
+        id:Date.now(),name,img,color:ocColorIn.value,
         crimes:JSON.parse(JSON.stringify(stack)),
         summary:resEl.innerHTML
       });
@@ -680,40 +774,46 @@
     ocListDiv.innerHTML='';
     ocs.forEach(o=>{
       const div=document.createElement('div'); div.className='oc-card';
-      const h=document.createElement('h4'); h.textContent=o.name; div.appendChild(h);
+      const h4=document.createElement('h4'); h4.textContent=o.name; div.appendChild(h4);
       if(o.img){
         const img=document.createElement('img'); img.src=o.img; div.appendChild(img);
       } else {
         const ph=document.createElement('div'); ph.className='placeholder';
         ph.style.background=o.color; ph.textContent='No Image'; div.appendChild(ph);
       }
-      const btn=document.createElement('button'); btn.textContent='🗑️ Delete';
-      btn.className='deleteOC'; btn.onclick=()=>{
+      const del=document.createElement('button'); del.textContent='🗑️ Delete';
+      del.onclick=()=>{
         ocs=ocs.filter(x=>x.id!==o.id);
         saveAll(); renderOCs();
       };
-      div.appendChild(btn);
+      div.appendChild(del);
+
       const sum=document.createElement('div'); sum.className='oc-summary';
       sum.innerHTML=o.summary; div.appendChild(sum);
 
       const tbl=document.createElement('table');
       tbl.innerHTML='<thead><tr><th>Crime</th><th>Qty</th><th>Years</th><th>Fine</th></tr></thead>';
       const tb=document.createElement('tbody');
-      const [sym,rate] = currency[ctyEl.value||''];
       o.crimes.forEach(c=>{
-        const df=defaultFines[c.key]||{min:0,max:0};
-        const mnF=df.min*c.qty*rate, mxF=df.max*c.qty*rate;
+        let mnF=c.minFine, mxF=c.maxFine;
+        if(mnF===0&&mxF===0){
+          const df=defaultFines[c.key]||{min:0,max:0},
+                cont=contEl.value||'worldAvg',
+                mod=continentMods[cont];
+          mnF = Math.round(df.min*mod.minMul)*c.qty;
+          mxF = Math.round(df.max*mod.maxMul)*c.qty;
+        }
         const r=document.createElement('tr');
         r.innerHTML=`
           <td>${c.label}</td>
           <td>${c.qty}</td>
           <td>${c.min}–${c.max}</td>
-          <td>${sym}${mnF.toLocaleString()}–${sym}${mxF.toLocaleString()}</td>
+          <td>$${mnF.toLocaleString()}–$${mxF.toLocaleString()}</td>
         `;
         tb.appendChild(r);
       });
-      tbl.appendChild(tb);
-      div.appendChild(tbl);
+      tbl.appendChild(tb); div.appendChild(tbl);
+
       ocListDiv.appendChild(div);
     });
   }

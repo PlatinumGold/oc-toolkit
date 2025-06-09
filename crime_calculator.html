@@ -637,22 +637,75 @@ const defaultFines = {
     });
   };
 
-  // ── Fill Overrides ──
-  function fillOverrides(){
-    const cont = contEl.value || 'worldAvg';
-    const mod = continentMods[cont];
-    let key = subEl.value || (catEl.value==='other'?'other':'');
-    if(!key) return;
-    // sentencing
-    let r = defaultRanges[key] || {min:0,max:0,cap:false};
-    r = {min: Math.round(r.min*mod.minMul), max: Math.round(r.max*mod.maxMul), cap: r.cap};
-    minEl.value = r.min; maxEl.value = r.max; capEl.checked = r.cap;
-    // fines only override on custom crime:
-    if(catEl.value==='other'){
-      minFineEl.value = ''; maxFineEl.value = '';
+// ── Fill Overrides ──
+function fillOverrides() {
+  const cont = contEl.value || 'worldAvg';
+  const mod  = continentMods[cont];
+
+  // pick the right key
+  let key = subEl.value;
+  if (catEl.value === 'other') key = 'other';
+  if (!key) return;
+
+  // get the nested range
+  const def = defaultRanges[key] || { min:{years:0}, max:{years:0}, cap:false };
+  // apply continent multipliers to years
+  const mn = Math.round(def.min.years * mod.minMul);
+  const mx = Math.round(def.max.years * mod.maxMul);
+
+  minEl.value = mn;
+  maxEl.value = mx;
+  capEl.checked = def.cap;
+
+  // only show fine overrides on custom crime
+  fineOv.style.display = (catEl.value === 'other') ? 'block' : 'none';
+}
+subEl.onchange = contEl.onchange = fillOverrides;
+
+// ── Calculate ──
+calcBtn.onclick = () => {
+  if (!stack.length) return alert('Add at least one crime');
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+
+  let tmin = 0, tmax = 0,
+      fmin = 0, fmax = 0;
+
+  const cont = contEl.value || 'worldAvg',
+        mod  = continentMods[cont];
+
+  stack.forEach(e => {
+    // sentence
+    const mnS = e.min * e.qty,
+          mxS = e.max * e.qty;
+    if (mode === 'concurrent') {
+      tmin = Math.max(tmin, mnS);
+      tmax = Math.max(tmax, mxS);
+    } else {
+      tmin += mnS;
+      tmax += mxS;
     }
-  }
-  subEl.onchange = contEl.onchange = fillOverrides;
+
+    // fine: use custom override if set, otherwise default
+    let mnF = e.minFine ?? 0,
+        mxF = e.maxFine ?? 0;
+
+    if (catEl.value !== 'other') {
+      const df = defaultFines[e.key] || {min:0, max:0};
+      mnF = Math.round(df.min * mod.minMul) * e.qty;
+      mxF = Math.round(df.max * mod.maxMul) * e.qty;
+    }
+
+    // **always accumulate** fines**
+    fmin += mnF;
+    fmax += mxF;
+  });
+
+  resEl.innerHTML = `
+    <p><strong>Sentence (${mode}):</strong> ${tmin}–${tmax} years${stack.some(x=>x.cap)?', capital possible':''}.</p>
+    <p><strong>Fines:</strong> $${fmin.toLocaleString()}–$${fmax.toLocaleString()}</p>
+  `;
+};
+
 
   // ── Add Crime to Stack ──
   addCrimeBtn.onclick = ()=>{
